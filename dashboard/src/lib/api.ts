@@ -1,4 +1,9 @@
-import type { AssetStatusOption, Glider, Mission } from "@ogdb/types";
+import type {
+	AssetStatusOption,
+	Glider,
+	Mission,
+	MissionsSummary,
+} from "@ogdb/types";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
@@ -24,6 +29,16 @@ export async function getMissions(): Promise<Mission[]> {
 	const res = await fetch(`${API_URL}/missions`, { cache: "no-store" });
 	if (!res.ok) {
 		throw new Error(`Failed to fetch missions: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getMissionsSummary(): Promise<MissionsSummary> {
+	const res = await fetch(`${API_URL}/missions/summary`, {
+		cache: "no-store",
+	});
+	if (!res.ok) {
+		throw new Error(`Failed to fetch missions summary: ${res.status}`);
 	}
 	return res.json();
 }

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { Mission } from "@ogdb/types";
+import type { Mission, MissionsSummary } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
 
@@ -43,5 +43,17 @@ export class MissionsService {
       ORDER BY launch_date DESC NULLS LAST
     `);
 		return result.rows;
+	}
+
+	async getSummary(): Promise<MissionsSummary> {
+		const result = await this.pool.query(`
+      SELECT
+        COUNT(*)::int AS "totalMissions",
+        COALESCE(SUM(dives), 0)::int AS "totalDives",
+        ROUND(COALESCE(SUM(distance_km), 0)::numeric)::int AS "totalDistanceKm",
+        COALESCE(SUM(ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)), 0)::int AS "totalDays"
+      FROM norglider_missions
+    `);
+		return result.rows[0];
 	}
 }

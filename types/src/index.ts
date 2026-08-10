@@ -44,6 +44,13 @@ export interface SetGliderStatusInput {
 	notes?: string | null;
 }
 
+export interface MissionsSummary {
+	totalMissions: number;
+	totalDives: number;
+	totalDistanceKm: number;
+	totalDays: number;
+}
+
 export interface Mission {
 	id: number;
 	missionNumber: number | null;

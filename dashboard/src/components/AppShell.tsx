@@ -2,6 +2,7 @@
 
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import DeviceHubIcon from "@mui/icons-material/DeviceHub";
+import HomeIcon from "@mui/icons-material/Home";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import RouteIcon from "@mui/icons-material/Route";
 import AppBar from "@mui/material/AppBar";
@@ -23,10 +24,16 @@ import { useColorMode } from "../theme/ThemeRegistry";
 
 const DRAWER_WIDTH = 240;
 
+const HOME_ITEM = { label: "Home", href: "/", icon: HomeIcon };
+
 const NAV_ITEMS = [
 	{ label: "Fleet", href: "/gliders", icon: DeviceHubIcon },
 	{ label: "Missions", href: "/missions", icon: RouteIcon },
 ];
+
+function isActive(pathname: string, href: string) {
+	return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 export default function AppShell({ children }: { children: ReactNode }) {
 	const { mode, toggle } = useColorMode();
@@ -72,11 +79,34 @@ export default function AppShell({ children }: { children: ReactNode }) {
 						variant="overline"
 						sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
 					>
+						Home
+					</Typography>
+					<List>
+						<ListItemButton
+							component={Link}
+							href={HOME_ITEM.href}
+							selected={isActive(pathname, HOME_ITEM.href)}
+						>
+							<ListItemIcon>
+								<HOME_ITEM.icon
+									color={
+										isActive(pathname, HOME_ITEM.href) ? "primary" : "inherit"
+									}
+								/>
+							</ListItemIcon>
+							<ListItemText primary={HOME_ITEM.label} />
+						</ListItemButton>
+					</List>
+					<Divider />
+					<Typography
+						variant="overline"
+						sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
+					>
 						Monitoring
 					</Typography>
 					<List>
 						{NAV_ITEMS.map(({ label, href, icon: Icon }) => {
-							const selected = pathname.startsWith(href);
+							const selected = isActive(pathname, href);
 							return (
 								<ListItemButton
 									key={href}

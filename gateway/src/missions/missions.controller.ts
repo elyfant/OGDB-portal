@@ -9,4 +9,9 @@ export class MissionsController {
 	findAll() {
 		return this.missions.findAll();
 	}
+
+	@Get("summary")
+	getSummary() {
+		return this.missions.getSummary();
+	}
 }
