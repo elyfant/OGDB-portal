@@ -8,12 +8,19 @@ export type AssetStatus =
 	| "missing"
 	| "decommissioned";
 
+export interface AssetStatusOption {
+	id: number;
+	name: AssetStatus;
+	description: string;
+}
+
 export interface Glider {
 	id: number;
 	name: string;
 	wmo: string | null;
 	platform: string | null;
 	serialNumber: string | null;
+	statusId: number | null;
 	status: AssetStatus | null;
 	statusEffectiveDate: string | null;
 }
@@ -30,4 +37,9 @@ export interface UpdateGliderInput {
 	wmo?: string | null;
 	platformId?: number | null;
 	serialNumber?: string | null;
+}
+
+export interface SetGliderStatusInput {
+	statusId: number;
+	notes?: string | null;
 }

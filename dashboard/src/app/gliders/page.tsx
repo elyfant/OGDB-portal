@@ -7,11 +7,14 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import StatusChip from "../../components/StatusChip";
-import { getGliders } from "../../lib/api";
+import StatusEditor from "../../components/StatusEditor";
+import { getGliders, getStatusOptions } from "../../lib/api";
 
 export default async function GlidersPage() {
-	const gliders = await getGliders();
+	const [gliders, statusOptions] = await Promise.all([
+		getGliders(),
+		getStatusOptions(),
+	]);
 
 	return (
 		<Box>
@@ -41,7 +44,11 @@ export default async function GlidersPage() {
 								</TableCell>
 								<TableCell>{glider.serialNumber ?? "—"}</TableCell>
 								<TableCell>
-									<StatusChip status={glider.status} />
+									<StatusEditor
+										gliderId={glider.id}
+										statusId={glider.statusId}
+										options={statusOptions}
+									/>
 								</TableCell>
 							</TableRow>
 						))}

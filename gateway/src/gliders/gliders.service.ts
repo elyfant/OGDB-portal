@@ -8,6 +8,7 @@ import type { Glider } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
 import type { CreateGliderDto } from "./dto/create-glider.dto";
+import type { SetGliderStatusDto } from "./dto/set-glider-status.dto";
 import type { UpdateGliderDto } from "./dto/update-glider.dto";
 
 const GLIDER_ASSET_TYPE_ID = 1;
@@ -19,6 +20,7 @@ const SELECT_FLEET = `
     agd.wmo,
     p.name AS platform,
     a.serial_number AS "serialNumber",
+    aso.id AS "statusId",
     aso.name AS status,
     cas.effective_date AS "statusEffectiveDate"
   FROM assets a
@@ -110,6 +112,22 @@ export class GlidersService {
 		}
 	}
 
+	async setStatus(id: number, dto: SetGliderStatusDto): Promise<Glider> {
+		await this.findOne(id);
+		try {
+			await this.pool.query(
+				`INSERT INTO asset_status_history (asset_id, status_id, notes) VALUES ($1, $2, $3)`,
+				[id, dto.statusId, dto.notes ?? null],
+			);
+		} catch (err) {
+			if (isFkViolation(err)) {
+				throw new ConflictException(`Status option ${dto.statusId} does not exist.`);
+			}
+			throw mapDbError(err);
+		}
+		return this.findOne(id);
+	}
+
 	async remove(id: number): Promise<void> {
 		await this.findOne(id);
 		const client = await this.pool.connect();
@@ -129,13 +147,17 @@ export class GlidersService {
 	}
 }
 
-function mapDbError(err: unknown): Error {
-	if (
-		err &&
+function isFkViolation(err: unknown): boolean {
+	return (
+		!!err &&
 		typeof err === "object" &&
 		"code" in err &&
 		(err as { code: string }).code === "23503"
-	) {
+	);
+}
+
+function mapDbError(err: unknown): Error {
+	if (isFkViolation(err)) {
 		return new ConflictException(
 			"This glider has related records (status history, assignments, etc.) that prevent deletion.",
 		);

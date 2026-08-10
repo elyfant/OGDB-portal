@@ -10,6 +10,7 @@ import {
 	Post,
 } from "@nestjs/common";
 import { CreateGliderDto } from "./dto/create-glider.dto";
+import { SetGliderStatusDto } from "./dto/set-glider-status.dto";
 import { UpdateGliderDto } from "./dto/update-glider.dto";
 import { GlidersService } from "./gliders.service";
 
@@ -35,6 +36,14 @@ export class GlidersController {
 	@Patch(":id")
 	update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateGliderDto) {
 		return this.gliders.update(id, dto);
+	}
+
+	@Patch(":id/status")
+	setStatus(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: SetGliderStatusDto,
+	) {
+		return this.gliders.setStatus(id, dto);
 	}
 
 	@Delete(":id")
