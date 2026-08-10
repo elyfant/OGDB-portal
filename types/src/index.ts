@@ -45,17 +45,32 @@ export interface SetGliderStatusInput {
 }
 
 export interface Mission {
+	id: number;
 	missionNumber: number | null;
+	missionName: string | null;
 	stdMissionName: string | null;
 	status: string | null;
-	glider: string | null;
 	project: string | null;
+	glider: string | null;
+	platform: string | null;
 	site: string | null;
 	pi: string | null;
-	platform: string | null;
+	tech: string | null;
+	operatingAgency: string | null;
 	fundingAgency: string | null;
+	launchCruiseId: number | null;
+	recoveryCruiseId: number | null;
+	volume: number | null;
+	weightInAir: number | null;
+	density: number | null;
+	iridiumMinutes: number | null;
 	launchDate: string | null;
+	launchLatitude: number | null;
+	launchLongitude: number | null;
+	endDateScience: string | null;
 	recoveryDate: string | null;
+	recoveryLatitude: number | null;
+	recoveryLongitude: number | null;
 	dives: number | null;
 	distanceKm: number | null;
 	numberOfDays: number | null;
