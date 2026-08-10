@@ -43,3 +43,20 @@ export interface SetGliderStatusInput {
 	statusId: number;
 	notes?: string | null;
 }
+
+export interface Mission {
+	missionNumber: number | null;
+	stdMissionName: string | null;
+	status: string | null;
+	glider: string | null;
+	project: string | null;
+	site: string | null;
+	pi: string | null;
+	platform: string | null;
+	fundingAgency: string | null;
+	launchDate: string | null;
+	recoveryDate: string | null;
+	dives: number | null;
+	distanceKm: number | null;
+	numberOfDays: number | null;
+}

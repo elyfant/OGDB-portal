@@ -49,7 +49,9 @@ export default function StatusEditor({
 			renderValue={(selected) => {
 				const option = options.find((o) => o.id === selected);
 				if (!option) {
-					return <Chip label="Status not set" size="small" variant="outlined" />;
+					return (
+						<Chip label="Status not set" size="small" variant="outlined" />
+					);
 				}
 				return (
 					<Chip

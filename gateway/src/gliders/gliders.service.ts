@@ -44,10 +44,10 @@ export class GlidersService {
 	}
 
 	async findOne(id: number): Promise<Glider> {
-		const result = await this.pool.query(
-			`${SELECT_FLEET} AND a.id = $2`,
-			[GLIDER_ASSET_TYPE_ID, id],
-		);
+		const result = await this.pool.query(`${SELECT_FLEET} AND a.id = $2`, [
+			GLIDER_ASSET_TYPE_ID,
+			id,
+		]);
 		if (result.rows.length === 0) {
 			throw new NotFoundException(`Glider ${id} not found`);
 		}
@@ -59,12 +59,12 @@ export class GlidersService {
 		try {
 			await client.query("BEGIN");
 			const assetResult = await client.query(
-				`INSERT INTO assets (asset_type_id, serial_number) VALUES ($1, $2) RETURNING id`,
+				"INSERT INTO assets (asset_type_id, serial_number) VALUES ($1, $2) RETURNING id",
 				[GLIDER_ASSET_TYPE_ID, dto.serialNumber ?? null],
 			);
 			const assetId = assetResult.rows[0].id;
 			await client.query(
-				`INSERT INTO asset_glider_details (asset_id, glider_name, platform_id, wmo) VALUES ($1, $2, $3, $4)`,
+				"INSERT INTO asset_glider_details (asset_id, glider_name, platform_id, wmo) VALUES ($1, $2, $3, $4)",
 				[assetId, dto.name, dto.platformId ?? null, dto.wmo ?? null],
 			);
 			await client.query("COMMIT");
@@ -84,7 +84,7 @@ export class GlidersService {
 			await client.query("BEGIN");
 			if (dto.serialNumber !== undefined) {
 				await client.query(
-					`UPDATE assets SET serial_number = $1, updated_at = now() WHERE id = $2`,
+					"UPDATE assets SET serial_number = $1, updated_at = now() WHERE id = $2",
 					[dto.serialNumber, id],
 				);
 			}
@@ -116,12 +116,14 @@ export class GlidersService {
 		await this.findOne(id);
 		try {
 			await this.pool.query(
-				`INSERT INTO asset_status_history (asset_id, status_id, notes) VALUES ($1, $2, $3)`,
+				"INSERT INTO asset_status_history (asset_id, status_id, notes) VALUES ($1, $2, $3)",
 				[id, dto.statusId, dto.notes ?? null],
 			);
 		} catch (err) {
 			if (isFkViolation(err)) {
-				throw new ConflictException(`Status option ${dto.statusId} does not exist.`);
+				throw new ConflictException(
+					`Status option ${dto.statusId} does not exist.`,
+				);
 			}
 			throw mapDbError(err);
 		}
@@ -133,10 +135,11 @@ export class GlidersService {
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
-			await client.query(`DELETE FROM asset_glider_details WHERE asset_id = $1`, [
-				id,
-			]);
-			await client.query(`DELETE FROM assets WHERE id = $1`, [id]);
+			await client.query(
+				"DELETE FROM asset_glider_details WHERE asset_id = $1",
+				[id],
+			);
+			await client.query("DELETE FROM assets WHERE id = $1", [id]);
 			await client.query("COMMIT");
 		} catch (err) {
 			await client.query("ROLLBACK");

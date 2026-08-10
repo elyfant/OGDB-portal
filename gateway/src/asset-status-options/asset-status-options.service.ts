@@ -9,7 +9,7 @@ export class AssetStatusOptionsService {
 
 	async findAll(): Promise<AssetStatusOption[]> {
 		const result = await this.pool.query(
-			`SELECT id, name, description FROM asset_status_options ORDER BY id`,
+			"SELECT id, name, description FROM asset_status_options ORDER BY id",
 		);
 		return result.rows;
 	}

@@ -3,6 +3,7 @@
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import DeviceHubIcon from "@mui/icons-material/DeviceHub";
 import LightModeIcon from "@mui/icons-material/LightMode";
+import RouteIcon from "@mui/icons-material/Route";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -15,13 +16,21 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useColorMode } from "../theme/ThemeRegistry";
 
 const DRAWER_WIDTH = 240;
 
+const NAV_ITEMS = [
+	{ label: "Fleet", href: "/gliders", icon: DeviceHubIcon },
+	{ label: "Missions", href: "/missions", icon: RouteIcon },
+];
+
 export default function AppShell({ children }: { children: ReactNode }) {
 	const { mode, toggle } = useColorMode();
+	const pathname = usePathname();
 
 	return (
 		<Box sx={{ display: "flex" }}>
@@ -34,7 +43,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
 						<Typography variant="h6" noWrap letterSpacing={2}>
 							OGDB PORTAL
 						</Typography>
-						<Chip label="BETA" size="small" color="primary" variant="outlined" />
+						<Chip
+							label="BETA"
+							size="small"
+							color="primary"
+							variant="outlined"
+						/>
 					</Box>
 					<IconButton onClick={toggle} color="inherit">
 						{mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
@@ -46,7 +60,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 				sx={{
 					width: DRAWER_WIDTH,
 					flexShrink: 0,
-					[`& .MuiDrawer-paper`]: {
+					"& .MuiDrawer-paper": {
 						width: DRAWER_WIDTH,
 						boxSizing: "border-box",
 					},
@@ -61,12 +75,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
 						Monitoring
 					</Typography>
 					<List>
-						<ListItemButton selected>
-							<ListItemIcon>
-								<DeviceHubIcon color="primary" />
-							</ListItemIcon>
-							<ListItemText primary="Fleet" />
-						</ListItemButton>
+						{NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+							const selected = pathname.startsWith(href);
+							return (
+								<ListItemButton
+									key={href}
+									component={Link}
+									href={href}
+									selected={selected}
+								>
+									<ListItemIcon>
+										<Icon color={selected ? "primary" : "inherit"} />
+									</ListItemIcon>
+									<ListItemText primary={label} />
+								</ListItemButton>
+							);
+						})}
 					</List>
 					<Divider />
 				</Box>

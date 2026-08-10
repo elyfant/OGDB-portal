@@ -4,11 +4,11 @@ import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
 import {
+	type ReactNode,
 	createContext,
 	useContext,
 	useMemo,
 	useState,
-	type ReactNode,
 } from "react";
 import { getTheme } from "./theme";
 
