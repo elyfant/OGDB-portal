@@ -1,0 +1,80 @@
+"use client";
+
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import DeviceHubIcon from "@mui/icons-material/DeviceHub";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import AppBar from "@mui/material/AppBar";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import Drawer from "@mui/material/Drawer";
+import IconButton from "@mui/material/IconButton";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
+import type { ReactNode } from "react";
+import { useColorMode } from "../theme/ThemeRegistry";
+
+const DRAWER_WIDTH = 240;
+
+export default function AppShell({ children }: { children: ReactNode }) {
+	const { mode, toggle } = useColorMode();
+
+	return (
+		<Box sx={{ display: "flex" }}>
+			<AppBar
+				position="fixed"
+				sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
+			>
+				<Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+						<Typography variant="h6" noWrap letterSpacing={2}>
+							OGDB PORTAL
+						</Typography>
+						<Chip label="BETA" size="small" color="primary" variant="outlined" />
+					</Box>
+					<IconButton onClick={toggle} color="inherit">
+						{mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+					</IconButton>
+				</Toolbar>
+			</AppBar>
+			<Drawer
+				variant="permanent"
+				sx={{
+					width: DRAWER_WIDTH,
+					flexShrink: 0,
+					[`& .MuiDrawer-paper`]: {
+						width: DRAWER_WIDTH,
+						boxSizing: "border-box",
+					},
+				}}
+			>
+				<Toolbar />
+				<Box sx={{ overflow: "auto", pt: 1 }}>
+					<Typography
+						variant="overline"
+						sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
+					>
+						Monitoring
+					</Typography>
+					<List>
+						<ListItemButton selected>
+							<ListItemIcon>
+								<DeviceHubIcon color="primary" />
+							</ListItemIcon>
+							<ListItemText primary="Fleet" />
+						</ListItemButton>
+					</List>
+					<Divider />
+				</Box>
+			</Drawer>
+			<Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+				<Toolbar />
+				{children}
+			</Box>
+		</Box>
+	);
+}
