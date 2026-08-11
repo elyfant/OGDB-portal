@@ -2,6 +2,7 @@ import type {
 	AssetStatusOption,
 	Glider,
 	Mission,
+	MissionsLeaderboard,
 	MissionsSummary,
 } from "@ogdb/types";
 
@@ -39,6 +40,16 @@ export async function getMissionsSummary(): Promise<MissionsSummary> {
 	});
 	if (!res.ok) {
 		throw new Error(`Failed to fetch missions summary: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getMissionsLeaderboard(): Promise<MissionsLeaderboard> {
+	const res = await fetch(`${API_URL}/missions/leaderboard`, {
+		cache: "no-store",
+	});
+	if (!res.ok) {
+		throw new Error(`Failed to fetch missions leaderboard: ${res.status}`);
 	}
 	return res.json();
 }

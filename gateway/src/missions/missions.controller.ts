@@ -14,4 +14,9 @@ export class MissionsController {
 	getSummary() {
 		return this.missions.getSummary();
 	}
+
+	@Get("leaderboard")
+	getLeaderboard() {
+		return this.missions.getLeaderboard();
+	}
 }
