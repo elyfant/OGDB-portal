@@ -1,0 +1,39 @@
+# Production build for @ogdb/dashboard. Build context is the repo root:
+#   docker build -f Dockerfile.dashboard -t ogdb-dashboard .
+#
+# @ogdb/types is never a runtime dependency (only ever imported as
+# `import type`, erased at compile time), but its package.json still
+# needs to be present wherever `npm ci` runs so npm can resolve the
+# workspace graph declared in the root package.json.
+
+FROM node:20-slim AS base
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY dashboard/package.json dashboard/package.json
+COPY gateway/package.json gateway/package.json
+COPY types/package.json types/package.json
+
+FROM base AS build-deps
+RUN npm ci
+
+FROM base AS prod-deps
+RUN npm ci --omit=dev --workspace=dashboard
+
+FROM build-deps AS build
+COPY types ./types
+COPY dashboard ./dashboard
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build --workspace=dashboard
+
+FROM node:20-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/dashboard/.next ./dashboard/.next
+COPY dashboard/package.json ./dashboard/package.json
+COPY dashboard/next.config.mjs ./dashboard/next.config.mjs
+WORKDIR /app/dashboard
+
+EXPOSE 3000
+CMD ["/app/node_modules/.bin/next", "start"]

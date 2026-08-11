@@ -1,0 +1,37 @@
+# Production build for @ogdb/gateway. Build context is the repo root
+# (npm workspaces monorepo) — run with:
+#   docker build -f Dockerfile.gateway -t ogdb-gateway .
+#
+# @ogdb/types is never a runtime dependency (only ever imported as
+# `import type`, erased by tsc/SWC), but its package.json still needs
+# to be present wherever `npm ci` runs so npm can resolve the workspace
+# graph declared in the root package.json.
+
+FROM node:20-slim AS base
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY dashboard/package.json dashboard/package.json
+COPY gateway/package.json gateway/package.json
+COPY types/package.json types/package.json
+
+FROM base AS build-deps
+RUN npm ci
+
+FROM base AS prod-deps
+RUN npm ci --omit=dev --workspace=gateway
+
+FROM build-deps AS build
+COPY types ./types
+COPY gateway ./gateway
+RUN npm run build --workspace=gateway
+
+FROM node:20-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/gateway/dist ./dist
+
+EXPOSE 3001
+# nest-cli.json sets sourceRoot: "src", so the compiled entry point
+# mirrors that under dist/.
+CMD ["node", "dist/src/main.js"]
