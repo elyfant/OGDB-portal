@@ -1,3 +1,6 @@
+import StatusEditor from "@/components/StatusEditor";
+import { getGliders, getStatusOptions } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -7,14 +10,14 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import StatusEditor from "../../components/StatusEditor";
-import { getGliders, getStatusOptions } from "../../lib/api";
 
 export default async function GlidersPage() {
-	const [gliders, statusOptions] = await Promise.all([
+	const [gliders, statusOptions, user] = await Promise.all([
 		getGliders(),
 		getStatusOptions(),
+		getCurrentUser(),
 	]);
+	const canEdit = user?.role === "editor" || user?.role === "admin";
 
 	return (
 		<Box>
@@ -48,6 +51,7 @@ export default async function GlidersPage() {
 										gliderId={glider.id}
 										statusId={glider.statusId}
 										options={statusOptions}
+										disabled={!canEdit}
 									/>
 								</TableCell>
 							</TableRow>

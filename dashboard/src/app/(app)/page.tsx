@@ -1,3 +1,6 @@
+import ChampionshipCard from "@/components/ChampionshipCard";
+import StatTile from "@/components/StatTile";
+import { getMissionsLeaderboard, getMissionsSummary } from "@/lib/api";
 import EventIcon from "@mui/icons-material/Event";
 import ExploreIcon from "@mui/icons-material/Explore";
 import FolderSharedIcon from "@mui/icons-material/FolderShared";
@@ -10,9 +13,6 @@ import WavesIcon from "@mui/icons-material/Waves";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
-import ChampionshipCard from "../components/ChampionshipCard";
-import StatTile from "../components/StatTile";
-import { getMissionsLeaderboard, getMissionsSummary } from "../lib/api";
 
 function formatCount(value: number) {
 	return value.toLocaleString("en-GB");

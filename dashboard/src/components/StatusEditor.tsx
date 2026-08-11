@@ -13,10 +13,12 @@ export default function StatusEditor({
 	gliderId,
 	statusId,
 	options,
+	disabled = false,
 }: {
 	gliderId: number;
 	statusId: number | null;
 	options: AssetStatusOption[];
+	disabled?: boolean;
 }) {
 	const router = useRouter();
 	const [pending, setPending] = useState(false);
@@ -42,7 +44,7 @@ export default function StatusEditor({
 			size="small"
 			value={value}
 			onChange={handleChange}
-			disabled={pending}
+			disabled={pending || disabled}
 			displayEmpty
 			variant="standard"
 			disableUnderline

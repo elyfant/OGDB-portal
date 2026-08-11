@@ -54,13 +54,13 @@ export class GlidersService {
 		return result.rows[0];
 	}
 
-	async create(dto: CreateGliderDto): Promise<Glider> {
+	async create(dto: CreateGliderDto, userId: number): Promise<Glider> {
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
 			const assetResult = await client.query(
-				"INSERT INTO assets (asset_type_id, serial_number) VALUES ($1, $2) RETURNING id",
-				[GLIDER_ASSET_TYPE_ID, dto.serialNumber ?? null],
+				"INSERT INTO assets (asset_type_id, serial_number, changed_by) VALUES ($1, $2, $3) RETURNING id",
+				[GLIDER_ASSET_TYPE_ID, dto.serialNumber ?? null, userId],
 			);
 			const assetId = assetResult.rows[0].id;
 			await client.query(
@@ -77,15 +77,19 @@ export class GlidersService {
 		}
 	}
 
-	async update(id: number, dto: UpdateGliderDto): Promise<Glider> {
+	async update(
+		id: number,
+		dto: UpdateGliderDto,
+		userId: number,
+	): Promise<Glider> {
 		await this.findOne(id);
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
 			if (dto.serialNumber !== undefined) {
 				await client.query(
-					"UPDATE assets SET serial_number = $1, updated_at = now() WHERE id = $2",
-					[dto.serialNumber, id],
+					"UPDATE assets SET serial_number = $1, updated_at = now(), changed_by = $3 WHERE id = $2",
+					[dto.serialNumber, id, userId],
 				);
 			}
 			if (
@@ -112,12 +116,16 @@ export class GlidersService {
 		}
 	}
 
-	async setStatus(id: number, dto: SetGliderStatusDto): Promise<Glider> {
+	async setStatus(
+		id: number,
+		dto: SetGliderStatusDto,
+		userId: number,
+	): Promise<Glider> {
 		await this.findOne(id);
 		try {
 			await this.pool.query(
-				"INSERT INTO asset_status_history (asset_id, status_id, notes) VALUES ($1, $2, $3)",
-				[id, dto.statusId, dto.notes ?? null],
+				"INSERT INTO asset_status_history (asset_id, status_id, notes, changed_by) VALUES ($1, $2, $3, $4)",
+				[id, dto.statusId, dto.notes ?? null, userId],
 			);
 		} catch (err) {
 			if (isFkViolation(err)) {

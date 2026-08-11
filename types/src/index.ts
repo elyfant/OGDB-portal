@@ -14,6 +14,24 @@ export interface AssetStatusOption {
 	description: string;
 }
 
+export type UserRole = "viewer" | "editor" | "admin";
+
+export interface AuthUser {
+	id: number;
+	email: string;
+	role: UserRole;
+}
+
+export interface LoginInput {
+	email: string;
+	password: string;
+}
+
+export interface LoginResponse {
+	token: string;
+	user: AuthUser;
+}
+
 export interface Glider {
 	id: number;
 	name: string;

@@ -1,7 +1,7 @@
+import MissionsTable from "@/components/MissionsTable";
+import { getMissions } from "@/lib/api";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import MissionsTable from "../../components/MissionsTable";
-import { getMissions } from "../../lib/api";
 
 export default async function MissionsPage() {
 	const missions = await getMissions();

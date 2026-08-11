@@ -17,10 +17,12 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
+import type { AuthUser } from "@ogdb/types";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useColorMode } from "../theme/ThemeRegistry";
+import UserMenu from "./UserMenu";
 
 const DRAWER_WIDTH = 240;
 
@@ -35,7 +37,13 @@ function isActive(pathname: string, href: string) {
 	return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-export default function AppShell({ children }: { children: ReactNode }) {
+export default function AppShell({
+	children,
+	user,
+}: {
+	children: ReactNode;
+	user: AuthUser;
+}) {
 	const { mode, toggle } = useColorMode();
 	const pathname = usePathname();
 
@@ -57,9 +65,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
 							variant="outlined"
 						/>
 					</Box>
-					<IconButton onClick={toggle} color="inherit">
-						{mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
-					</IconButton>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+						<UserMenu user={user} />
+						<IconButton onClick={toggle} color="inherit">
+							{mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+						</IconButton>
+					</Box>
 				</Toolbar>
 			</AppBar>
 			<Drawer
