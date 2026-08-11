@@ -1,12 +1,12 @@
 # Deploying to norgliders-app (NREC)
 
-Target: `norgliders-app` on NREC, Ubuntu 24.04, `158.37.65.36`. Two phases:
+Target: `norgliders-app` on NREC, Ubuntu 24.04, `<VM_IP>`. Two phases:
 **Phase 1** gets the app running today, reachable from the UiB network over
 plain HTTP on port 3000 — no domain needed yet. **Phase 2** adds Caddy +
 real HTTPS once a UiB subdomain exists and points at this IP.
 
 Everything below assumes you're running commands as yourself, SSH'd into
-the VM (`ssh ubuntu@158.37.65.36`, or whatever user NREC gave you).
+the VM (`ssh ubuntu@<VM_IP>`, or whatever user NREC gave you).
 
 ## 0. Before you start: NREC security group changes
 
@@ -43,10 +43,13 @@ cd OGDB-portal
 not a fresh empty schema. From your **local machine** (where `ogdb-test` is
 running):
 
+Keep the dump outside the repo directory on both ends — it's the actual
+database contents, and a git repo is the wrong place for it even briefly:
+
 ```bash
 docker exec ogdb-test pg_dump -U postgres -d ogdb -F c -f /tmp/ogdb.dump
-docker cp ogdb-test:/tmp/ogdb.dump ./ogdb.dump
-scp ogdb.dump ubuntu@158.37.65.36:~/OGDB-portal/ogdb.dump
+docker cp ogdb-test:/tmp/ogdb.dump ~/ogdb.dump
+scp ~/ogdb.dump ubuntu@<VM_IP>:~/ogdb.dump
 ```
 
 ## 4. Set up production secrets
@@ -76,11 +79,20 @@ docker compose up -d --build postgres gateway dashboard
 Then restore the data into the fresh container:
 
 ```bash
-docker compose exec -T postgres pg_restore -U ogdb -d ogdb --no-owner --role=ogdb < ogdb.dump
+docker compose exec -T postgres pg_restore -U ogdb -d ogdb --no-owner --role=ogdb < ~/ogdb.dump
 ```
 
 (`--no-owner`/`--role` because the dump's original role is `postgres`, not
 the new `ogdb` production user — this remaps ownership on restore.)
+
+Once you've confirmed the restore worked (query a table, check row counts),
+delete the dump on both ends — no reason for a plaintext copy of the whole
+database to sit around on disk:
+
+```bash
+rm ~/ogdb.dump           # on the VM
+rm ~/ogdb.dump           # and back on your local machine
+```
 
 Temporarily expose the dashboard so it's reachable — open `docker-compose.yml`
 and add a `ports` line under the `dashboard` service:
@@ -91,7 +103,7 @@ and add a `ports` line under the `dashboard` service:
       - "3000:3000"
 ```
 Then `docker compose up -d dashboard`. The app is now live at
-`http://158.37.65.36:3000` — reachable only from `129.177.0.0/16` per the
+`http://<VM_IP>:3000` — reachable only from `129.177.0.0/16` per the
 security group rule from step 0.
 
 ## 6. Set real passwords for the team
@@ -116,13 +128,13 @@ docker compose exec gateway node dist/scripts/set-user-password.js \
 Same rule as before — nobody but the account owner should choose their own
 password.
 
-At this point: log in at `http://158.37.65.36:3000/login` and confirm it
+At this point: log in at `http://<VM_IP>:3000/login` and confirm it
 all works — Fleet, Missions, status edits, the lot.
 
 ## 7. Phase 2: once the UiB subdomain exists
 
 1. Confirm the DNS A record resolves: `dig +short ogdb.uib.no` should
-   return `158.37.65.36`.
+   return `<VM_IP>`.
 2. Set `DOMAIN=ogdb.uib.no` (or whatever you got) in `.env`.
 3. Remove the temporary `ports:` line from the `dashboard` service in
    `docker-compose.yml` — it goes back to internal-only.
