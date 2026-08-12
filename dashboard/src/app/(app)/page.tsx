@@ -14,6 +14,7 @@ import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 
+
 function formatCount(value: number) {
 	return value.toLocaleString("en-GB");
 }
@@ -26,13 +27,11 @@ export default async function HomePage() {
 
 	return (
 		<Box>
-			<Typography variant="h5" sx={{ mb: 0.5 }}>
-				Welcome to the OGDB Portal
-			</Typography>
-			<Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-				A running tally of the Ocean Glider Facility&apos;s mission record.
+			<Typography variant="h5" sx={{ mb: 6.0 }}>
+				Welcome to the OGDB Portal!
 			</Typography>
 
+			<Box sx={{ maxWidth: "70%", mx: "auto" }}>
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5 }}>
 				<StatTile
 					label="Glider missions"
@@ -103,7 +102,7 @@ export default async function HomePage() {
 						title="Longest deployment"
 						winner={leaderboard.longestDeployment.glider}
 						detail={[
-							`mission: ${leaderboard.longestDeployment.stdMissionName}`,
+							`Mission: ${leaderboard.longestDeployment.stdMissionName}`,
 							`${formatCount(leaderboard.longestDeployment.days)} days`,
 						]}
 					/>
@@ -124,6 +123,7 @@ export default async function HomePage() {
 						detail={`${formatCount(leaderboard.mostSiteDays.days)} days`}
 					/>
 				)}
+			</Box>
 			</Box>
 		</Box>
 	);
