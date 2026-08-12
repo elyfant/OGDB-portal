@@ -168,3 +168,45 @@ git pull && docker compose up -d --build   # deploy a new version
 Containers restart automatically on VM reboot (`restart: unless-stopped`),
 as long as Docker itself starts on boot, which it does by default after
 the install in step 1.
+
+## Connecting to the production database directly
+
+Postgres is bound to the VM's own loopback only (`127.0.0.1:5432`) —
+never reachable over the network. Three ways to actually use that,
+depending on where you're sitting. `ogdb`/`ogdb` are the user/db name;
+the real password is whatever `POSTGRES_PASSWORD` is set to in `.env`
+on the VM (`cat ~/OGDB-portal/.env` there if you need to check it).
+
+**On the server itself** — no tunnel needed, `psql` isn't even required
+on the VM host since the Postgres image already includes it:
+```bash
+ssh nrec_app
+cd ~/OGDB-portal
+docker compose exec postgres psql -U ogdb -d ogdb
+```
+
+**From your local machine, via `psql`** — open a tunnel first (leave
+this running in its own terminal), then connect through it from a
+second terminal:
+```bash
+ssh -N -L 5432:localhost:5432 nrec_app
+```
+```bash
+psql -h localhost -p 5432 -U ogdb -d ogdb
+```
+`Ctrl+C` on the first terminal closes the tunnel when you're done. If
+port 5432 is ever already taken locally (another Postgres install,
+etc.), shift the local side only — e.g. `-L 5433:localhost:5432`, then
+`psql -p 5433` — the remote side always stays `5432`.
+
+**From your local machine, via a GUI client** (TablePlus, DBeaver,
+Postico, etc.) — same tunnel, two ways to use it:
+- Manually run the `ssh -N -L ...` command above, then point the client
+  at a completely ordinary `localhost:5432` connection, as if Postgres
+  were running on your own machine.
+- Or, if the client has built-in SSH tunnel support (most do), configure
+  the tunnel directly in its connection settings instead of a separate
+  terminal: SSH host `158.37.65.36` (or the `nrec_app` alias, if the
+  client supports reading `~/.ssh/config`), user `ubuntu`, key
+  `~/.ssh/id_rsa` — then the database host/port fields stay `localhost`/
+  `5432`, same as the manual-tunnel case.

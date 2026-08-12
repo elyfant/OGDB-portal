@@ -13,8 +13,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    # No `ports:` — reachable only from other containers on this
-    # network, never from the host or the public internet.
+    ports:
+      # Bound to the VM's own loopback ONLY (127.0.0.1, not 0.0.0.0) —
+      # never reachable over the network. Only usable from a process
+      # already running on the VM, or via an SSH tunnel, which requires
+      # SSH access you already have. Safe to leave permanently; this is
+      # not the same as publishing a port to the network.
+      - "127.0.0.1:5432:5432"
 
   gateway:
     build:
