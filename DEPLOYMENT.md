@@ -187,26 +187,27 @@ docker compose exec postgres psql -U ogdb -d ogdb
 
 **From your local machine, via `psql`** — open a tunnel first (leave
 this running in its own terminal), then connect through it from a
-second terminal:
+second terminal. Use local port `5555`, not `5432` — this machine
+already runs a native system PostgreSQL on `5432` (`systemctl status
+postgresql`), and `5433` is taken too (that's `ogdb-test`). The remote
+side always stays `5432` regardless — that's what's actually bound on
+the VM:
 ```bash
-ssh -N -L 5432:localhost:5432 nrec_app
+ssh -N -L 5555:localhost:5432 nrec_app
 ```
 ```bash
-psql -h localhost -p 5432 -U ogdb -d ogdb
+psql -h localhost -p 5555 -U ogdb -d ogdb
 ```
-`Ctrl+C` on the first terminal closes the tunnel when you're done. If
-port 5432 is ever already taken locally (another Postgres install,
-etc.), shift the local side only — e.g. `-L 5433:localhost:5432`, then
-`psql -p 5433` — the remote side always stays `5432`.
+`Ctrl+C` on the first terminal closes the tunnel when you're done.
 
 **From your local machine, via a GUI client** (TablePlus, DBeaver,
 Postico, etc.) — same tunnel, two ways to use it:
-- Manually run the `ssh -N -L ...` command above, then point the client
-  at a completely ordinary `localhost:5432` connection, as if Postgres
-  were running on your own machine.
+- Manually run the `ssh -N -L 5555:localhost:5432 nrec_app` command
+  above, then point the client at `localhost:5555`.
 - Or, if the client has built-in SSH tunnel support (most do), configure
   the tunnel directly in its connection settings instead of a separate
   terminal: SSH host `158.37.65.36` (or the `nrec_app` alias, if the
   client supports reading `~/.ssh/config`), user `ubuntu`, key
-  `~/.ssh/id_rsa` — then the database host/port fields stay `localhost`/
-  `5432`, same as the manual-tunnel case.
+  `~/.ssh/id_rsa`, remote port `5432` — then the database host/port
+  fields in the client itself just point at whatever local port the
+  client's tunnel picks (often shown in its connection UI).
