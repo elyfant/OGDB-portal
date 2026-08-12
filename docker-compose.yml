@@ -40,6 +40,10 @@ services:
     environment:
       API_URL: http://gateway:3001
       PORT: 3000
+      # false only while running Phase 1 (plain HTTP, no domain yet) —
+      # a Secure cookie is silently dropped by the browser over HTTP.
+      # Defaults to true (safe) once behind Caddy/HTTPS in Phase 2.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
     depends_on:
       - gateway
     # No `ports:` — Caddy is the only public-facing service.

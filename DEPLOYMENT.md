@@ -70,6 +70,12 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 Leave `DOMAIN` as a placeholder for now — it's only read by Caddy, which
 isn't running yet in Phase 1.
 
+Also uncomment `COOKIE_SECURE=false` in `.env`. This is Phase-1-only:
+the login session cookie defaults to `Secure`, which browsers silently
+refuse to store over plain HTTP — without this, login will appear to do
+nothing (no error, just bounces back to the login page). Remove this
+line again in Phase 2, once Caddy is serving real HTTPS.
+
 ## 5. Phase 1: start everything except Caddy
 
 ```bash
@@ -136,10 +142,12 @@ all works — Fleet, Missions, status edits, the lot.
 1. Confirm the DNS A record resolves: `dig +short ogdb.uib.no` should
    return `<VM_IP>`.
 2. Set `DOMAIN=ogdb.uib.no` (or whatever you got) in `.env`.
-3. Remove the temporary `ports:` line from the `dashboard` service in
+3. Remove (or comment out) `COOKIE_SECURE=false` in `.env` — you're on
+   real HTTPS now, the cookie should go back to `Secure`.
+4. Remove the temporary `ports:` line from the `dashboard` service in
    `docker-compose.yml` — it goes back to internal-only.
-4. `docker compose up -d` (starts Caddy too now).
-5. Update the security group: add `443/tcp from 129.177.0.0/16`, remove
+5. `docker compose up -d` (starts Caddy too now).
+6. Update the security group: add `443/tcp from 129.177.0.0/16`, remove
    the `3000/tcp` rule from step 0.
 
 Caddy issues a Let's Encrypt cert automatically on first request to the

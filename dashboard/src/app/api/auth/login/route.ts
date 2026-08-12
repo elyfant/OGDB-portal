@@ -28,7 +28,12 @@ export async function POST(request: Request) {
 	store.set(SESSION_COOKIE, token, {
 		httpOnly: true,
 		sameSite: "lax",
-		secure: process.env.NODE_ENV === "production",
+		// Secure by default — browsers silently refuse to store a Secure
+		// cookie over plain HTTP, so this must be turned OFF explicitly
+		// (COOKIE_SECURE=false) for an HTTP-only deployment, rather than
+		// tied to NODE_ENV, which just means "production build," not
+		// "actually served over HTTPS."
+		secure: process.env.COOKIE_SECURE !== "false",
 		path: "/",
 		maxAge: SEVEN_DAYS_SECONDS,
 	});
