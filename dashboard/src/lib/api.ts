@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+	Asset,
 	AssetStatusOption,
 	Glider,
 	Mission,
@@ -27,6 +28,14 @@ export async function getGliders(): Promise<Glider[]> {
 	const res = await apiFetch("/gliders");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch gliders: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getAssets(): Promise<Asset[]> {
+	const res = await apiFetch("/assets");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch assets: ${res.status}`);
 	}
 	return res.json();
 }

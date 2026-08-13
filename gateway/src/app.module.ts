@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { AssetStatusOptionsModule } from "./asset-status-options/asset-status-options.module";
+import { AssetsModule } from "./assets/assets.module";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { RolesGuard } from "./auth/roles.guard";
@@ -15,6 +16,7 @@ import { MissionsModule } from "./missions/missions.module";
 		DbModule,
 		AuthModule,
 		GlidersModule,
+		AssetsModule,
 		AssetStatusOptionsModule,
 		MissionsModule,
 	],

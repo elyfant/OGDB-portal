@@ -82,6 +82,19 @@ export interface MissionsLeaderboard {
 	mostSiteDays: { site: string; days: number } | null;
 }
 
+export interface Asset {
+	id: number;
+	name: string | null;
+	serialNumber: string | null;
+	assetType: string;
+	assetModel: string | null;
+	purchaseDate: string | null;
+	purchaseValueUsd: number | null;
+	statusId: number | null;
+	status: AssetStatus | null;
+	statusEffectiveDate: string | null;
+}
+
 export interface Mission {
 	id: number;
 	missionNumber: number | null;

@@ -48,7 +48,8 @@ export default async function GlidersPage() {
 								<TableCell>{glider.serialNumber ?? "—"}</TableCell>
 								<TableCell>
 									<StatusEditor
-										gliderId={glider.id}
+										kind="gliders"
+										id={glider.id}
 										statusId={glider.statusId}
 										options={statusOptions}
 										disabled={!canEdit}

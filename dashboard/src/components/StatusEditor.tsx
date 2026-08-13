@@ -6,16 +6,18 @@ import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import type { AssetStatusOption } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { setGliderStatus } from "../lib/api-client";
+import { setStatus } from "../lib/api-client";
 import { STATUS_COLOR, STATUS_LABEL } from "../lib/status-meta";
 
 export default function StatusEditor({
-	gliderId,
+	kind,
+	id,
 	statusId,
 	options,
 	disabled = false,
 }: {
-	gliderId: number;
+	kind: "gliders" | "assets";
+	id: number;
 	statusId: number | null;
 	options: AssetStatusOption[];
 	disabled?: boolean;
@@ -30,7 +32,7 @@ export default function StatusEditor({
 		setValue(nextId);
 		setPending(true);
 		try {
-			await setGliderStatus(gliderId, nextId);
+			await setStatus(kind, id, nextId);
 			router.refresh();
 		} catch {
 			setValue(previousValue);
