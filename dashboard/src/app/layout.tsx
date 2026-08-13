@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
 	title: "OGDB Portal",
-	description: "Ocean Glider Facility asset & mission portal",
+	description: "Ocean Glider Facility Asset & Mission Portal",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

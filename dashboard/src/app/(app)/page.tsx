@@ -14,7 +14,6 @@ import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 
-
 function formatCount(value: number) {
 	return value.toLocaleString("en-GB");
 }
@@ -32,98 +31,98 @@ export default async function HomePage() {
 			</Typography>
 
 			<Box sx={{ maxWidth: "70%", mx: "auto" }}>
-			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5 }}>
-				<StatTile
-					label="Glider missions"
-					value={formatCount(summary.totalMissions)}
-					icon={ExploreIcon}
-					colorRole="blue"
-				/>
-				<StatTile
-					label="Total dives"
-					value={formatCount(summary.totalDives)}
-					icon={WavesIcon}
-					colorRole="orange"
-				/>
-				<StatTile
-					label="Total distance (km)"
-					value={formatCount(summary.totalDistanceKm)}
-					icon={StraightenIcon}
-					colorRole="aqua"
-				/>
-				<StatTile
-					label="Total days in water"
-					value={formatCount(summary.totalDays)}
-					icon={ScheduleIcon}
-					colorRole="yellow"
-				/>
-			</Box>
-
-			<Divider sx={{ mt: 5, mb: 3 }}>
-				<Typography
-					variant="overline"
-					sx={{ fontWeight: 600, letterSpacing: 1, color: "primary.main" }}
-				>
-					NorGliders Championship Board
-				</Typography>
-			</Divider>
-
-			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5, mb: 2.5 }}>
-				{leaderboard.mostDaysInWater && (
-					<ChampionshipCard
-						icon={HourglassBottomIcon}
-						title="Most days in water"
-						winner={leaderboard.mostDaysInWater.glider}
-						detail={`${formatCount(leaderboard.mostDaysInWater.days)} days`}
+				<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5 }}>
+					<StatTile
+						label="Glider missions"
+						value={formatCount(summary.totalMissions)}
+						icon={ExploreIcon}
+						colorRole="blue"
 					/>
-				)}
-				{leaderboard.longestTraveller && (
-					<ChampionshipCard
-						icon={RouteIcon}
-						title="Longest traveller"
-						winner={leaderboard.longestTraveller.glider}
-						detail={`${formatCount(leaderboard.longestTraveller.distanceKm)} km`}
-					/>
-				)}
-				{leaderboard.mostDives && (
-					<ChampionshipCard
+					<StatTile
+						label="Total dives"
+						value={formatCount(summary.totalDives)}
 						icon={WavesIcon}
-						title="Most dives"
-						winner={leaderboard.mostDives.glider}
-						detail={`${formatCount(leaderboard.mostDives.dives)} dives`}
+						colorRole="orange"
 					/>
-				)}
-			</Box>
+					<StatTile
+						label="Total distance (km)"
+						value={formatCount(summary.totalDistanceKm)}
+						icon={StraightenIcon}
+						colorRole="aqua"
+					/>
+					<StatTile
+						label="Total days in water"
+						value={formatCount(summary.totalDays)}
+						icon={ScheduleIcon}
+						colorRole="yellow"
+					/>
+				</Box>
 
-			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5 }}>
-				{leaderboard.longestDeployment && (
-					<ChampionshipCard
-						icon={EventIcon}
-						title="Longest deployment"
-						winner={leaderboard.longestDeployment.glider}
-						detail={[
-							`Mission: ${leaderboard.longestDeployment.stdMissionName}`,
-							`${formatCount(leaderboard.longestDeployment.days)} days`,
-						]}
-					/>
-				)}
-				{leaderboard.mostProjectDays && (
-					<ChampionshipCard
-						icon={FolderSharedIcon}
-						title="Most project days"
-						winner={leaderboard.mostProjectDays.project}
-						detail={`${formatCount(leaderboard.mostProjectDays.days)} days`}
-					/>
-				)}
-				{leaderboard.mostSiteDays && (
-					<ChampionshipCard
-						icon={PlaceIcon}
-						title="Most site days"
-						winner={leaderboard.mostSiteDays.site}
-						detail={`${formatCount(leaderboard.mostSiteDays.days)} days`}
-					/>
-				)}
-			</Box>
+				<Divider sx={{ mt: 5, mb: 3 }}>
+					<Typography
+						variant="overline"
+						sx={{ fontWeight: 600, letterSpacing: 1, color: "primary.main" }}
+					>
+						NorGliders Championship Board
+					</Typography>
+				</Divider>
+
+				<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5, mb: 2.5 }}>
+					{leaderboard.mostDaysInWater && (
+						<ChampionshipCard
+							icon={HourglassBottomIcon}
+							title="Most days in water"
+							winner={leaderboard.mostDaysInWater.glider}
+							detail={`${formatCount(leaderboard.mostDaysInWater.days)} days`}
+						/>
+					)}
+					{leaderboard.longestTraveller && (
+						<ChampionshipCard
+							icon={RouteIcon}
+							title="Longest traveller"
+							winner={leaderboard.longestTraveller.glider}
+							detail={`${formatCount(leaderboard.longestTraveller.distanceKm)} km`}
+						/>
+					)}
+					{leaderboard.mostDives && (
+						<ChampionshipCard
+							icon={WavesIcon}
+							title="Most dives"
+							winner={leaderboard.mostDives.glider}
+							detail={`${formatCount(leaderboard.mostDives.dives)} dives`}
+						/>
+					)}
+				</Box>
+
+				<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5 }}>
+					{leaderboard.longestDeployment && (
+						<ChampionshipCard
+							icon={EventIcon}
+							title="Longest deployment"
+							winner={leaderboard.longestDeployment.glider}
+							detail={[
+								`Mission: ${leaderboard.longestDeployment.stdMissionName}`,
+								`${formatCount(leaderboard.longestDeployment.days)} days`,
+							]}
+						/>
+					)}
+					{leaderboard.mostProjectDays && (
+						<ChampionshipCard
+							icon={FolderSharedIcon}
+							title="Most project days"
+							winner={leaderboard.mostProjectDays.project}
+							detail={`${formatCount(leaderboard.mostProjectDays.days)} days`}
+						/>
+					)}
+					{leaderboard.mostSiteDays && (
+						<ChampionshipCard
+							icon={PlaceIcon}
+							title="Most site days"
+							winner={leaderboard.mostSiteDays.site}
+							detail={`${formatCount(leaderboard.mostSiteDays.days)} days`}
+						/>
+					)}
+				</Box>
 			</Box>
 		</Box>
 	);

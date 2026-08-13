@@ -1,10 +1,12 @@
 "use client";
 
 import DarkModeIcon from "@mui/icons-material/DarkMode";
+import DatasetIcon from "@mui/icons-material/Dataset";
 import DeviceHubIcon from "@mui/icons-material/DeviceHub";
 import HomeIcon from "@mui/icons-material/Home";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import RouteIcon from "@mui/icons-material/Route";
+import WidgetsIcon from "@mui/icons-material/Widgets";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -29,8 +31,10 @@ const DRAWER_WIDTH = 240;
 const HOME_ITEM = { label: "Home", href: "/", icon: HomeIcon };
 
 const NAV_ITEMS = [
-	{ label: "Fleet", href: "/gliders", icon: DeviceHubIcon },
 	{ label: "Missions", href: "/missions", icon: RouteIcon },
+	{ label: "Fleet", href: "/gliders", icon: DeviceHubIcon },
+	{ label: "Assets", href: "/assets", icon: WidgetsIcon },
+	{ label: "Datasets", href: "/datasets", icon: DatasetIcon },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -113,7 +117,7 @@ export default function AppShell({
 						variant="overline"
 						sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
 					>
-						Monitoring
+						Catalogues
 					</Typography>
 					<List>
 						{NAV_ITEMS.map(({ label, href, icon: Icon }) => {
