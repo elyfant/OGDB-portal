@@ -32,10 +32,28 @@ export async function getGliders(): Promise<Glider[]> {
 	return res.json();
 }
 
+export async function getGlider(id: number): Promise<Glider | null> {
+	const res = await apiFetch(`/gliders/${id}`);
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`Failed to fetch glider ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
 export async function getAssets(): Promise<Asset[]> {
 	const res = await apiFetch("/assets");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch assets: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getAsset(id: number): Promise<Asset | null> {
+	const res = await apiFetch(`/assets/${id}`);
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`Failed to fetch asset ${id}: ${res.status}`);
 	}
 	return res.json();
 }
@@ -52,6 +70,15 @@ export async function getMissions(): Promise<Mission[]> {
 	const res = await apiFetch("/missions");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch missions: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getMission(id: number): Promise<Mission | null> {
+	const res = await apiFetch(`/missions/${id}`);
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`Failed to fetch mission ${id}: ${res.status}`);
 	}
 	return res.json();
 }

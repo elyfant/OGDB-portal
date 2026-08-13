@@ -1,3 +1,4 @@
+import ClickableTableRow from "@/components/ClickableTableRow";
 import StatusEditor from "@/components/StatusEditor";
 import { getGliders, getStatusOptions } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -37,7 +38,7 @@ export default async function GlidersPage() {
 					</TableHead>
 					<TableBody>
 						{gliders.map((glider) => (
-							<TableRow key={glider.id} hover>
+							<ClickableTableRow key={glider.id} href={`/gliders/${glider.id}`}>
 								<TableCell sx={{ textTransform: "capitalize" }}>
 									{glider.name}
 								</TableCell>
@@ -55,7 +56,7 @@ export default async function GlidersPage() {
 										disabled={!canEdit}
 									/>
 								</TableCell>
-							</TableRow>
+							</ClickableTableRow>
 						))}
 					</TableBody>
 				</Table>

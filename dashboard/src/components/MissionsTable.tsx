@@ -24,6 +24,7 @@ import {
 	type MissionColumnKind,
 	formatMissionValue,
 } from "../lib/mission-columns";
+import ClickableTableRow from "./ClickableTableRow";
 
 function rowSx(status: string | null) {
 	if (status === "active")
@@ -235,13 +236,17 @@ export default function MissionsTable({ missions }: { missions: Mission[] }) {
 					</TableHead>
 					<TableBody>
 						{sortedRows.map((mission) => (
-							<TableRow key={mission.id} hover sx={rowSx(mission.status)}>
+							<ClickableTableRow
+								key={mission.id}
+								href={`/missions/${mission.id}`}
+								sx={rowSx(mission.status)}
+							>
 								{visibleColumnDefs.map((col) => (
 									<TableCell key={col.key} align={col.align}>
 										{formatMissionValue(mission[col.key], col)}
 									</TableCell>
 								))}
-							</TableRow>
+							</ClickableTableRow>
 						))}
 					</TableBody>
 				</Table>

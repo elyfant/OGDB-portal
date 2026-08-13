@@ -1,6 +1,8 @@
+import ClickableTableRow from "@/components/ClickableTableRow";
 import StatusEditor from "@/components/StatusEditor";
 import { getAssets, getStatusOptions } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { formatDate, formatUsd } from "@/lib/format";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -11,21 +13,13 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 
-function formatDate(value: string | null) {
-	if (!value) return "—";
-	return new Date(value).toLocaleDateString("en-GB", {
-		year: "numeric",
-		month: "short",
-		day: "numeric",
-	});
-}
-
-function formatUsd(value: number | null) {
-	if (value === null) return "—";
-	return value.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
-	});
+// Assets that are gliders live under Fleet's own detail page — the
+// asset's id IS the glider's id (gliders are just assets with
+// asset_type "glider"), so no separate lookup is needed.
+function detailHref(asset: { id: number; assetType: string }) {
+	return asset.assetType === "glider"
+		? `/gliders/${asset.id}`
+		: `/assets/${asset.id}`;
 }
 
 export default async function AssetsPage() {
@@ -56,7 +50,7 @@ export default async function AssetsPage() {
 					</TableHead>
 					<TableBody>
 						{assets.map((asset) => (
-							<TableRow key={asset.id} hover>
+							<ClickableTableRow key={asset.id} href={detailHref(asset)}>
 								<TableCell sx={{ textTransform: "capitalize" }}>
 									{asset.name ?? "—"}
 								</TableCell>
@@ -78,7 +72,7 @@ export default async function AssetsPage() {
 										disabled={!canEdit}
 									/>
 								</TableCell>
-							</TableRow>
+							</ClickableTableRow>
 						))}
 					</TableBody>
 				</Table>
