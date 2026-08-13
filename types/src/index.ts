@@ -37,6 +37,11 @@ export interface Glider {
 	name: string;
 	wmo: string | null;
 	platform: string | null;
+	// NVS-sourced (B76/L06) — full model name and platform category.
+	// Only populated once platforms.platform_model_id/platform_category_id
+	// are backfilled; null otherwise.
+	platformModelFull: string | null;
+	platformCategory: string | null;
 	serialNumber: string | null;
 	statusId: number | null;
 	status: AssetStatus | null;
@@ -87,7 +92,12 @@ export interface Asset {
 	name: string | null;
 	serialNumber: string | null;
 	assetType: string;
+	assetTypeGroup: string;
 	assetModel: string | null;
+	// NVS-sourced (B76/L06) — only populated for gliders right now, same
+	// caveat as assetModel/name.
+	platformModelFull: string | null;
+	platformCategory: string | null;
 	purchaseDate: string | null;
 	purchaseValueUsd: number | null;
 	statusId: number | null;

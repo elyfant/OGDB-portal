@@ -19,6 +19,8 @@ const SELECT_FLEET = `
     agd.glider_name AS name,
     agd.wmo,
     p.name AS platform,
+    pm.pref_label AS "platformModelFull",
+    pc.pref_label AS "platformCategory",
     a.serial_number AS "serialNumber",
     aso.id AS "statusId",
     aso.name AS status,
@@ -26,6 +28,8 @@ const SELECT_FLEET = `
   FROM assets a
   JOIN asset_glider_details agd ON agd.asset_id = a.id
   LEFT JOIN platforms p ON p.id = agd.platform_id
+  LEFT JOIN nvs_terms pm ON pm.id = p.platform_model_id
+  LEFT JOIN nvs_terms pc ON pc.id = p.platform_category_id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
   WHERE a.asset_type_id = $1

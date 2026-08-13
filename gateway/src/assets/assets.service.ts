@@ -13,14 +13,18 @@ import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
 // asset_glider_details -> platforms). Every other asset type (battery,
 // ct_sensor, slocum_hull, ...) has no name/model source yet — those
 // columns come back null until that type gets its own detail-table
-// join added here.
+// join added here (sensors: asset_sensor_details.model_id/
+// sensor_family_id -> nvs_terms, once real device models are known).
 const SELECT_ASSETS = `
   SELECT
     a.id,
     agd.glider_name AS name,
     a.serial_number AS "serialNumber",
     at.name AS "assetType",
+    atg.name AS "assetTypeGroup",
     TRIM(p.model) AS "assetModel",
+    pm.pref_label AS "platformModelFull",
+    pc.pref_label AS "platformCategory",
     a.purchase_date AS "purchaseDate",
     a.purchase_value_usd::float8 AS "purchaseValueUsd",
     aso.id AS "statusId",
@@ -28,8 +32,11 @@ const SELECT_ASSETS = `
     cas.effective_date AS "statusEffectiveDate"
   FROM assets a
   JOIN asset_types at ON at.id = a.asset_type_id
+  JOIN asset_type_groups atg ON atg.id = at.group_id
   LEFT JOIN asset_glider_details agd ON agd.asset_id = a.id
   LEFT JOIN platforms p ON p.id = agd.platform_id
+  LEFT JOIN nvs_terms pm ON pm.id = p.platform_model_id
+  LEFT JOIN nvs_terms pc ON pc.id = p.platform_category_id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
 `;
