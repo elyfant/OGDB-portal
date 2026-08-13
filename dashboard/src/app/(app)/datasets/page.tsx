@@ -1,6 +1,7 @@
-import StatusEditor from "@/components/StatusEditor";
-import { getGliders, getStatusOptions } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth";
+import ClickableTableRow from "@/components/ClickableTableRow";
+import { getDatasetProcessingStatuses } from "@/lib/api";
+import CancelIcon from "@mui/icons-material/Cancel";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -11,13 +12,16 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 
-export default async function GlidersPage() {
-	const [gliders, statusOptions, user] = await Promise.all([
-		getGliders(),
-		getStatusOptions(),
-		getCurrentUser(),
-	]);
-	const canEdit = user?.role === "editor" || user?.role === "admin";
+function StatusIcon({ done }: { done: boolean }) {
+	return done ? (
+		<CheckCircleIcon fontSize="small" color="success" />
+	) : (
+		<CancelIcon fontSize="small" color="error" />
+	);
+}
+
+export default async function DatasetsPage() {
+	const datasets = await getDatasetProcessingStatuses();
 
 	return (
 		<Box>
@@ -25,37 +29,40 @@ export default async function GlidersPage() {
 				Datasets
 			</Typography>
 			<TableContainer component={Paper}>
-				<Table>
+				<Table size="small">
 					<TableHead>
 						<TableRow>
-							<TableCell>Name</TableCell>
-							<TableCell>WMO</TableCell>
-							<TableCell>Platform</TableCell>
-							<TableCell>Serial number</TableCell>
-							<TableCell>Status</TableCell>
+							<TableCell>Mission</TableCell>
+							<TableCell align="center">L0</TableCell>
+							<TableCell align="center">L1</TableCell>
+							<TableCell align="center">L1 OG1</TableCell>
+							<TableCell align="center">L2</TableCell>
+							<TableCell align="center">L2 OG1</TableCell>
 						</TableRow>
 					</TableHead>
 					<TableBody>
-						{gliders.map((glider) => (
-							<TableRow key={glider.id} hover>
-								<TableCell sx={{ textTransform: "capitalize" }}>
-									{glider.name}
+						{datasets.map((dataset) => (
+							<ClickableTableRow
+								key={dataset.missionId}
+								href={`/missions/${dataset.missionId}`}
+							>
+								<TableCell>{dataset.missionName}</TableCell>
+								<TableCell align="center">
+									<StatusIcon done={dataset.l0Status} />
 								</TableCell>
-								<TableCell>{glider.wmo ?? "—"}</TableCell>
-								<TableCell sx={{ textTransform: "capitalize" }}>
-									{glider.platform ?? "—"}
+								<TableCell align="center">
+									<StatusIcon done={dataset.l1Status} />
 								</TableCell>
-								<TableCell>{glider.serialNumber ?? "—"}</TableCell>
-								<TableCell>
-									<StatusEditor
-										kind="gliders"
-										id={glider.id}
-										statusId={glider.statusId}
-										options={statusOptions}
-										disabled={!canEdit}
-									/>
+								<TableCell align="center">
+									<StatusIcon done={dataset.l1Og1} />
 								</TableCell>
-							</TableRow>
+								<TableCell align="center">
+									<StatusIcon done={dataset.l2Status} />
+								</TableCell>
+								<TableCell align="center">
+									<StatusIcon done={dataset.l2Og1} />
+								</TableCell>
+							</ClickableTableRow>
 						))}
 					</TableBody>
 				</Table>

@@ -105,6 +105,16 @@ export interface Asset {
 	statusEffectiveDate: string | null;
 }
 
+export interface DatasetProcessingStatus {
+	missionId: number;
+	missionName: string;
+	l0Status: boolean;
+	l1Status: boolean;
+	l1Og1: boolean;
+	l2Status: boolean;
+	l2Og1: boolean;
+}
+
 export interface Mission {
 	id: number;
 	missionNumber: number | null;
