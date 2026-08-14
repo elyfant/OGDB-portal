@@ -1,9 +1,9 @@
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ProcessingStatusTable from "@/components/ProcessingStatusTable";
 import { getDatasetProcessingDetail } from "@/lib/api";
-import { formatDate } from "@/lib/format";
+import { formatDate, statusColor } from "@/lib/format";
 import Box from "@mui/material/Box";
-import Chip, { type ChipProps } from "@mui/material/Chip";
+import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -13,14 +13,6 @@ import TableContainer from "@mui/material/TableContainer";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
-
-function statusColor(status: string | null): ChipProps["color"] {
-	if (status === "active" || status === "recovered") return "success";
-	if (status === "scheduled") return "warning";
-	if (status === "killed in action" || status === "missing in action")
-		return "error";
-	return "default";
-}
 
 function ExternalRefRow({
 	label,

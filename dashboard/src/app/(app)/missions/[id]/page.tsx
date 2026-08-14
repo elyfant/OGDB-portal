@@ -1,13 +1,68 @@
-import DetailFields from "@/components/DetailFields";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import StatTile from "@/components/StatTile";
 import { getMission } from "@/lib/api";
-import { MISSION_COLUMNS, formatMissionValue } from "@/lib/mission-columns";
+import { formatDate, statusColor } from "@/lib/format";
+import DatasetIcon from "@mui/icons-material/Dataset";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import StraightenIcon from "@mui/icons-material/Straighten";
+import WavesIcon from "@mui/icons-material/Waves";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import MuiLink from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
-// The name itself is the page heading — don't repeat it in the field list.
-const NAME_KEYS = new Set(["missionName", "stdMissionName"]);
+const PLACEHOLDER_SECTIONS = [
+	"Map of glider tracks",
+	"Mission information",
+	"Project information",
+	"Piloting history",
+	"Editing history",
+];
+
+function formatCount(value: number | null): string {
+	return value === null ? "—" : value.toLocaleString("en-GB");
+}
+
+function formatPosition(lat: number | null, lon: number | null): string {
+	if (lat === null || lon === null) return "—";
+	const latDir = lat >= 0 ? "N" : "S";
+	const lonDir = lon >= 0 ? "E" : "W";
+	return `${Math.abs(lat).toFixed(2)}°${latDir}, ${Math.abs(lon).toFixed(2)}°${lonDir}`;
+}
+
+function Field({ label, value }: { label: string; value: string | null }) {
+	return (
+		<Box>
+			<Typography variant="caption" color="text.secondary" display="block">
+				{label}
+			</Typography>
+			<Typography>{value ?? "—"}</Typography>
+		</Box>
+	);
+}
+
+function EmptyTableNote({ colSpan, text }: { colSpan: number; text: string }) {
+	return (
+		<TableRow>
+			<TableCell colSpan={colSpan} sx={{ color: "text.disabled" }}>
+				{text}
+			</TableCell>
+		</TableRow>
+	);
+}
 
 export default async function MissionDetailPage({
 	params,
@@ -25,22 +80,239 @@ export default async function MissionDetailPage({
 
 	return (
 		<Box>
-			<PageBreadcrumb
-				catalogue="Missions"
-				catalogueHref="/missions"
-				current={name}
-			/>
-			<Typography variant="h5" sx={{ mb: 2 }}>
-				Missions : {name}
+			<PageBreadcrumb catalogue="Missions" catalogueHref="/missions" current={name} />
+
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "baseline",
+					justifyContent: "space-between",
+					flexWrap: "wrap",
+					gap: 2,
+					mb: 3,
+				}}
+			>
+				<Typography variant="h5">Mission: {name}</Typography>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
+					<MuiLink
+						component={Link}
+						href={`/datasets/${mission.id}`}
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							gap: 0.75,
+							fontWeight: 500,
+						}}
+					>
+						<DatasetIcon fontSize="small" />
+						View data processing status
+					</MuiLink>
+					{mission.status && (
+						<Chip
+							label={mission.status}
+							color={statusColor(mission.status)}
+							size="small"
+						/>
+					)}
+				</Box>
+			</Box>
+
+			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5, mb: 4 }}>
+				<StatTile
+					label="Total dives"
+					value={formatCount(mission.dives)}
+					icon={WavesIcon}
+					colorRole="orange"
+				/>
+				<StatTile
+					label="Total distance (km)"
+					value={formatCount(mission.distanceKm)}
+					icon={StraightenIcon}
+					colorRole="aqua"
+				/>
+				<StatTile
+					label="Days in water"
+					value={formatCount(mission.numberOfDays)}
+					icon={ScheduleIcon}
+					colorRole="yellow"
+				/>
+			</Box>
+
+			<Typography variant="h6" sx={{ mb: 1.5 }}>
+				About mission
 			</Typography>
-			<DetailFields
-				fields={MISSION_COLUMNS.filter((col) => !NAME_KEYS.has(col.key)).map(
-					(col) => ({
-						label: col.label,
-						value: formatMissionValue(mission[col.key], col),
-					}),
-				)}
-			/>
+			<Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: {
+							xs: "repeat(2, 1fr)",
+							md: "repeat(6, 1fr)",
+						},
+						gap: 3,
+					}}
+				>
+					<Field label="Site" value={mission.site} />
+					<Field label="Project" value={mission.project} />
+					<Field label="PI" value={mission.pi} />
+					<Field label="Tech" value={mission.tech} />
+					<Field label="Operating agency" value={mission.operatingAgency} />
+					<Field label="Funding agency" value={mission.fundingAgency} />
+				</Box>
+			</Paper>
+
+			<Box
+				sx={{
+					display: "grid",
+					gridTemplateColumns: { xs: "1fr", md: "1.1fr 1fr" },
+					gap: 3,
+					mb: 4,
+				}}
+			>
+				<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+					<Box>
+						<Typography variant="h6" sx={{ mb: 1.5 }}>
+							Science payload
+						</Typography>
+						<TableContainer component={Paper} variant="outlined">
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Sensor</TableCell>
+										<TableCell>Serial number</TableCell>
+										<TableCell>Variables</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									<EmptyTableNote
+										colSpan={3}
+										text="Not yet available — sensor to variable linkage is pending."
+									/>
+								</TableBody>
+							</Table>
+						</TableContainer>
+					</Box>
+
+					<Box>
+						<Typography variant="h6" sx={{ mb: 1.5 }}>
+							Glider build
+						</Typography>
+						<TableContainer component={Paper} variant="outlined">
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Asset</TableCell>
+										<TableCell>Serial number</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									<EmptyTableNote colSpan={2} text="Not yet available." />
+								</TableBody>
+							</Table>
+						</TableContainer>
+					</Box>
+				</Box>
+
+				<Box>
+					<Typography variant="h6" sx={{ mb: 1.5 }}>
+						Deployment
+					</Typography>
+					<Paper variant="outlined" sx={{ p: 3 }}>
+						<Box sx={{ mb: 3 }}>
+							<Typography
+								variant="caption"
+								color="text.secondary"
+								display="block"
+								sx={{ mb: 0.5 }}
+							>
+								Status
+							</Typography>
+							{mission.status ? (
+								<Chip
+									label={mission.status}
+									color={statusColor(mission.status)}
+									size="small"
+								/>
+							) : (
+								<Typography color="text.disabled">—</Typography>
+							)}
+						</Box>
+						<Box
+							sx={{
+								display: "grid",
+								gridTemplateColumns: "1fr 1fr",
+								gap: 3,
+							}}
+						>
+							<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+								<Typography
+									variant="overline"
+									color="text.secondary"
+									sx={{ letterSpacing: 1 }}
+								>
+									Deployment
+								</Typography>
+								<Field label="Date" value={formatDate(mission.launchDate)} />
+								<Field
+									label="Position"
+									value={formatPosition(
+										mission.launchLatitude,
+										mission.launchLongitude,
+									)}
+								/>
+								<Field
+									label="Cruise"
+									value={
+										mission.launchCruiseId
+											? `Cruise #${mission.launchCruiseId}`
+											: null
+									}
+								/>
+								<Field label="Vessel" value={null} />
+							</Box>
+							<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+								<Typography
+									variant="overline"
+									color="text.secondary"
+									sx={{ letterSpacing: 1 }}
+								>
+									Recovery
+								</Typography>
+								<Field label="Date" value={formatDate(mission.recoveryDate)} />
+								<Field
+									label="Position"
+									value={formatPosition(
+										mission.recoveryLatitude,
+										mission.recoveryLongitude,
+									)}
+								/>
+								<Field
+									label="Cruise"
+									value={
+										mission.recoveryCruiseId
+											? `Cruise #${mission.recoveryCruiseId}`
+											: null
+									}
+								/>
+								<Field label="Vessel" value={null} />
+							</Box>
+						</Box>
+					</Paper>
+				</Box>
+			</Box>
+
+			<Box>
+				{PLACEHOLDER_SECTIONS.map((title) => (
+					<Accordion key={title} disableGutters>
+						<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+							<Typography color="text.secondary">{title}</Typography>
+						</AccordionSummary>
+						<AccordionDetails>
+							<Typography color="text.disabled">Not yet available.</Typography>
+						</AccordionDetails>
+					</Accordion>
+				))}
+			</Box>
 		</Box>
 	);
 }
