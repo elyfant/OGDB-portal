@@ -31,12 +31,22 @@ const DRAWER_WIDTH = 240;
 
 const HOME_ITEM = { label: "Home", href: "/", icon: HomeIcon };
 
-const NAV_ITEMS = [
-	{ label: "Missions", href: "/missions", icon: RouteIcon },
-	{ label: "Cruises", href: "/cruises", icon: DirectionsBoatIcon },
-	{ label: "Fleet", href: "/gliders", icon: DeviceHubIcon },
-	{ label: "Assets", href: "/assets", icon: WidgetsIcon },
-	{ label: "Datasets", href: "/datasets", icon: DatasetIcon },
+const NAV_GROUPS = [
+	{
+		label: "Assets",
+		items: [
+			{ label: "Glider fleet", href: "/gliders", icon: DeviceHubIcon },
+			{ label: "All assets", href: "/assets", icon: WidgetsIcon },
+		],
+	},
+	{
+		label: "Operations",
+		items: [
+			{ label: "Missions", href: "/missions", icon: RouteIcon },
+			{ label: "Cruises", href: "/cruises", icon: DirectionsBoatIcon },
+			{ label: "Datasets", href: "/datasets", icon: DatasetIcon },
+		],
+	},
 ];
 
 function isActive(pathname: string, href: string) {
@@ -114,31 +124,35 @@ export default function AppShell({
 							<ListItemText primary={HOME_ITEM.label} />
 						</ListItemButton>
 					</List>
-					<Divider />
-					<Typography
-						variant="overline"
-						sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
-					>
-						Catalogues
-					</Typography>
-					<List>
-						{NAV_ITEMS.map(({ label, href, icon: Icon }) => {
-							const selected = isActive(pathname, href);
-							return (
-								<ListItemButton
-									key={href}
-									component={Link}
-									href={href}
-									selected={selected}
-								>
-									<ListItemIcon>
-										<Icon color={selected ? "primary" : "inherit"} />
-									</ListItemIcon>
-									<ListItemText primary={label} />
-								</ListItemButton>
-							);
-						})}
-					</List>
+					{NAV_GROUPS.map((group) => (
+						<Box key={group.label}>
+							<Divider />
+							<Typography
+								variant="overline"
+								sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
+							>
+								{group.label}
+							</Typography>
+							<List>
+								{group.items.map(({ label, href, icon: Icon }) => {
+									const selected = isActive(pathname, href);
+									return (
+										<ListItemButton
+											key={href}
+											component={Link}
+											href={href}
+											selected={selected}
+										>
+											<ListItemIcon>
+												<Icon color={selected ? "primary" : "inherit"} />
+											</ListItemIcon>
+											<ListItemText primary={label} />
+										</ListItemButton>
+									);
+								})}
+							</List>
+						</Box>
+					))}
 					<Divider />
 				</Box>
 			</Drawer>
