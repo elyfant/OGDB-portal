@@ -2,6 +2,7 @@ import "server-only";
 import type {
 	Asset,
 	AssetStatusOption,
+	Cruise,
 	DatasetProcessingDetail,
 	DatasetProcessingStatus,
 	Glider,
@@ -56,6 +57,23 @@ export async function getAsset(id: number): Promise<Asset | null> {
 	if (res.status === 404) return null;
 	if (!res.ok) {
 		throw new Error(`Failed to fetch asset ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getCruises(): Promise<Cruise[]> {
+	const res = await apiFetch("/cruises");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch cruises: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getCruise(id: number): Promise<Cruise | null> {
+	const res = await apiFetch(`/cruises/${id}`);
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`Failed to fetch cruise ${id}: ${res.status}`);
 	}
 	return res.json();
 }

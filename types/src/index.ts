@@ -198,3 +198,21 @@ export interface Mission {
 	distanceKm: number | null;
 	numberOfDays: number | null;
 }
+
+export interface Cruise {
+	id: number;
+	cruiseName: string;
+	cruiseNumber: string | null;
+	vessel: string | null;
+	vesselUrl: string | null;
+	institute: string | null;
+	// Plain text in the DB, not linked to contacts like missions' PI/tech
+	// are — surfaced as-is. Deliberately not called "pi": a cruise leader
+	// isn't the same role as a mission's PI.
+	cruiseLeader: string | null;
+	area: string | null;
+	startDate: string;
+	endDate: string;
+	startPort: string | null;
+	endPort: string | null;
+}

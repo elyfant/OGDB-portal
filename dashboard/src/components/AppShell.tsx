@@ -3,6 +3,7 @@
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import DatasetIcon from "@mui/icons-material/Dataset";
 import DeviceHubIcon from "@mui/icons-material/DeviceHub";
+import DirectionsBoatIcon from "@mui/icons-material/DirectionsBoat";
 import HomeIcon from "@mui/icons-material/Home";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import RouteIcon from "@mui/icons-material/Route";
@@ -32,6 +33,7 @@ const HOME_ITEM = { label: "Home", href: "/", icon: HomeIcon };
 
 const NAV_ITEMS = [
 	{ label: "Missions", href: "/missions", icon: RouteIcon },
+	{ label: "Cruises", href: "/cruises", icon: DirectionsBoatIcon },
 	{ label: "Fleet", href: "/gliders", icon: DeviceHubIcon },
 	{ label: "Assets", href: "/assets", icon: WidgetsIcon },
 	{ label: "Datasets", href: "/datasets", icon: DatasetIcon },
