@@ -1,3 +1,4 @@
+import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ProcessingStatusTable from "@/components/ProcessingStatusTable";
 import { getDatasetProcessingDetail } from "@/lib/api";
@@ -77,39 +78,26 @@ export default async function DatasetDetailPage({
 				)}
 			</Box>
 
-			<Box
-				sx={{
-					display: "grid",
-					gridTemplateColumns: "repeat(4, 1fr)",
-					gap: 2,
-					mb: 4,
-				}}
-			>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Glider
-					</Typography>
-					<Typography>{detail.glider ?? "—"}</Typography>
+			<Typography variant="h6" sx={{ mb: 1.5 }}>
+				About dataset
+			</Typography>
+			<Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: {
+							xs: "repeat(2, 1fr)",
+							md: "repeat(4, 1fr)",
+						},
+						gap: 3,
+					}}
+				>
+					<Field label="Glider" value={detail.glider} />
+					<Field label="Site" value={detail.site} />
+					<Field label="Launch" value={formatDate(detail.launchDate)} />
+					<Field label="Recovery" value={formatDate(detail.recoveryDate)} />
 				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Site
-					</Typography>
-					<Typography>{detail.site ?? "—"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Launch
-					</Typography>
-					<Typography>{formatDate(detail.launchDate)}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Recovery
-					</Typography>
-					<Typography>{formatDate(detail.recoveryDate)}</Typography>
-				</Box>
-			</Box>
+			</Paper>
 
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				Processing status
@@ -121,7 +109,7 @@ export default async function DatasetDetailPage({
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				External references
 			</Typography>
-			<TableContainer component={Paper} sx={{ mb: 4 }}>
+			<TableContainer component={Paper} variant="outlined" sx={{ mb: 4 }}>
 				<Table size="small">
 					<TableBody>
 						<ExternalRefRow
@@ -153,6 +141,7 @@ export default async function DatasetDetailPage({
 			</Typography>
 			<TableContainer
 				component={Paper}
+				variant="outlined"
 				sx={{ maxHeight: 260, overflowY: "auto" }}
 			>
 				<Table size="small">

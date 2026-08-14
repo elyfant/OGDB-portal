@@ -1,3 +1,4 @@
+import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import StatTile from "@/components/StatTile";
 import { getMission } from "@/lib/api";
@@ -41,17 +42,6 @@ function formatPosition(lat: number | null, lon: number | null): string {
 	const latDir = lat >= 0 ? "N" : "S";
 	const lonDir = lon >= 0 ? "E" : "W";
 	return `${Math.abs(lat).toFixed(2)}°${latDir}, ${Math.abs(lon).toFixed(2)}°${lonDir}`;
-}
-
-function Field({ label, value }: { label: string; value: string | null }) {
-	return (
-		<Box>
-			<Typography variant="caption" color="text.secondary" display="block">
-				{label}
-			</Typography>
-			<Typography>{value ?? "—"}</Typography>
-		</Box>
-	);
 }
 
 function EmptyTableNote({ colSpan, text }: { colSpan: number; text: string }) {

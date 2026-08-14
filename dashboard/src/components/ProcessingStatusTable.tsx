@@ -147,7 +147,7 @@ export default function ProcessingStatusTable({
 	}
 
 	return (
-		<TableContainer component={Paper}>
+		<TableContainer component={Paper} variant="outlined">
 			<Table size="small" sx={{ minWidth: 960 }}>
 				<TableHead>
 					<TableRow>
