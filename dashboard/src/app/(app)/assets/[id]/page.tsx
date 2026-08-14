@@ -1,10 +1,23 @@
-import DetailFields from "@/components/DetailFields";
+import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import { getAsset } from "@/lib/api";
 import { formatDate, formatUsd } from "@/lib/format";
+import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { notFound, redirect } from "next/navigation";
+
+const PLACEHOLDER_SECTIONS = [
+	"Calibration information",
+	"Operational history",
+	"Editing history",
+];
 
 export default async function AssetDetailPage({
 	params,
@@ -22,35 +35,75 @@ export default async function AssetDetailPage({
 		redirect(`/gliders/${asset.id}`);
 	}
 
+	const name = asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`;
+
 	return (
 		<Box>
-			<PageBreadcrumb
-				catalogue="Assets"
-				catalogueHref="/assets"
-				current={asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`}
-			/>
-			<Typography variant="h5" sx={{ mb: 2 }}>
-				Assets : {asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`}
+			<PageBreadcrumb catalogue="Assets" catalogueHref="/assets" current={name} />
+
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "baseline",
+					justifyContent: "space-between",
+					flexWrap: "wrap",
+					gap: 2,
+					mb: 3,
+				}}
+			>
+				<Typography variant="h5">Asset: {name}</Typography>
+				{asset.status && (
+					<Chip
+						label={STATUS_LABEL[asset.status]}
+						color={STATUS_COLOR[asset.status]}
+						size="small"
+					/>
+				)}
+			</Box>
+
+			<Typography variant="h6" sx={{ mb: 1.5 }}>
+				About asset
 			</Typography>
-			<DetailFields
-				fields={[
-					{ label: "Serial number", value: asset.serialNumber },
-					{
-						label: "Asset type",
-						value: asset.assetType.replaceAll("_", " "),
-					},
-					{ label: "Asset type group", value: asset.assetTypeGroup },
-					{ label: "Asset model", value: asset.assetModel },
-					{ label: "Platform model", value: asset.platformModelFull },
-					{ label: "Platform category", value: asset.platformCategory },
-					{ label: "Purchase date", value: formatDate(asset.purchaseDate) },
-					{
-						label: "Purchase value",
-						value: formatUsd(asset.purchaseValueUsd),
-					},
-					{ label: "Status", value: asset.status },
-				]}
-			/>
+			<Paper variant="outlined" sx={{ p: 3, mb: 2.5 }}>
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: {
+							xs: "repeat(2, 1fr)",
+							md: "repeat(4, 1fr)",
+						},
+						gap: 3,
+					}}
+				>
+					<Field label="Serial number" value={asset.serialNumber} />
+					<Field
+						label="Asset type"
+						value={asset.assetType.replaceAll("_", " ")}
+					/>
+					<Field label="Asset type group" value={asset.assetTypeGroup} />
+					<Field label="Asset model" value={asset.assetModel} />
+					<Field label="Platform model" value={asset.platformModelFull} />
+					<Field label="Platform category" value={asset.platformCategory} />
+					<Field label="Purchase date" value={formatDate(asset.purchaseDate)} />
+					<Field
+						label="Purchase value"
+						value={formatUsd(asset.purchaseValueUsd)}
+					/>
+				</Box>
+			</Paper>
+
+			<Box>
+				{PLACEHOLDER_SECTIONS.map((title) => (
+					<Accordion key={title} disableGutters>
+						<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+							<Typography color="text.secondary">{title}</Typography>
+						</AccordionSummary>
+						<AccordionDetails>
+							<Typography color="text.disabled">Not yet available.</Typography>
+						</AccordionDetails>
+					</Accordion>
+				))}
+			</Box>
 		</Box>
 	);
 }
