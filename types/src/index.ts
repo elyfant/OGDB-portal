@@ -105,6 +105,58 @@ export interface Asset {
 	statusEffectiveDate: string | null;
 }
 
+export type DatasetProcessingStage = "raw" | "L0" | "L1" | "L2";
+
+export interface DatasetProcessingStageQc {
+	removingErroneousData: boolean;
+	offsetCorrection: boolean;
+	despikingFiltering: boolean;
+	package: string | null;
+	versionUrl: string | null;
+	// Not tracked yet — schema has the columns (qc_occurred_at/qc_who_id) but
+	// nothing populates them in practice. Always null for now.
+	occurredAt: string | null;
+	who: string | null;
+}
+
+export interface DatasetProcessingStageDetail {
+	stage: DatasetProcessingStage;
+	// "raw" has no package/version/QC/OG1/download concept at all — the
+	// dashboard renders those as "n/a" rather than "not done yet" for it.
+	applicable: boolean;
+	status: boolean;
+	who: string | null;
+	occurredAt: string | null;
+	package: string | null;
+	versionUrl: string | null;
+	qc: DatasetProcessingStageQc | null;
+	isOg1: boolean | null;
+	hasInternalDownload: boolean;
+	hasInternalDownloadOg1: boolean;
+}
+
+export interface DatasetHistoryEntry {
+	occurredAt: string;
+	description: string;
+}
+
+export interface DatasetProcessingDetail {
+	missionId: number;
+	missionNumber: number | null;
+	missionName: string;
+	status: string | null;
+	glider: string | null;
+	site: string | null;
+	launchDate: string | null;
+	recoveryDate: string | null;
+	doi: string | null;
+	externalDataArchiveUrl: string | null;
+	oceanOpsBoardUrl: string | null;
+	coriolisUrl: string | null;
+	stages: DatasetProcessingStageDetail[];
+	history: DatasetHistoryEntry[];
+}
+
 export interface DatasetProcessingStatus {
 	missionId: number;
 	missionName: string;

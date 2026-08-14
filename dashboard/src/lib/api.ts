@@ -2,6 +2,7 @@ import "server-only";
 import type {
 	Asset,
 	AssetStatusOption,
+	DatasetProcessingDetail,
 	DatasetProcessingStatus,
 	Glider,
 	Mission,
@@ -81,6 +82,19 @@ export async function getDatasetProcessingStatuses(): Promise<
 	const res = await apiFetch("/datasets");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch dataset processing status: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getDatasetProcessingDetail(
+	missionId: number,
+): Promise<DatasetProcessingDetail | null> {
+	const res = await apiFetch(`/datasets/${missionId}`);
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch dataset processing detail for mission ${missionId}: ${res.status}`,
+		);
 	}
 	return res.json();
 }

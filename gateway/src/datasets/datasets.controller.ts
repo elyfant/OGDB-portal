@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Param, ParseIntPipe } from "@nestjs/common";
 import { DatasetsService } from "./datasets.service";
 
 @Controller("datasets")
@@ -8,5 +8,10 @@ export class DatasetsController {
 	@Get()
 	findAll() {
 		return this.datasets.findAll();
+	}
+
+	@Get(":missionId")
+	findDetail(@Param("missionId", ParseIntPipe) missionId: number) {
+		return this.datasets.findDetail(missionId);
 	}
 }

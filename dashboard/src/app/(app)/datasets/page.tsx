@@ -44,7 +44,7 @@ export default async function DatasetsPage() {
 						{datasets.map((dataset) => (
 							<ClickableTableRow
 								key={dataset.missionId}
-								href={`/missions/${dataset.missionId}`}
+								href={`/datasets/${dataset.missionId}`}
 							>
 								<TableCell>{dataset.missionName}</TableCell>
 								<TableCell align="center">
