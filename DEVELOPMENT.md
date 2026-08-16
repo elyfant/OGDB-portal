@@ -3,6 +3,26 @@
 The repeatable cycle for making a change to `OGDB-portal`, from edit to
 deployed. See `DEPLOYMENT.md` for what happens on the server side.
 
+## Cross-project context: OGDB design notes
+
+`OGDB-portal`'s gateway reads/writes the same production database that
+`~/projects/OGDB` (a separate repo, Alembic migrations + backfill scripts)
+defines and evolves. Claude Code doesn't share memory or CLAUDE.md context
+across separate git repos, so without help a session working here has no
+way to know about schema decisions made over there.
+
+Fix: a symlink into `.claude/rules/`, which Claude Code loads automatically
+every session. It's gitignored (machine-local, points at an absolute path
+that only resolves on this machine) — recreate it after a fresh clone or on
+a new machine:
+
+```bash
+mkdir -p .claude/rules
+ln -s ~/projects/OGDB/alembic/design-notes.md .claude/rules/ogdb-design-notes.md
+```
+
+See `docs/design/build-hierarchy.md` for the summary this unlocked.
+
 ## 0. Ground rule: no real data entry locally
 
 `ogdb-test` (local) and production (the VM) are two different databases
