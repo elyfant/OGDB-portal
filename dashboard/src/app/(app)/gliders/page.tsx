@@ -15,7 +15,7 @@ export default async function GlidersPage() {
 	return (
 		<Box>
 			<Typography variant="h5" sx={{ mb: 2 }}>
-				Gliders
+				Glider fleet
 			</Typography>
 			<GlidersTable
 				gliders={gliders}

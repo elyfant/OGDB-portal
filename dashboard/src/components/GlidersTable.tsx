@@ -13,6 +13,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import type { AssetStatusOption, Glider } from "@ogdb/types";
 import { useState } from "react";
 
@@ -43,6 +44,7 @@ export default function GlidersTable({
 							<TableCell>Platform</TableCell>
 							<TableCell>Manufacturer</TableCell>
 							<TableCell>Purchase date</TableCell>
+							<TableCell>Owner</TableCell>
 							<TableCell>Status</TableCell>
 						</TableRow>
 					</TableHead>
@@ -55,14 +57,27 @@ export default function GlidersTable({
 								<TableCell>{glider.serialNumber ?? "—"}</TableCell>
 								<TableCell>{glider.wmo ?? "—"}</TableCell>
 								<TableCell sx={{ textTransform: "capitalize" }}>
-									{glider.platform
-										? [glider.platform, glider.platformModel]
-												.filter(Boolean)
-												.join(" ")
-										: "—"}
+									<Tooltip title={glider.platformCategoryDefinition ?? ""}>
+										<span>
+											{glider.platform
+												? [glider.platform, glider.platformModel]
+														.filter(Boolean)
+														.join(" ")
+												: "—"}
+										</span>
+									</Tooltip>
 								</TableCell>
-								<TableCell>{glider.manufacturer ?? "—"}</TableCell>
+								<TableCell>
+									<Tooltip title={glider.manufacturerL35Definition ?? ""}>
+										<span>
+											{glider.manufacturerL35Name ??
+												glider.manufacturer ??
+												"—"}
+										</span>
+									</Tooltip>
+								</TableCell>
 								<TableCell>{formatDate(glider.purchaseDate)}</TableCell>
+								<TableCell>{glider.owner ?? "—"}</TableCell>
 								<TableCell>
 									<StatusEditor
 										kind="gliders"

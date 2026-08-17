@@ -44,9 +44,14 @@ export interface Glider {
 	// NVS-sourced (B76/L06) — full model name and platform category.
 	platformModelFull: string | null;
 	platformCategory: string | null;
+	platformCategoryDefinition: string | null;
 	serialNumber: string | null;
 	owner: string | null;
+	// Short local code (e.g. "TWR") — `manufacturerL35Name` is the
+	// NVS-sourced preferred label, used for display when present.
 	manufacturer: string | null;
+	manufacturerL35Name: string | null;
+	manufacturerL35Definition: string | null;
 	purchaseDate: string | null;
 	statusId: number | null;
 	status: AssetStatus | null;
