@@ -43,8 +43,10 @@ export interface Glider {
 	platformModel: string | null;
 	// NVS-sourced (B76/L06) — full model name and platform category.
 	platformModelFull: string | null;
+	platformModelUri: string | null;
 	platformCategory: string | null;
 	platformCategoryDefinition: string | null;
+	platformCategoryUri: string | null;
 	serialNumber: string | null;
 	owner: string | null;
 	// Short local code (e.g. "TWR") — `manufacturerL35Name` is the
@@ -52,6 +54,12 @@ export interface Glider {
 	manufacturer: string | null;
 	manufacturerL35Name: string | null;
 	manufacturerL35Definition: string | null;
+	// The PLATFORM's manufacturer (platforms.manufacturer_id), distinct
+	// from the physical asset's own manufacturer above — conceptually
+	// "who makes this model" vs. "who's on record for this unit". Same
+	// value in practice today, but a different join.
+	platformManufacturerName: string | null;
+	platformManufacturerUri: string | null;
 	purchaseDate: string | null;
 	statusId: number | null;
 	status: AssetStatus | null;

@@ -1,16 +1,20 @@
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import { getGlider } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
 const PLACEHOLDER_SECTIONS = [
 	"Platform information",
@@ -44,6 +48,26 @@ function ComingSoonCard({ title }: { title: string }) {
 	);
 }
 
+// Links a displayed value out to the NVS term it came from — only
+// rendered when a real URI exists, never a dead icon.
+function NvsValue({ text, uri }: { text: ReactNode; uri: string | null }) {
+	return (
+		<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+			{text}
+			{uri && (
+				<MuiLink
+					href={uri}
+					target="_blank"
+					rel="noreferrer"
+					sx={{ display: "inline-flex", color: "text.secondary" }}
+				>
+					<InfoOutlinedIcon sx={{ fontSize: 16 }} />
+				</MuiLink>
+			)}
+		</Box>
+	);
+}
+
 export default async function GliderDetailPage({
 	params,
 }: {
@@ -53,10 +77,14 @@ export default async function GliderDetailPage({
 	const glider = await getGlider(Number(id));
 	if (!glider) notFound();
 
+	const platformModel = glider.platform
+		? [glider.platform, glider.platformModel].filter(Boolean).join(" ")
+		: null;
+
 	return (
 		<Box>
 			<PageBreadcrumb
-				catalogue="Fleet"
+				catalogue="Glider fleet"
 				catalogueHref="/gliders"
 				current={glider.name}
 			/>
@@ -90,19 +118,48 @@ export default async function GliderDetailPage({
 						display: "grid",
 						gridTemplateColumns: {
 							xs: "repeat(2, 1fr)",
-							md: "repeat(4, 1fr)",
+							md: "repeat(5, 1fr)",
 						},
 						gap: 3,
 					}}
 				>
-					<Field label="WMO" value={glider.wmo} />
-					<Field label="Nickname" value={glider.name} />
+					<Field label="Name" value={glider.name} />
 					<Field label="Serial number" value={glider.serialNumber} />
-					<Field label="Platform maker" value={null} />
-					<Field label="Platform model" value={glider.platformModelFull} />
-					<Field label="Transmission system" value={null} />
+					<Field label="WMO" value={glider.wmo} />
+					<Field label="Purchase date" value={formatDate(glider.purchaseDate)} />
 					<Field label="Owner" value={glider.owner} />
-					<Field label="Purchased" value={null} />
+
+					<Field
+						label="Platform Model"
+						value={
+							<NvsValue
+								text={
+									<Box component="span" sx={{ textTransform: "capitalize" }}>
+										{platformModel ?? "—"}
+									</Box>
+								}
+								uri={glider.platformModelUri}
+							/>
+						}
+					/>
+					<Field
+						label="Platform Type"
+						value={
+							<NvsValue
+								text={glider.platformCategory ?? "—"}
+								uri={glider.platformCategoryUri}
+							/>
+						}
+					/>
+					<Field
+						label="Manufacturer"
+						value={
+							<NvsValue
+								text={glider.platformManufacturerName ?? "—"}
+								uri={glider.platformManufacturerUri}
+							/>
+						}
+					/>
 				</Box>
 			</Paper>
 

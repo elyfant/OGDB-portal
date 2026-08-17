@@ -21,13 +21,17 @@ const SELECT_FLEET = `
     p.name AS platform,
     NULLIF(TRIM(p.model), '') AS "platformModel",
     pm.pref_label AS "platformModelFull",
+    pm.uri AS "platformModelUri",
     pc.pref_label AS "platformCategory",
     pc.definition AS "platformCategoryDefinition",
+    pc.uri AS "platformCategoryUri",
     a.serial_number AS "serialNumber",
     i.name AS owner,
     m.name AS manufacturer,
     m."NVS_L35_preferred_label" AS "manufacturerL35Name",
     m."NVS_L35_definition" AS "manufacturerL35Definition",
+    pmfr."NVS_L35_preferred_label" AS "platformManufacturerName",
+    pmfr."NVS_L35_url" AS "platformManufacturerUri",
     a.purchase_date AS "purchaseDate",
     aso.id AS "statusId",
     aso.name AS status,
@@ -39,6 +43,7 @@ const SELECT_FLEET = `
   LEFT JOIN nvs_terms pc ON pc.id = p.l06_category_id
   LEFT JOIN institutes i ON i.id = a.institute_id
   LEFT JOIN manufacturers_with_nvs m ON m.id = a.manufacturer_id
+  LEFT JOIN manufacturers_with_nvs pmfr ON pmfr.id = p.manufacturer_id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
   WHERE a.asset_type_id = $1
