@@ -101,7 +101,7 @@ export default async function GliderDetailPage({
 					<Field label="Platform maker" value={null} />
 					<Field label="Platform model" value={glider.platformModelFull} />
 					<Field label="Transmission system" value={null} />
-					<Field label="Owner" value={null} />
+					<Field label="Owner" value={glider.owner} />
 					<Field label="Purchased" value={null} />
 				</Box>
 			</Paper>

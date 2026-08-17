@@ -43,6 +43,7 @@ export interface Glider {
 	platformModelFull: string | null;
 	platformCategory: string | null;
 	serialNumber: string | null;
+	owner: string | null;
 	statusId: number | null;
 	status: AssetStatus | null;
 	statusEffectiveDate: string | null;
