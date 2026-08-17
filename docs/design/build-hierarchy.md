@@ -94,7 +94,12 @@ independent of the OGDB session:
 | eco_sensor | glider, slocum_payload_bay |
 | slocum_end_cap | slocum_aft_section |
 
-## Science sensor NVS backing (2026-08-16)
+## Science sensor NVS backing (2026-08-16, applied 2026-08-17)
+
+**Status: fully applied**, to both `ogdb-test` and production —
+`xxxx_nvs_back_science_sensors` + `xxxx_rename_platform_nvs_constraints`.
+All 35 sensors have real `l05_family_id`/`l22_model_id`. `asset_sensor_parameters`
+exists and is empty, ready for the P01 term list below.
 
 Fiona matched all 35 science sensors' legacy model text (preserved in
 `assets.notes` through the backfill, e.g. "Legacy model: GPCTD") against
@@ -213,6 +218,52 @@ No changes needed to `sync_nvs_terms.py` — it's already generic per
 collection. Once the P01 term list is ready, add those URIs to
 `nvs_terms.yaml` and run it, same as B76/L05/L22 already work.
 
+## Manufacturer NVS backing (2026-08-17)
+
+**Status: fully applied** — `xxxx_nvs_back_manufacturers`, same
+collection-prefixed-FK-into-`nvs_terms` + friendly-view pattern as above,
+this time for **L35** (SenseOcean Device Developers and Manufacturers).
+
+| `manufacturers.name` | L35 term |
+|---|---|
+| TWR | MAN0020 — Teledyne Webb Research |
+| IOP | MAN0024 — University of Washington |
+| RBR | MAN0049 — RBR |
+| SBE | MAN0013 — Sea-Bird Scientific |
+| Electrochem | *(no L35 entry — battery-cell supplier, not an oceanographic device maker; left unbacked, not removed)* |
+
+Dropped `manufacturers.long_name` (redundant with the NVS-sourced
+preferred label once backed) and added `l35_manufacturer_id` +
+`manufacturers_with_nvs`. `manufacturers.url` was kept as-is — each
+manufacturer's own website, a different thing from the NVS term's own
+URI (`NVS_L35_url` on the view).
+
+Confirmed before dropping anything: Electrochem is referenced by 4
+`battery_models` rows, so it stays in the table regardless — same
+"nothing forces every row to resolve to an NVS term" reasoning as
+`depth_rating` staying `NULL` for sensors that never had one.
+
+## Data cleanup: six orphaned glider-asset rows (2026-08-17)
+
+Found while investigating why the Gliders Fleet catalogue and the All
+Assets catalogue appeared to disagree on status for the same gliders.
+They didn't — `gliders.service.ts` uses an inner join to
+`asset_glider_details`, `assets.service.ts` uses a left join. Six
+`assets` rows (ids 179–184, serial numbers 559–564 — the same serials as
+the six real Seagliders, ids 1–6) had no matching `asset_glider_details`
+row at all, so they were silently excluded from Fleet but showed up in
+All Assets as blank rows with no status.
+
+Root cause: leftover duplicates from the original Phase 1 backfill —
+`created_at` on all six is `2026-08-08 22:13:48`, in the middle of that
+backfill run. Confirmed zero references anywhere (`asset_status_history`,
+`asset_assignments`, `asset_service_events`, `documents`,
+`legacy_asset_id_map`, `missions`, `firmware_history`, `piloting_log`)
+before deleting. Removed from both `ogdb-test` and production via direct
+`DELETE FROM assets WHERE id IN (179,180,181,182,183,184)` — data-only,
+no migration, since it's cleanup of bad rows rather than a schema
+change.
+
 ## Real remaining gaps
 
 Split by which side owns the fix:
@@ -260,8 +311,6 @@ Split by which side owns the fix:
 - Rename asset type `nose_cone` → `slocum_recovery_nose`. Decided in this
   planning thread, not yet applied — needs its own migration on the OGDB
   side.
-- The full NVS backing schema above (FK renames, `asset_sensor_parameters`,
-  the three `_with_nvs` views) — designed, not yet applied. Blocked on
-  Fiona's P01 term list before `sync_nvs_terms.py` has anything to load for
-  the parameters side; the FK renames and views could go in independently
-  of that if useful sooner.
+- P01 parameter rows in `asset_sensor_parameters` — table exists, empty.
+  Blocked on Fiona's P01 term list before `sync_nvs_terms.py` has
+  anything to load for the parameters side.
