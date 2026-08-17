@@ -24,6 +24,8 @@ const SELECT_FLEET = `
     pc.pref_label AS "platformCategory",
     a.serial_number AS "serialNumber",
     i.name AS owner,
+    m.name AS manufacturer,
+    a.purchase_date AS "purchaseDate",
     aso.id AS "statusId",
     aso.name AS status,
     cas.effective_date AS "statusEffectiveDate"
@@ -33,6 +35,7 @@ const SELECT_FLEET = `
   LEFT JOIN nvs_terms pm ON pm.id = p.b76_model_id
   LEFT JOIN nvs_terms pc ON pc.id = p.l06_category_id
   LEFT JOIN institutes i ON i.id = a.institute_id
+  LEFT JOIN manufacturers m ON m.id = a.manufacturer_id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
   WHERE a.asset_type_id = $1
