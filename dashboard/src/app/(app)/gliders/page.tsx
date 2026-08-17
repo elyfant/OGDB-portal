@@ -44,7 +44,11 @@ export default async function GlidersPage() {
 								</TableCell>
 								<TableCell>{glider.wmo ?? "—"}</TableCell>
 								<TableCell sx={{ textTransform: "capitalize" }}>
-									{glider.platform ?? "—"}
+									{glider.platform
+										? [glider.platform, glider.platformModel]
+												.filter(Boolean)
+												.join(" ")
+										: "—"}
 								</TableCell>
 								<TableCell>{glider.serialNumber ?? "—"}</TableCell>
 								<TableCell>

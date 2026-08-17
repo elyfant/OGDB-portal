@@ -37,9 +37,11 @@ export interface Glider {
 	name: string;
 	wmo: string | null;
 	platform: string | null;
+	// Free-text local model variant (e.g. "G3", "G3 persistor") — carries
+	// real distinctions NVS can't express, since some variants share the
+	// same B76 term. Combine with `platform` for a short display label.
+	platformModel: string | null;
 	// NVS-sourced (B76/L06) — full model name and platform category.
-	// Only populated once platforms.platform_model_id/platform_category_id
-	// are backfilled; null otherwise.
 	platformModelFull: string | null;
 	platformCategory: string | null;
 	serialNumber: string | null;

@@ -19,6 +19,7 @@ const SELECT_FLEET = `
     agd.glider_name AS name,
     agd.wmo,
     p.name AS platform,
+    NULLIF(TRIM(p.model), '') AS "platformModel",
     pm.pref_label AS "platformModelFull",
     pc.pref_label AS "platformCategory",
     a.serial_number AS "serialNumber",
