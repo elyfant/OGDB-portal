@@ -1,6 +1,10 @@
 import Field from "@/components/Field";
+import GliderCurrentBuild from "@/components/GliderCurrentBuild";
+import GliderEditHistory from "@/components/GliderEditHistory";
+import GliderSciencePayload from "@/components/GliderSciencePayload";
+import GliderServicingHistory from "@/components/GliderServicingHistory";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
-import { getGlider } from "@/lib/api";
+import { getGlider, getGliderBuild } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -15,13 +19,6 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-
-const PLACEHOLDER_SECTIONS = [
-	"Platform information",
-	"Science payload",
-	"Servicing history",
-	"Editing history",
-];
 
 function ComingSoonCard({ title }: { title: string }) {
 	return (
@@ -76,6 +73,7 @@ export default async function GliderDetailPage({
 	const { id } = await params;
 	const glider = await getGlider(Number(id));
 	if (!glider) notFound();
+	const build = await getGliderBuild(Number(id));
 
 	const platformModel = glider.platform
 		? [glider.platform, glider.platformModel].filter(Boolean).join(" ")
@@ -126,7 +124,10 @@ export default async function GliderDetailPage({
 					<Field label="Name" value={glider.name} />
 					<Field label="Serial number" value={glider.serialNumber} />
 					<Field label="WMO" value={glider.wmo} />
-					<Field label="Purchase date" value={formatDate(glider.purchaseDate)} />
+					<Field
+						label="Purchase date"
+						value={formatDate(glider.purchaseDate)}
+					/>
 					<Field label="Owner" value={glider.owner} />
 
 					<Field
@@ -163,20 +164,42 @@ export default async function GliderDetailPage({
 				</Box>
 			</Paper>
 
-			<ComingSoonCard title="Current build" />
+			<Typography variant="h6" sx={{ mb: 1.5 }}>
+				Current build
+			</Typography>
+			<Paper variant="outlined" sx={{ p: 3, mb: 2.5 }}>
+				<GliderCurrentBuild components={build.components} />
+			</Paper>
+
 			<ComingSoonCard title="Status" />
 
 			<Box sx={{ mt: 1.5 }}>
-				{PLACEHOLDER_SECTIONS.map((title) => (
-					<Accordion key={title} disableGutters>
-						<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-							<Typography color="text.secondary">{title}</Typography>
-						</AccordionSummary>
-						<AccordionDetails>
-							<Typography color="text.disabled">Not yet available.</Typography>
-						</AccordionDetails>
-					</Accordion>
-				))}
+				<Accordion disableGutters>
+					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+						<Typography color="text.secondary">Science payload</Typography>
+					</AccordionSummary>
+					<AccordionDetails>
+						<GliderSciencePayload sciencePayload={build.sciencePayload} />
+					</AccordionDetails>
+				</Accordion>
+
+				<Accordion disableGutters>
+					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+						<Typography color="text.secondary">Servicing history</Typography>
+					</AccordionSummary>
+					<AccordionDetails>
+						<GliderServicingHistory statusHistory={build.statusHistory} />
+					</AccordionDetails>
+				</Accordion>
+
+				<Accordion disableGutters>
+					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+						<Typography color="text.secondary">Editing history</Typography>
+					</AccordionSummary>
+					<AccordionDetails>
+						<GliderEditHistory editHistory={build.editHistory} />
+					</AccordionDetails>
+				</Accordion>
 			</Box>
 		</Box>
 	);

@@ -6,6 +6,7 @@ import type {
 	DatasetProcessingDetail,
 	DatasetProcessingStatus,
 	Glider,
+	GliderBuild,
 	Mission,
 	MissionsLeaderboard,
 	MissionsSummary,
@@ -40,6 +41,14 @@ export async function getGlider(id: number): Promise<Glider | null> {
 	if (res.status === 404) return null;
 	if (!res.ok) {
 		throw new Error(`Failed to fetch glider ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getGliderBuild(id: number): Promise<GliderBuild> {
+	const res = await apiFetch(`/gliders/${id}/build`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch glider ${id} build: ${res.status}`);
 	}
 	return res.json();
 }

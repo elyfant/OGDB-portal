@@ -217,6 +217,63 @@ export interface Mission {
 	numberOfDays: number | null;
 }
 
+export interface GliderBuildComponent {
+	assignmentId: number;
+	assetId: number;
+	parentAssetId: number;
+	assetType: string;
+	assetTypeGroup: string;
+	serialNumber: string | null;
+	position: string | null;
+	installDate: string | null;
+	depth: number;
+}
+
+export interface SensorCalRecord {
+	date: string | null;
+	// Column names/values vary per sensor type (CT/DO/ECO each have a
+	// completely different coefficient set) — kept generic rather than
+	// typing out every column, same reasoning as the DB's own per-type
+	// cal tables.
+	coefficients: Record<string, number | string | null>;
+}
+
+export interface GliderSciencePayloadItem {
+	assetId: number;
+	assetType: string;
+	serialNumber: string | null;
+	modelLabel: string | null;
+	modelUri: string | null;
+	familyLabel: string | null;
+	calibrations: SensorCalRecord[];
+}
+
+export interface GliderStatusHistoryItem {
+	id: number;
+	assetId: number;
+	assetType: string;
+	serialNumber: string | null;
+	status: AssetStatus;
+	effectiveDate: string;
+	notes: string | null;
+	changedByEmail: string | null;
+}
+
+export interface GliderEditHistoryItem {
+	tableName: string;
+	rowId: number;
+	operation: string;
+	changedAt: string;
+	changedByEmail: string | null;
+}
+
+export interface GliderBuild {
+	components: GliderBuildComponent[];
+	sciencePayload: GliderSciencePayloadItem[];
+	statusHistory: GliderStatusHistoryItem[];
+	editHistory: GliderEditHistoryItem[];
+}
+
 export interface Cruise {
 	id: number;
 	cruiseName: string;

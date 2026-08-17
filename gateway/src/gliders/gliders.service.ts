@@ -4,9 +4,10 @@ import {
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
-import type { Glider } from "@ogdb/types";
+import type { Glider, GliderBuild } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
+import { getGliderBuild } from "./build.helpers";
 import type { CreateGliderDto } from "./dto/create-glider.dto";
 import type { SetGliderStatusDto } from "./dto/set-glider-status.dto";
 import type { UpdateGliderDto } from "./dto/update-glider.dto";
@@ -70,6 +71,11 @@ export class GlidersService {
 			throw new NotFoundException(`Glider ${id} not found`);
 		}
 		return result.rows[0];
+	}
+
+	async getBuild(id: number): Promise<GliderBuild> {
+		await this.findOne(id);
+		return getGliderBuild(this.pool, id);
 	}
 
 	async create(dto: CreateGliderDto, userId: number): Promise<Glider> {

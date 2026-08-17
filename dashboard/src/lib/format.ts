@@ -17,6 +17,28 @@ export function formatDate(value: string | null): string {
 	});
 }
 
+const ACRONYM_WORDS = new Set(["ct", "do", "mr"]);
+
+export function formatAssetType(assetType: string): string {
+	const words = assetType.replace(/^slocum_/, "").split("_");
+	return words
+		.map((w) =>
+			ACRONYM_WORDS.has(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1),
+		)
+		.join(" ");
+}
+
+export function formatDateTime(value: string | null): string {
+	if (!value) return "—";
+	return new Date(value).toLocaleString("en-GB", {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+}
+
 export function formatUsd(value: number | null): string {
 	if (value === null) return "—";
 	return value.toLocaleString("en-US", {

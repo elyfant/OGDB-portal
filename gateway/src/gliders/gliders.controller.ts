@@ -31,6 +31,11 @@ export class GlidersController {
 		return this.gliders.findOne(id);
 	}
 
+	@Get(":id/build")
+	getBuild(@Param("id", ParseIntPipe) id: number) {
+		return this.gliders.getBuild(id);
+	}
+
 	@Roles("editor", "admin")
 	@Post()
 	create(@Body() dto: CreateGliderDto, @CurrentUser() user: JwtPayload) {
