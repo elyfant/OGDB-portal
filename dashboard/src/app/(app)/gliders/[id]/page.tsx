@@ -183,7 +183,10 @@ export default async function GliderDetailPage({
 				Current build
 			</Typography>
 			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
-				<GliderCurrentBuild components={build.components} />
+				<GliderCurrentBuild
+					components={build.components}
+					componentDetails={build.componentDetails}
+				/>
 			</Paper>
 
 			<ComingSoonCard title="Status" />

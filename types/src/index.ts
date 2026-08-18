@@ -274,8 +274,20 @@ export interface GliderEditHistoryItem {
 	changedByEmail: string | null;
 }
 
+// Full detail-table row and full cal history for one component, for the
+// Current Build table's row expansion. `detail`/`calibrations` are null
+// when the asset type has no detail table / no cal table at all (not
+// the same as "has one but it's empty") — lets the UI omit a section
+// entirely rather than showing a false "no data yet".
+export interface GliderComponentDetail {
+	assetId: number;
+	detail: Record<string, string | number | boolean | null> | null;
+	calibrations: SensorCalRecord[] | null;
+}
+
 export interface GliderBuild {
 	components: GliderBuildComponent[];
+	componentDetails: GliderComponentDetail[];
 	sciencePayload: GliderSciencePayloadItem[];
 	statusHistory: GliderStatusHistoryItem[];
 	editHistory: GliderEditHistoryItem[];

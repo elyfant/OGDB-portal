@@ -1,6 +1,7 @@
 import type {
 	GliderBuild,
 	GliderBuildComponent,
+	GliderComponentDetail,
 	GliderEditHistoryItem,
 	GliderSciencePayloadItem,
 	GliderStatusHistoryItem,
@@ -193,6 +194,57 @@ async function fetchModels(
 	return models;
 }
 
+// Full detail-table row + full cal history per component, for the
+// Current Build table's row expansion — this is the generic version of
+// fetchModels/fetchSciencePayload above (which only pull curated fields
+// for display elsewhere), covering every asset type with a detail or cal
+// table, not just science sensors.
+async function fetchComponentDetails(
+	pool: Pool,
+	buildTree: GliderBuildComponent[],
+): Promise<GliderComponentDetail[]> {
+	const results = await Promise.all(
+		buildTree.map(async (c): Promise<GliderComponentDetail> => {
+			const detailTable = DETAIL_TABLES[c.assetType];
+			let detail: GliderComponentDetail["detail"] = null;
+			if (detailTable) {
+				const result = await pool.query(
+					`SELECT * FROM ${detailTable} WHERE asset_id = $1`,
+					[c.assetId],
+				);
+				if (result.rows[0]) {
+					const { asset_id, ...fields } = result.rows[0];
+					detail = fields;
+				}
+			}
+
+			const calInfo = CAL_TABLES[c.assetType];
+			let calibrations: GliderComponentDetail["calibrations"] = null;
+			if (calInfo) {
+				const [table, dateColumn] = calInfo;
+				const result = await pool.query(
+					`SELECT * FROM ${table} WHERE asset_id = $1 ORDER BY ${dateColumn} DESC`,
+					[c.assetId],
+				);
+				calibrations = result.rows.map((row) => {
+					const {
+						id,
+						asset_id,
+						changed_by,
+						created_at,
+						[dateColumn]: date,
+						...coefficients
+					} = row;
+					return { date, coefficients };
+				});
+			}
+
+			return { assetId: c.assetId, detail, calibrations };
+		}),
+	);
+	return results.filter((r) => r.detail !== null || r.calibrations !== null);
+}
+
 async function fetchStatusHistory(
 	pool: Pool,
 	assetIds: number[],
@@ -290,11 +342,13 @@ export async function getGliderBuild(
 	const sensors = rawBuildTree.filter((c) => c.assetTypeGroup === "sensor");
 	const allAssetIds = [gliderAssetId, ...rawBuildTree.map((c) => c.assetId)];
 
-	const [sciencePayload, statusHistory, models] = await Promise.all([
-		fetchSciencePayload(pool, sensors),
-		fetchStatusHistory(pool, allAssetIds),
-		fetchModels(pool, rawBuildTree),
-	]);
+	const [sciencePayload, statusHistory, models, componentDetails] =
+		await Promise.all([
+			fetchSciencePayload(pool, sensors),
+			fetchStatusHistory(pool, allAssetIds),
+			fetchModels(pool, rawBuildTree),
+			fetchComponentDetails(pool, rawBuildTree),
+		]);
 	const buildTree = rawBuildTree.map((c) => {
 		const info = models.get(c.assetId);
 		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
@@ -306,5 +360,11 @@ export async function getGliderBuild(
 		statusHistory,
 	);
 
-	return { components: buildTree, sciencePayload, statusHistory, editHistory };
+	return {
+		components: buildTree,
+		componentDetails,
+		sciencePayload,
+		statusHistory,
+		editHistory,
+	};
 }
