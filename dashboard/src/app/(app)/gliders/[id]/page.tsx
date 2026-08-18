@@ -6,11 +6,16 @@ import GliderServicingHistory from "@/components/GliderServicingHistory";
 import GliderStatusBox from "@/components/GliderStatusBox";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
+import StatTile from "@/components/StatTile";
 import { getGlider, getGliderBuild } from "@/lib/api";
-import { formatDate } from "@/lib/format";
+import { formatCount, formatDate } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import RouteIcon from "@mui/icons-material/Route";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import StraightenIcon from "@mui/icons-material/Straighten";
+import WavesIcon from "@mui/icons-material/Waves";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
@@ -102,6 +107,33 @@ export default async function GliderDetailPage({
 					</Typography>
 				</Box>
 			</Paper>
+
+			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5, mb: 4 }}>
+				<StatTile
+					label="Missions"
+					value={formatCount(build.missionsSummary.totalMissions)}
+					icon={RouteIcon}
+					colorRole="blue"
+				/>
+				<StatTile
+					label="Days in water"
+					value={formatCount(build.missionsSummary.totalDays)}
+					icon={ScheduleIcon}
+					colorRole="yellow"
+				/>
+				<StatTile
+					label="Total distance (km)"
+					value={formatCount(build.missionsSummary.totalDistanceKm)}
+					icon={StraightenIcon}
+					colorRole="aqua"
+				/>
+				<StatTile
+					label="Total dives"
+					value={formatCount(build.missionsSummary.totalDives)}
+					icon={WavesIcon}
+					colorRole="orange"
+				/>
+			</Box>
 
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				About glider

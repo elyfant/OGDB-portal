@@ -5,8 +5,16 @@ import type {
 	GliderDeployment,
 	GliderEditHistoryItem,
 	GliderStatusHistoryItem,
+	MissionsSummary,
 } from "@ogdb/types";
 import type { Pool } from "pg";
+
+// Mirrors missions.service.ts's DAYS_EXPR/getSummary exactly, scoped to
+// one glider instead of the whole fleet — kept as a separate query
+// against missions directly (glider_asset_id lives there) rather than
+// norglider_missions, which only exposes the glider's name, not its id.
+const DAYS_EXPR =
+	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
 
 // asset_types.name -> detail table name, mirrors OGDB's
 // scripts/build_glider_assignments.py ASSEMBLY_NUMBER_LOOKUP/DETAIL_TABLES
@@ -331,6 +339,23 @@ async function fetchDeployments(
 	return result.rows;
 }
 
+async function fetchMissionsSummary(
+	pool: Pool,
+	gliderAssetId: number,
+): Promise<MissionsSummary> {
+	const result = await pool.query(
+		`SELECT
+       COUNT(*)::int AS "totalMissions",
+       COALESCE(SUM(dives), 0)::int AS "totalDives",
+       ROUND(COALESCE(SUM(distance_km), 0)::numeric)::int AS "totalDistanceKm",
+       COALESCE(SUM(${DAYS_EXPR}), 0)::int AS "totalDays"
+     FROM missions
+     WHERE glider_asset_id = $1`,
+		[gliderAssetId],
+	);
+	return result.rows[0];
+}
+
 export async function getGliderBuild(
 	pool: Pool,
 	gliderAssetId: number,
@@ -338,13 +363,19 @@ export async function getGliderBuild(
 	const rawBuildTree = await fetchBuildTree(pool, gliderAssetId);
 	const allAssetIds = [gliderAssetId, ...rawBuildTree.map((c) => c.assetId)];
 
-	const [statusHistory, models, componentDetails, deployments] =
-		await Promise.all([
-			fetchStatusHistory(pool, allAssetIds),
-			fetchModels(pool, rawBuildTree),
-			fetchComponentDetails(pool, rawBuildTree),
-			fetchDeployments(pool, gliderAssetId),
-		]);
+	const [
+		statusHistory,
+		models,
+		componentDetails,
+		deployments,
+		missionsSummary,
+	] = await Promise.all([
+		fetchStatusHistory(pool, allAssetIds),
+		fetchModels(pool, rawBuildTree),
+		fetchComponentDetails(pool, rawBuildTree),
+		fetchDeployments(pool, gliderAssetId),
+		fetchMissionsSummary(pool, gliderAssetId),
+	]);
 	const buildTree = rawBuildTree.map((c) => {
 		const info = models.get(c.assetId);
 		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
@@ -360,6 +391,7 @@ export async function getGliderBuild(
 		components: buildTree,
 		componentDetails,
 		deployments,
+		missionsSummary,
 		statusHistory,
 		editHistory,
 	};

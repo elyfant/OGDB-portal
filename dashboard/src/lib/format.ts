@@ -63,6 +63,10 @@ export function formatDateTime(value: string | null): string {
 	});
 }
 
+export function formatCount(value: number | null): string {
+	return value === null ? "—" : value.toLocaleString("en-GB");
+}
+
 export function formatUsd(value: number | null): string {
 	if (value === null) return "—";
 	return value.toLocaleString("en-US", {

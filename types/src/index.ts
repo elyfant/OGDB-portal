@@ -294,6 +294,10 @@ export interface GliderBuild {
 	components: GliderBuildComponent[];
 	componentDetails: GliderComponentDetail[];
 	deployments: GliderDeployment[];
+	// Same shape as the fleet-wide MissionsSummary, scoped to this glider's
+	// own missions — reused rather than a new type since the fields match
+	// exactly.
+	missionsSummary: MissionsSummary;
 	statusHistory: GliderStatusHistoryItem[];
 	editHistory: GliderEditHistoryItem[];
 }

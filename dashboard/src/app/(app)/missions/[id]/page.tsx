@@ -2,7 +2,7 @@ import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import StatTile from "@/components/StatTile";
 import { getMission } from "@/lib/api";
-import { formatDate, statusColor } from "@/lib/format";
+import { formatCount, formatDate, statusColor } from "@/lib/format";
 import DatasetIcon from "@mui/icons-material/Dataset";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -32,10 +32,6 @@ const PLACEHOLDER_SECTIONS = [
 	"Piloting history",
 	"Editing history",
 ];
-
-function formatCount(value: number | null): string {
-	return value === null ? "—" : value.toLocaleString("en-GB");
-}
 
 function formatPosition(lat: number | null, lon: number | null): string {
 	if (lat === null || lon === null) return "—";
@@ -70,7 +66,11 @@ export default async function MissionDetailPage({
 
 	return (
 		<Box>
-			<PageBreadcrumb catalogue="Missions" catalogueHref="/missions" current={name} />
+			<PageBreadcrumb
+				catalogue="Missions"
+				catalogueHref="/missions"
+				current={name}
+			/>
 
 			<Box
 				sx={{
@@ -109,10 +109,10 @@ export default async function MissionDetailPage({
 
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5, mb: 4 }}>
 				<StatTile
-					label="Total dives"
-					value={formatCount(mission.dives)}
-					icon={WavesIcon}
-					colorRole="orange"
+					label="Days in water"
+					value={formatCount(mission.numberOfDays)}
+					icon={ScheduleIcon}
+					colorRole="yellow"
 				/>
 				<StatTile
 					label="Total distance (km)"
@@ -121,10 +121,10 @@ export default async function MissionDetailPage({
 					colorRole="aqua"
 				/>
 				<StatTile
-					label="Days in water"
-					value={formatCount(mission.numberOfDays)}
-					icon={ScheduleIcon}
-					colorRole="yellow"
+					label="Total dives"
+					value={formatCount(mission.dives)}
+					icon={WavesIcon}
+					colorRole="orange"
 				/>
 			</Box>
 
