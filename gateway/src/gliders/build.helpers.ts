@@ -28,6 +28,7 @@ const DETAIL_TABLES: Record<string, string> = {
 	slocum_hull: "asset_slocum_hull_details",
 	slocum_altimeter: "asset_slocum_altimeter_details",
 	slocum_energy_bay: "asset_slocum_energy_bay_details",
+	slocum_thruster: "asset_slocum_thruster_details",
 	battery: "asset_battery_details",
 	ct_sensor: "asset_sensor_details",
 	do_sensor: "asset_sensor_details",
@@ -47,6 +48,7 @@ const FLAT_MODEL_TABLES: Record<string, string> = {
 	slocum_payload_bay: "asset_slocum_payload_bay_details",
 	slocum_altimeter: "asset_slocum_altimeter_details",
 	slocum_energy_bay: "asset_slocum_energy_bay_details",
+	slocum_thruster: "asset_slocum_thruster_details",
 };
 
 // asset_types.name -> [cal table, its date column]. Only these four types
@@ -98,8 +100,8 @@ async function fetchBuildTree(
 // "Model" is resolved differently per type: science sensors (NVS L22),
 // batteries (battery_models), hulls (hull_models), and everything in
 // FLAT_MODEL_TABLES (a plain `model` column on the detail table). Only
-// slocum_thruster/argos_tag/nose_cone have no model concept at all —
-// see docs/design/build-hierarchy.md "Real remaining gaps".
+// argos_tag/nose_cone have no model concept at all — see
+// docs/design/build-hierarchy.md "Real remaining gaps".
 interface ModelInfo {
 	model: string | null;
 	uri: string | null;

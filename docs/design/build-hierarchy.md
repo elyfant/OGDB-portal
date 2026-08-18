@@ -296,9 +296,12 @@ Split by which side owns the fix:
   plain-text fields already used elsewhere on these tables (e.g.
   `digifin_type`). Aft/forward section, end cap, and payload bay already
   had a detail table, just got the column added
-  (`xxxx_add_structural_part_models`); altimeter and energy bay had none
-  at all, so got a minimal one created (asset_id + model only). Only
-  `slocum_thruster`/`argos_tag`/`nose_cone` have no model concept now.
+  (`xxxx_add_structural_part_models`); altimeter, energy bay, and
+  thruster had none at all, so got a minimal one created (asset_id +
+  model only) each — thruster followed the same day
+  (`xxxx_add_thruster_model`) once Fiona had its value ("10W Thruster",
+  the same across the fleet). Only `argos_tag`/`nose_cone` have no model
+  concept now.
 - **12 components (27 rows) are flagged ambiguous** — the backfill couldn't
   determine ordering when a component appeared under multiple parents with
   no dates to sequence the move. Queryable via `WHERE notes LIKE '%ambiguous
