@@ -245,16 +245,6 @@ export interface SensorCalRecord {
 	coefficients: Record<string, number | string | null>;
 }
 
-export interface GliderSciencePayloadItem {
-	assetId: number;
-	assetType: string;
-	serialNumber: string | null;
-	modelLabel: string | null;
-	modelUri: string | null;
-	familyLabel: string | null;
-	calibrations: SensorCalRecord[];
-}
-
 export interface GliderStatusHistoryItem {
 	id: number;
 	assetId: number;
@@ -285,10 +275,25 @@ export interface GliderComponentDetail {
 	calibrations: SensorCalRecord[] | null;
 }
 
+// A filtered, curated view of norglider_missions for one glider — the
+// Deployment History table on the glider detail page, not the full
+// missions catalogue's column set.
+export interface GliderDeployment {
+	id: number;
+	missionNumber: number | null;
+	stdMissionName: string | null;
+	status: string | null;
+	site: string | null;
+	launchDate: string | null;
+	recoveryDate: string | null;
+	dives: number | null;
+	distanceKm: number | null;
+}
+
 export interface GliderBuild {
 	components: GliderBuildComponent[];
 	componentDetails: GliderComponentDetail[];
-	sciencePayload: GliderSciencePayloadItem[];
+	deployments: GliderDeployment[];
 	statusHistory: GliderStatusHistoryItem[];
 	editHistory: GliderEditHistoryItem[];
 }

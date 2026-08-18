@@ -14,7 +14,10 @@ export default function Field({
 			<Typography variant="caption" color="text.secondary" display="block">
 				{label}
 			</Typography>
-			<Typography>{value ?? "—"}</Typography>
+			{/* component="div", not the default <p> — value can contain block-level
+			    content (e.g. NvsValue's Box), which isn't valid inside a <p> and
+			    causes a hydration mismatch */}
+			<Typography component="div">{value ?? "—"}</Typography>
 		</Box>
 	);
 }

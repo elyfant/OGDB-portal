@@ -1,8 +1,9 @@
 import Field from "@/components/Field";
 import GliderCurrentBuild from "@/components/GliderCurrentBuild";
+import GliderDeploymentHistory from "@/components/GliderDeploymentHistory";
 import GliderEditHistory from "@/components/GliderEditHistory";
-import GliderSciencePayload from "@/components/GliderSciencePayload";
 import GliderServicingHistory from "@/components/GliderServicingHistory";
+import GliderStatusBox from "@/components/GliderStatusBox";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
 import { getGlider, getGliderBuild } from "@/lib/api";
@@ -20,31 +21,6 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-
-function ComingSoonCard({ title }: { title: string }) {
-	return (
-		<Box
-			sx={{
-				border: "1px dashed",
-				borderColor: "divider",
-				borderRadius: 2,
-				px: 3,
-				py: 2.5,
-				mb: 2.5,
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "space-between",
-			}}
-		>
-			<Typography variant="h6" color="text.secondary">
-				{title}
-			</Typography>
-			<Typography variant="body2" color="text.disabled">
-				coming soon
-			</Typography>
-		</Box>
-	);
-}
 
 // Links a displayed value out to the NVS term it came from — only
 // rendered when a real URI exists, never a dead icon.
@@ -189,15 +165,24 @@ export default async function GliderDetailPage({
 				/>
 			</Paper>
 
-			<ComingSoonCard title="Status" />
+			<Typography variant="h6" sx={{ mb: 1.5 }}>
+				Status
+			</Typography>
+			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+				<GliderStatusBox
+					status={glider.status}
+					statusEffectiveDate={glider.statusEffectiveDate}
+					statusHistory={build.statusHistory}
+				/>
+			</Paper>
 
 			<Box sx={{ mt: 1.5 }}>
 				<Accordion disableGutters>
 					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-						<Typography color="text.secondary">Science payload</Typography>
+						<Typography color="text.secondary">Deployment history</Typography>
 					</AccordionSummary>
 					<AccordionDetails>
-						<GliderSciencePayload sciencePayload={build.sciencePayload} />
+						<GliderDeploymentHistory deployments={build.deployments} />
 					</AccordionDetails>
 				</Accordion>
 

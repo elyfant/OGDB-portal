@@ -2,10 +2,9 @@ import type {
 	GliderBuild,
 	GliderBuildComponent,
 	GliderComponentDetail,
+	GliderDeployment,
 	GliderEditHistoryItem,
-	GliderSciencePayloadItem,
 	GliderStatusHistoryItem,
-	SensorCalRecord,
 } from "@ogdb/types";
 import type { Pool } from "pg";
 
@@ -86,61 +85,6 @@ async function fetchBuildTree(
 ): Promise<GliderBuildComponent[]> {
 	const result = await pool.query(BUILD_TREE_SQL, [gliderAssetId]);
 	return result.rows;
-}
-
-async function fetchSciencePayload(
-	pool: Pool,
-	sensors: GliderBuildComponent[],
-): Promise<GliderSciencePayloadItem[]> {
-	if (sensors.length === 0) return [];
-	const sensorIds = sensors.map((s) => s.assetId);
-
-	const detailResult = await pool.query(
-		`SELECT asd.asset_id AS "assetId",
-            modelTerm.pref_label AS "modelLabel", modelTerm.uri AS "modelUri",
-            familyTerm.pref_label AS "familyLabel"
-     FROM asset_sensor_details asd
-     LEFT JOIN nvs_terms modelTerm ON modelTerm.id = asd.l22_model_id
-     LEFT JOIN nvs_terms familyTerm ON familyTerm.id = asd.l05_family_id
-     WHERE asd.asset_id = ANY($1)`,
-		[sensorIds],
-	);
-	const detailByAsset = new Map(detailResult.rows.map((r) => [r.assetId, r]));
-
-	const items: GliderSciencePayloadItem[] = [];
-	for (const sensor of sensors) {
-		const calInfo = CAL_TABLES[sensor.assetType];
-		let calibrations: SensorCalRecord[] = [];
-		if (calInfo) {
-			const [table, dateColumn] = calInfo;
-			const calResult = await pool.query(
-				`SELECT * FROM ${table} WHERE asset_id = $1 ORDER BY ${dateColumn} DESC`,
-				[sensor.assetId],
-			);
-			calibrations = calResult.rows.map((row) => {
-				const {
-					id,
-					asset_id,
-					changed_by,
-					created_at,
-					[dateColumn]: date,
-					...coefficients
-				} = row;
-				return { date, coefficients };
-			});
-		}
-		const detail = detailByAsset.get(sensor.assetId);
-		items.push({
-			assetId: sensor.assetId,
-			assetType: sensor.assetType,
-			serialNumber: sensor.serialNumber,
-			modelLabel: detail?.modelLabel ?? null,
-			modelUri: detail?.modelUri ?? null,
-			familyLabel: detail?.familyLabel ?? null,
-			calibrations,
-		});
-	}
-	return items;
 }
 
 // "Model" is resolved differently per type: science sensors (NVS L22),
@@ -365,20 +309,41 @@ async function fetchEditHistory(
 	return result.rows;
 }
 
+// norglider_missions.id === missions.id (it's a straight view over
+// missions with joined-in labels) -- filtering by missions.glider_asset_id
+// is the real FK relationship; norglider_missions itself only exposes
+// the glider's name, not its id, so the filter has to join back.
+async function fetchDeployments(
+	pool: Pool,
+	gliderAssetId: number,
+): Promise<GliderDeployment[]> {
+	const result = await pool.query(
+		`SELECT nm.id, nm.mission_number AS "missionNumber",
+            nm.std_mission_name AS "stdMissionName", nm.status, nm.site,
+            nm.launch_date AS "launchDate", nm.recovery_date AS "recoveryDate",
+            nm.dives, nm.distance_km AS "distanceKm"
+     FROM norglider_missions nm
+     JOIN missions m ON m.id = nm.id
+     WHERE m.glider_asset_id = $1
+     ORDER BY nm.launch_date DESC NULLS LAST`,
+		[gliderAssetId],
+	);
+	return result.rows;
+}
+
 export async function getGliderBuild(
 	pool: Pool,
 	gliderAssetId: number,
 ): Promise<GliderBuild> {
 	const rawBuildTree = await fetchBuildTree(pool, gliderAssetId);
-	const sensors = rawBuildTree.filter((c) => c.assetTypeGroup === "sensor");
 	const allAssetIds = [gliderAssetId, ...rawBuildTree.map((c) => c.assetId)];
 
-	const [sciencePayload, statusHistory, models, componentDetails] =
+	const [statusHistory, models, componentDetails, deployments] =
 		await Promise.all([
-			fetchSciencePayload(pool, sensors),
 			fetchStatusHistory(pool, allAssetIds),
 			fetchModels(pool, rawBuildTree),
 			fetchComponentDetails(pool, rawBuildTree),
+			fetchDeployments(pool, gliderAssetId),
 		]);
 	const buildTree = rawBuildTree.map((c) => {
 		const info = models.get(c.assetId);
@@ -394,7 +359,7 @@ export async function getGliderBuild(
 	return {
 		components: buildTree,
 		componentDetails,
-		sciencePayload,
+		deployments,
 		statusHistory,
 		editHistory,
 	};
