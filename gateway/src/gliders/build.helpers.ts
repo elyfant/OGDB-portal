@@ -126,6 +126,62 @@ async function fetchSciencePayload(
 	return items;
 }
 
+// "Model" only exists in the schema for three asset types today: science
+// sensors (NVS L22), batteries (battery_models), and hulls (hull_models).
+// Every other structural type (aft/forward section, end cap, energy bay,
+// payload bay, altimeter, ...) has no part-model concept at all yet —
+// see docs/design/build-hierarchy.md "Real remaining gaps".
+async function fetchModels(
+	pool: Pool,
+	buildTree: GliderBuildComponent[],
+): Promise<Map<number, string | null>> {
+	const models = new Map<number, string | null>();
+
+	const sensorIds = buildTree
+		.filter((c) => c.assetTypeGroup === "sensor")
+		.map((c) => c.assetId);
+	if (sensorIds.length) {
+		const result = await pool.query(
+			`SELECT asd.asset_id AS "assetId", t.pref_label AS model
+       FROM asset_sensor_details asd
+       JOIN nvs_terms t ON t.id = asd.l22_model_id
+       WHERE asd.asset_id = ANY($1)`,
+			[sensorIds],
+		);
+		for (const row of result.rows) models.set(row.assetId, row.model);
+	}
+
+	const batteryIds = buildTree
+		.filter((c) => c.assetType === "battery")
+		.map((c) => c.assetId);
+	if (batteryIds.length) {
+		const result = await pool.query(
+			`SELECT abd.asset_id AS "assetId", bm.model
+       FROM asset_battery_details abd
+       JOIN battery_models bm ON bm.id = abd.battery_model_id
+       WHERE abd.asset_id = ANY($1)`,
+			[batteryIds],
+		);
+		for (const row of result.rows) models.set(row.assetId, row.model);
+	}
+
+	const hullIds = buildTree
+		.filter((c) => c.assetType === "slocum_hull")
+		.map((c) => c.assetId);
+	if (hullIds.length) {
+		const result = await pool.query(
+			`SELECT hd.asset_id AS "assetId", hm.teledyne_part_number AS model
+       FROM asset_slocum_hull_details hd
+       JOIN hull_models hm ON hm.id = hd.hull_model_id
+       WHERE hd.asset_id = ANY($1)`,
+			[hullIds],
+		);
+		for (const row of result.rows) models.set(row.assetId, row.model);
+	}
+
+	return models;
+}
+
 async function fetchStatusHistory(
 	pool: Pool,
 	assetIds: number[],
@@ -219,14 +275,19 @@ export async function getGliderBuild(
 	pool: Pool,
 	gliderAssetId: number,
 ): Promise<GliderBuild> {
-	const buildTree = await fetchBuildTree(pool, gliderAssetId);
-	const sensors = buildTree.filter((c) => c.assetTypeGroup === "sensor");
-	const allAssetIds = [gliderAssetId, ...buildTree.map((c) => c.assetId)];
+	const rawBuildTree = await fetchBuildTree(pool, gliderAssetId);
+	const sensors = rawBuildTree.filter((c) => c.assetTypeGroup === "sensor");
+	const allAssetIds = [gliderAssetId, ...rawBuildTree.map((c) => c.assetId)];
 
-	const [sciencePayload, statusHistory] = await Promise.all([
+	const [sciencePayload, statusHistory, models] = await Promise.all([
 		fetchSciencePayload(pool, sensors),
 		fetchStatusHistory(pool, allAssetIds),
+		fetchModels(pool, rawBuildTree),
 	]);
+	const buildTree = rawBuildTree.map((c) => ({
+		...c,
+		model: models.get(c.assetId) ?? null,
+	}));
 	const editHistory = await fetchEditHistory(
 		pool,
 		gliderAssetId,

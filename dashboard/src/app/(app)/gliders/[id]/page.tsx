@@ -4,6 +4,7 @@ import GliderEditHistory from "@/components/GliderEditHistory";
 import GliderSciencePayload from "@/components/GliderSciencePayload";
 import GliderServicingHistory from "@/components/GliderServicingHistory";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import PlatformIcon from "@/components/PlatformIcon";
 import { getGlider, getGliderBuild } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
@@ -87,49 +88,63 @@ export default async function GliderDetailPage({
 				current={glider.name}
 			/>
 
-			<Box
+			<Paper
+				variant="outlined"
 				sx={{
-					display: "flex",
-					alignItems: "baseline",
-					justifyContent: "space-between",
-					flexWrap: "wrap",
-					gap: 2,
+					p: 3,
 					mb: 3,
+					display: "flex",
+					alignItems: "center",
+					gap: 3,
+					flexWrap: "wrap",
 				}}
 			>
-				<Typography variant="h5">Glider: {glider.name}</Typography>
-				{glider.status && (
-					<Chip
-						label={STATUS_LABEL[glider.status]}
-						color={STATUS_COLOR[glider.status]}
-						size="small"
-					/>
-				)}
-			</Box>
+				<PlatformIcon platform={glider.platform} width={160} />
+				<Box sx={{ flex: 1, minWidth: 220 }}>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							gap: 1.5,
+							flexWrap: "wrap",
+						}}
+					>
+						<Typography variant="h5" sx={{ textTransform: "capitalize" }}>
+							{glider.name}
+						</Typography>
+						{glider.status && (
+							<Chip
+								label={STATUS_LABEL[glider.status]}
+								color={STATUS_COLOR[glider.status]}
+								size="small"
+							/>
+						)}
+					</Box>
+					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+						Serial {glider.serialNumber ?? "—"} · WMO {glider.wmo ?? "—"} ·{" "}
+						{glider.owner ?? "Owner unknown"}
+					</Typography>
+				</Box>
+			</Paper>
 
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				About glider
 			</Typography>
-			<Paper variant="outlined" sx={{ p: 3, mb: 2.5 }}>
+			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 				<Box
 					sx={{
 						display: "grid",
 						gridTemplateColumns: {
 							xs: "repeat(2, 1fr)",
-							md: "repeat(5, 1fr)",
+							md: "repeat(4, 1fr)",
 						},
 						gap: 3,
 					}}
 				>
-					<Field label="Name" value={glider.name} />
-					<Field label="Serial number" value={glider.serialNumber} />
-					<Field label="WMO" value={glider.wmo} />
 					<Field
 						label="Purchase date"
 						value={formatDate(glider.purchaseDate)}
 					/>
-					<Field label="Owner" value={glider.owner} />
-
 					<Field
 						label="Platform Model"
 						value={
@@ -167,7 +182,7 @@ export default async function GliderDetailPage({
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				Current build
 			</Typography>
-			<Paper variant="outlined" sx={{ p: 3, mb: 2.5 }}>
+			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 				<GliderCurrentBuild components={build.components} />
 			</Paper>
 

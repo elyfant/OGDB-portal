@@ -227,6 +227,10 @@ export interface GliderBuildComponent {
 	position: string | null;
 	installDate: string | null;
 	depth: number;
+	// Only populated for science sensors (NVS L22 model), batteries
+	// (battery_models.model), and hulls (hull_models.teledyne_part_number)
+	// — no other asset type has a model concept in the schema yet.
+	model: string | null;
 }
 
 export interface SensorCalRecord {

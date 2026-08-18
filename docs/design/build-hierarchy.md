@@ -269,11 +269,14 @@ change.
 Split by which side owns the fix:
 
 **OGDB-portal (this repo) — the actual next work:**
-- **Nothing in the gateway queries `asset_assignments` yet.** This is why
-  the glider's Current Build box and the mission's Science
-  Payload/Glider build boxes are still "coming soon" placeholders, even
-  though the real data has existed since Aug 9. Wiring this up — not
-  designing it — is the next concrete task.
+- ~~**Nothing in the gateway queries `asset_assignments` yet.**~~ —
+  **resolved 2026-08-17.** `GET /gliders/:id/build` now walks the full
+  tree recursively (`build.helpers.ts`) and the glider detail page's
+  Current Build/Science Payload/Servicing History/Editing History
+  sections are real, not placeholders. Only tested end-to-end for Durin
+  so far, since it's the only glider with clean (non-legacy-ambiguous)
+  assignment data — the mission page's Science Payload/Glider build
+  boxes are still not wired up.
 - **Write-path validation isn't built.** Confirmed via DB client access
   (Fiona), so this has to be enforced at the DB level (a real trigger, not
   just a gateway-side check) once a write path for `asset_assignments`
@@ -285,6 +288,15 @@ Split by which side owns the fix:
   blocker (mission-scoped views can still be derived from `start_date`/
   `end_date` overlap), but populating it directly would make that lookup
   exact instead of inferred.
+- **No part-model concept for most asset types.** Science sensors have a
+  real model (NVS L22), and batteries/hulls have `battery_models`/
+  `hull_models` lookup tables — but forward/aft section, end cap, energy
+  bay, payload bay, and altimeter have no model field at all. Surfaced
+  concretely by the glider build page's Model column (2026-08-17):
+  everything outside those three types just shows "—". Needs a real
+  schema decision (a shared `part_models` table? per-type like
+  `battery_models`? a flat text column?) once it's clear what data is
+  actually available to populate it with — not decided yet.
 - **12 components (27 rows) are flagged ambiguous** — the backfill couldn't
   determine ordering when a component appeared under multiple parents with
   no dates to sequence the move. Queryable via `WHERE notes LIKE '%ambiguous
