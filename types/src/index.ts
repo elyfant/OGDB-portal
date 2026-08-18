@@ -231,6 +231,9 @@ export interface GliderBuildComponent {
 	// (battery_models.model), and hulls (hull_models.teledyne_part_number)
 	// — no other asset type has a model concept in the schema yet.
 	model: string | null;
+	// NVS L22 term URI — only populated alongside `model` for science
+	// sensors (batteries/hulls have no NVS-backed model, so always null).
+	modelUri: string | null;
 }
 
 export interface SensorCalRecord {

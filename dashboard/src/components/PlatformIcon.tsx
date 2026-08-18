@@ -1,11 +1,11 @@
 // Original flat-style illustrations (not traced from any reference image)
-// distinguishing the two platform families by silhouette: Slocum is a
-// short torpedo body with a cross-tail and antenna, Seaglider is a long
+// distinguishing the two platform families by silhouette: Seaglider is a
+// short torpedo body with a cross-tail and antenna, Slocum is a long
 // banded cylinder with a small mid-body wing.
-function SlocumSvg() {
+function SeagliderSvg() {
 	return (
 		<svg viewBox="0 0 220 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<title>Slocum glider</title>
+			<title>Seaglider</title>
 			<line x1="4" y1="35" x2="46" y2="35" stroke="#8B2E2E" strokeWidth="2" />
 			<rect x="44" y="33" width="4" height="4" fill="#3A3A3A" />
 			<g>
@@ -34,10 +34,10 @@ function SlocumSvg() {
 	);
 }
 
-function SeagliderSvg() {
+function SlocumSvg() {
 	return (
 		<svg viewBox="0 0 220 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<title>Seaglider</title>
+			<title>Slocum glider</title>
 			<path
 				d="M18 25 C18 18 26 15 36 15 L200 15 C210 15 216 20 216 25 C216 30 210 35 200 35 L36 35 C26 35 18 32 18 25 Z"
 				fill="#F4C542"

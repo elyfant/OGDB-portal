@@ -131,24 +131,31 @@ async function fetchSciencePayload(
 // Every other structural type (aft/forward section, end cap, energy bay,
 // payload bay, altimeter, ...) has no part-model concept at all yet —
 // see docs/design/build-hierarchy.md "Real remaining gaps".
+interface ModelInfo {
+	model: string | null;
+	uri: string | null;
+}
+
 async function fetchModels(
 	pool: Pool,
 	buildTree: GliderBuildComponent[],
-): Promise<Map<number, string | null>> {
-	const models = new Map<number, string | null>();
+): Promise<Map<number, ModelInfo>> {
+	const models = new Map<number, ModelInfo>();
 
 	const sensorIds = buildTree
 		.filter((c) => c.assetTypeGroup === "sensor")
 		.map((c) => c.assetId);
 	if (sensorIds.length) {
 		const result = await pool.query(
-			`SELECT asd.asset_id AS "assetId", t.pref_label AS model
+			`SELECT asd.asset_id AS "assetId", t.pref_label AS model, t.uri
        FROM asset_sensor_details asd
        JOIN nvs_terms t ON t.id = asd.l22_model_id
        WHERE asd.asset_id = ANY($1)`,
 			[sensorIds],
 		);
-		for (const row of result.rows) models.set(row.assetId, row.model);
+		for (const row of result.rows) {
+			models.set(row.assetId, { model: row.model, uri: row.uri });
+		}
 	}
 
 	const batteryIds = buildTree
@@ -162,7 +169,9 @@ async function fetchModels(
        WHERE abd.asset_id = ANY($1)`,
 			[batteryIds],
 		);
-		for (const row of result.rows) models.set(row.assetId, row.model);
+		for (const row of result.rows) {
+			models.set(row.assetId, { model: row.model, uri: null });
+		}
 	}
 
 	const hullIds = buildTree
@@ -176,7 +185,9 @@ async function fetchModels(
        WHERE hd.asset_id = ANY($1)`,
 			[hullIds],
 		);
-		for (const row of result.rows) models.set(row.assetId, row.model);
+		for (const row of result.rows) {
+			models.set(row.assetId, { model: row.model, uri: null });
+		}
 	}
 
 	return models;
@@ -284,10 +295,10 @@ export async function getGliderBuild(
 		fetchStatusHistory(pool, allAssetIds),
 		fetchModels(pool, rawBuildTree),
 	]);
-	const buildTree = rawBuildTree.map((c) => ({
-		...c,
-		model: models.get(c.assetId) ?? null,
-	}));
+	const buildTree = rawBuildTree.map((c) => {
+		const info = models.get(c.assetId);
+		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
+	});
 	const editHistory = await fetchEditHistory(
 		pool,
 		gliderAssetId,
