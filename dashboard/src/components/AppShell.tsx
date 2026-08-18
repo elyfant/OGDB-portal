@@ -2,11 +2,11 @@
 
 import ConnectingAirports from "@mui/icons-material/ConnectingAirports";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
-import DatasetIcon from "@mui/icons-material/Dataset";
 import DirectionsBoatIcon from "@mui/icons-material/DirectionsBoat";
 import HomeIcon from "@mui/icons-material/Home";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import RouteIcon from "@mui/icons-material/Route";
+import TopicIcon from "@mui/icons-material/Topic";
 import WidgetsIcon from "@mui/icons-material/Widgets";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -44,7 +44,7 @@ const NAV_GROUPS = [
 		items: [
 			{ label: "Missions", href: "/missions", icon: RouteIcon },
 			{ label: "Cruises", href: "/cruises", icon: DirectionsBoatIcon },
-			{ label: "Datasets", href: "/datasets", icon: DatasetIcon },
+			{ label: "Datasets", href: "/datasets", icon: TopicIcon },
 		],
 	},
 ];
