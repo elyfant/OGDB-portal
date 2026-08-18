@@ -288,15 +288,17 @@ Split by which side owns the fix:
   blocker (mission-scoped views can still be derived from `start_date`/
   `end_date` overlap), but populating it directly would make that lookup
   exact instead of inferred.
-- **No part-model concept for most asset types.** Science sensors have a
-  real model (NVS L22), and batteries/hulls have `battery_models`/
-  `hull_models` lookup tables — but forward/aft section, end cap, energy
-  bay, payload bay, and altimeter have no model field at all. Surfaced
-  concretely by the glider build page's Model column (2026-08-17):
-  everything outside those three types just shows "—". Needs a real
-  schema decision (a shared `part_models` table? per-type like
-  `battery_models`? a flat text column?) once it's clear what data is
-  actually available to populate it with — not decided yet.
+- ~~**No part-model concept for most asset types.**~~ — **resolved
+  2026-08-18.** Fiona had real part-number values in hand (Durin's aft
+  section, forward section, end cap, payload bay, altimeter, energy bay)
+  with no other spec data worth normalizing per value, so this went with
+  a flat `model` text column rather than a lookup table — matches the
+  plain-text fields already used elsewhere on these tables (e.g.
+  `digifin_type`). Aft/forward section, end cap, and payload bay already
+  had a detail table, just got the column added
+  (`xxxx_add_structural_part_models`); altimeter and energy bay had none
+  at all, so got a minimal one created (asset_id + model only). Only
+  `slocum_thruster`/`argos_tag`/`nose_cone` have no model concept now.
 - **12 components (27 rows) are flagged ambiguous** — the backfill couldn't
   determine ordering when a component appeared under multiple parents with
   no dates to sequence the move. Queryable via `WHERE notes LIKE '%ambiguous

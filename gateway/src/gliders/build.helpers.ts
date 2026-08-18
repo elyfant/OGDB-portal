@@ -19,11 +19,27 @@ const DETAIL_TABLES: Record<string, string> = {
 	slocum_end_cap: "asset_slocum_end_cap_details",
 	slocum_payload_bay: "asset_slocum_payload_bay_details",
 	slocum_hull: "asset_slocum_hull_details",
+	slocum_altimeter: "asset_slocum_altimeter_details",
+	slocum_energy_bay: "asset_slocum_energy_bay_details",
 	battery: "asset_battery_details",
 	ct_sensor: "asset_sensor_details",
 	do_sensor: "asset_sensor_details",
 	eco_sensor: "asset_sensor_details",
 	mr_sensor: "asset_sensor_details",
+};
+
+// Types whose detail table has a plain `model` text column, no NVS/
+// battery_models/hull_models indirection needed — added 2026-08-18 once
+// Fiona had real part-number values for these. Distinct from
+// DETAIL_TABLES above only in that this list feeds fetchModels' generic
+// branch; every one of these is also in DETAIL_TABLES.
+const FLAT_MODEL_TABLES: Record<string, string> = {
+	slocum_aft_section: "asset_slocum_aft_section_details",
+	slocum_forward_section: "asset_slocum_forward_section_details",
+	slocum_end_cap: "asset_slocum_end_cap_details",
+	slocum_payload_bay: "asset_slocum_payload_bay_details",
+	slocum_altimeter: "asset_slocum_altimeter_details",
+	slocum_energy_bay: "asset_slocum_energy_bay_details",
 };
 
 // asset_types.name -> [cal table, its date column]. Only these four types
@@ -127,10 +143,10 @@ async function fetchSciencePayload(
 	return items;
 }
 
-// "Model" only exists in the schema for three asset types today: science
-// sensors (NVS L22), batteries (battery_models), and hulls (hull_models).
-// Every other structural type (aft/forward section, end cap, energy bay,
-// payload bay, altimeter, ...) has no part-model concept at all yet —
+// "Model" is resolved differently per type: science sensors (NVS L22),
+// batteries (battery_models), hulls (hull_models), and everything in
+// FLAT_MODEL_TABLES (a plain `model` column on the detail table). Only
+// slocum_thruster/argos_tag/nose_cone have no model concept at all —
 // see docs/design/build-hierarchy.md "Real remaining gaps".
 interface ModelInfo {
 	model: string | null;
@@ -188,6 +204,21 @@ async function fetchModels(
 		);
 		for (const row of result.rows) {
 			models.set(row.assetId, { model: row.model, uri: null });
+		}
+	}
+
+	for (const [assetType, table] of Object.entries(FLAT_MODEL_TABLES)) {
+		const ids = buildTree
+			.filter((c) => c.assetType === assetType)
+			.map((c) => c.assetId);
+		if (!ids.length) continue;
+		const result = await pool.query(
+			`SELECT asset_id AS "assetId", model FROM ${table} WHERE asset_id = ANY($1)`,
+			[ids],
+		);
+		for (const row of result.rows) {
+			if (row.model !== null)
+				models.set(row.assetId, { model: row.model, uri: null });
 		}
 	}
 
