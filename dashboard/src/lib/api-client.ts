@@ -6,12 +6,14 @@ import type {
 	AssetSearchResult,
 	DatasetProcessingDetail,
 	GliderBuild,
+	Mission,
 	NewProcessingPackageInput,
 	NewProcessingPackageVersionInput,
 	ProcessingPackage,
 	ProcessingPackageVersion,
 	RecordSensorCalibrationInput,
 	UpdateExternalReferencesInput,
+	UpdateMissionFolderPathInput,
 } from "@ogdb/types";
 
 export async function searchAssets(
@@ -126,6 +128,24 @@ export async function recordCalibration(
 			data?.message ?? `Failed to record calibration: ${res.status}`,
 		);
 	}
+}
+
+export async function updateMissionFolderPath(
+	missionId: number,
+	input: UpdateMissionFolderPathInput,
+): Promise<Mission> {
+	const res = await fetch(`/api/missions/${missionId}/folder-path`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to update mission folder path: ${res.status}`,
+		);
+	}
+	return res.json();
 }
 
 export async function setStatus(

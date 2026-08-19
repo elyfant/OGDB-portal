@@ -12,6 +12,7 @@ import type {
 	MissionsSummary,
 	OgdbUser,
 	ProcessingPackage,
+	ScienceSensorRecord,
 } from "@ogdb/types";
 import { redirect } from "next/navigation";
 import { getSessionToken } from "./auth";
@@ -149,6 +150,18 @@ export async function getMission(id: number): Promise<Mission | null> {
 	if (res.status === 404) return null;
 	if (!res.ok) {
 		throw new Error(`Failed to fetch mission ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getMissionSciencePayload(
+	id: number,
+): Promise<ScienceSensorRecord[]> {
+	const res = await apiFetch(`/missions/${id}/science-payload`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch science payload for mission ${id}: ${res.status}`,
+		);
 	}
 	return res.json();
 }

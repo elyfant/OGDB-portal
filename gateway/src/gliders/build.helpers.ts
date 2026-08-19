@@ -5,7 +5,10 @@ import type {
 	GliderDeployment,
 	GliderEditHistoryItem,
 	GliderStatusHistoryItem,
+	MeasuredParameter,
 	MissionsSummary,
+	ScienceSensorRecord,
+	SensorCalRecord,
 } from "@ogdb/types";
 import type { Pool } from "pg";
 import {
@@ -21,17 +24,26 @@ import {
 const DAYS_EXPR =
 	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
 
+// $2 (asOfDate) defaults to CURRENT_DATE via COALESCE when not passed --
+// existing callers (always "today", e.g. the glider detail page's
+// Current Build) don't need a second query variant. An assignment is
+// "active as of date D" when it started on/before D and either hasn't
+// ended, or ended after D -- reconstructs the build as it looked on any
+// past date, not just the live one.
 const BUILD_TREE_SQL = `
   WITH RECURSIVE build AS (
     SELECT aa.id AS assignment_id, aa.child_asset_id AS asset_id, aa.parent_asset_id,
            aa.start_date, aa.position, 1 AS depth
     FROM asset_assignments aa
-    WHERE aa.parent_asset_id = $1 AND aa.end_date IS NULL
+    WHERE aa.parent_asset_id = $1
+      AND aa.start_date <= COALESCE($2, CURRENT_DATE)
+      AND (aa.end_date IS NULL OR aa.end_date > COALESCE($2, CURRENT_DATE))
     UNION ALL
     SELECT aa.id, aa.child_asset_id, aa.parent_asset_id, aa.start_date, aa.position, build.depth + 1
     FROM asset_assignments aa
     JOIN build ON aa.parent_asset_id = build.asset_id
-    WHERE aa.end_date IS NULL
+    WHERE aa.start_date <= COALESCE($2, CURRENT_DATE)
+      AND (aa.end_date IS NULL OR aa.end_date > COALESCE($2, CURRENT_DATE))
   )
   SELECT
     build.assignment_id AS "assignmentId",
@@ -53,8 +65,12 @@ const BUILD_TREE_SQL = `
 async function fetchBuildTree(
 	pool: Pool,
 	gliderAssetId: number,
+	asOfDate?: string | null,
 ): Promise<GliderBuildComponent[]> {
-	const result = await pool.query(BUILD_TREE_SQL, [gliderAssetId]);
+	const result = await pool.query(BUILD_TREE_SQL, [
+		gliderAssetId,
+		asOfDate ?? null,
+	]);
 	return result.rows;
 }
 
@@ -138,6 +154,119 @@ async function fetchModels(
 	}
 
 	return models;
+}
+
+// asset_sensor_parameters (P01, many-to-many) -- "readable format for
+// now" per Fiona: just the preferred label, no definition text. Grouped
+// by asset since a sensor can output more than one parameter (a CT
+// sensor reports both temperature and conductivity).
+async function fetchMeasuredParameters(
+	pool: Pool,
+	sensorAssetIds: number[],
+): Promise<Map<number, MeasuredParameter[]>> {
+	const byAsset = new Map<number, MeasuredParameter[]>();
+	if (sensorAssetIds.length === 0) return byAsset;
+
+	const result = await pool.query(
+		`SELECT asp.asset_id AS "assetId", t.pref_label AS label, t.uri
+     FROM asset_sensor_parameters asp
+     JOIN nvs_terms t ON t.id = asp.p01_term_id
+     WHERE asp.asset_id = ANY($1)
+     ORDER BY t.pref_label`,
+		[sensorAssetIds],
+	);
+	for (const row of result.rows) {
+		const list = byAsset.get(row.assetId) ?? [];
+		list.push({ label: row.label, uri: row.uri });
+		byAsset.set(row.assetId, list);
+	}
+	return byAsset;
+}
+
+// The single calibration record in effect as of a given date, per
+// sensor -- "latest cal_date <= asOfDate" per asset, not the full
+// history CalibrationHistory/fetchComponentDetails show elsewhere. null
+// when nothing on record is that old yet.
+async function fetchCalibrationAsOf(
+	pool: Pool,
+	sensorAssetIds: number[],
+	asOfDate: string,
+): Promise<Map<number, SensorCalRecord>> {
+	const byAsset = new Map<number, SensorCalRecord>();
+	if (sensorAssetIds.length === 0) return byAsset;
+
+	const byType = new Map<string, number[]>();
+	const typeResult = await pool.query(
+		`SELECT a.id AS "assetId", at.name AS "assetType"
+     FROM assets a JOIN asset_types at ON at.id = a.asset_type_id
+     WHERE a.id = ANY($1)`,
+		[sensorAssetIds],
+	);
+	for (const row of typeResult.rows) {
+		const list = byType.get(row.assetType) ?? [];
+		list.push(row.assetId);
+		byType.set(row.assetType, list);
+	}
+
+	for (const [assetType, ids] of byType.entries()) {
+		const calInfo = CAL_TABLES[assetType];
+		if (!calInfo) continue;
+		const [table, dateColumn] = calInfo;
+		const result = await pool.query(
+			`SELECT DISTINCT ON (asset_id) *
+       FROM ${table}
+       WHERE asset_id = ANY($1) AND ${dateColumn} <= $2
+       ORDER BY asset_id, ${dateColumn} DESC, id DESC`,
+			[ids, asOfDate],
+		);
+		for (const row of result.rows) {
+			const {
+				id,
+				asset_id,
+				changed_by,
+				created_at,
+				[dateColumn]: date,
+				...coefficients
+			} = row;
+			byAsset.set(asset_id, { date, coefficients });
+		}
+	}
+
+	return byAsset;
+}
+
+// Science Payload for one glider as of one date -- everything here uses
+// that date, not "today": which sensors were actually attached (via
+// fetchBuildTree's asOfDate), and which calibration was in effect on
+// each (fetchCalibrationAsOf), not whatever they're calibrated to now.
+export async function getMissionSciencePayload(
+	pool: Pool,
+	gliderAssetId: number,
+	asOfDate: string,
+): Promise<ScienceSensorRecord[]> {
+	const buildTree = await fetchBuildTree(pool, gliderAssetId, asOfDate);
+	const sensors = buildTree.filter((c) => c.assetTypeGroup === "sensor");
+	const sensorIds = sensors.map((c) => c.assetId);
+
+	const [models, measuredParameters, calibrations] = await Promise.all([
+		fetchModels(pool, sensors),
+		fetchMeasuredParameters(pool, sensorIds),
+		fetchCalibrationAsOf(pool, sensorIds, asOfDate),
+	]);
+
+	return sensors.map((c) => {
+		const info = models.get(c.assetId);
+		return {
+			assetId: c.assetId,
+			assetType: c.assetType,
+			serialNumber: c.serialNumber,
+			model: info?.model ?? null,
+			modelUri: info?.uri ?? null,
+			measuredParameters: measuredParameters.get(c.assetId) ?? [],
+			calibration: calibrations.get(c.assetId) ?? null,
+			asOfDate,
+		};
+	});
 }
 
 // Full detail-table row + full cal history per component, for the

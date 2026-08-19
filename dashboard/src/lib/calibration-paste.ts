@@ -117,6 +117,61 @@ const CT_CAL_DIRECT_COLUMNS = new Set([
 	"sbe_temp_freq_max",
 ]);
 
+const CT_CAL_UNMAP: Record<string, string> = Object.fromEntries(
+	Object.entries(CT_CAL_REMAP).map(([varName, column]) => [column, varName]),
+);
+
+// Layout mirrors a typical sg_calib_constants.m: comment, temperature
+// channel, conductivity channel, then cpcor/ctcor and frequency ranges.
+const CT_CAL_M_FIELD_ORDER = [
+	"calibcomm",
+	"a0_g_apl",
+	"a1_h_apl",
+	"a2_i_apl",
+	"a3_j_apl",
+	"g",
+	"h",
+	"i",
+	"j",
+	"cpcor",
+	"ctcor",
+	"sbe_cond_freq_min",
+	"sbe_cond_freq_max",
+	"sbe_temp_freq_min",
+	"sbe_temp_freq_max",
+];
+
+function formatMatlabNumber(value: number): string {
+	if (value === 0) return "0.00000000E+00";
+	const [mantissa, rawExp] = value.toExponential(8).split("e");
+	const expNum = Number(rawExp);
+	const sign = expNum >= 0 ? "+" : "-";
+	const expStr = String(Math.abs(expNum)).padStart(2, "0");
+	return `${mantissa}E${sign}${expStr}`;
+}
+
+// Reconstructs the sg_calib_constants.m text for a CT sensor's
+// calibration record -- the inverse of mapCtCalFields, so pasting the
+// output back in would round-trip to the same column values. Not a copy
+// of any original file (there isn't one on file) -- generated fresh
+// from whatever's in asset_ct_sensor_cal, so it can never go stale.
+export function renderSgCalibConstants(
+	coefficients: Record<string, number | string | null>,
+): string {
+	const lines: string[] = ["% CT sensors cal constants"];
+	for (const column of CT_CAL_M_FIELD_ORDER) {
+		const value = coefficients[column];
+		if (value === null || value === undefined) continue;
+		const varName = CT_CAL_UNMAP[column] ?? column;
+		lines.push(
+			typeof value === "string"
+				? `${varName}='${value}';`
+				: `${varName}=${formatMatlabNumber(value)};`,
+		);
+	}
+	return lines.join("\n");
+}
+
 export function mapCtCalFields(fields: ParsedCalField[]): MappedCalFields {
 	const coefficients: Record<string, number | string> = {};
 	const unmapped: ParsedCalField[] = [];

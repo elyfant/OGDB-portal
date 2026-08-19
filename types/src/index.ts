@@ -307,6 +307,15 @@ export interface Mission {
 	dives: number | null;
 	distanceKm: number | null;
 	numberOfDays: number | null;
+	// UNC/network path to this mission's data folder, shown in the "Key
+	// files" section. Free text, not validated as a real path -- rendered
+	// as a best-effort clickable link since file://\\server\share links
+	// aren't reliably clickable across browsers.
+	missionFolderPath: string | null;
+}
+
+export interface UpdateMissionFolderPathInput {
+	missionFolderPath: string | null;
 }
 
 export interface GliderBuildComponent {
@@ -335,6 +344,34 @@ export interface SensorCalRecord {
 	// typing out every column, same reasoning as the DB's own per-type
 	// cal tables.
 	coefficients: Record<string, number | string | null>;
+}
+
+// A P01 term an asset_sensor_parameters row points at -- "readable
+// format for now" per Fiona: just the NVS preferred label, not the full
+// definition text.
+export interface MeasuredParameter {
+	label: string;
+	uri: string;
+}
+
+// One science sensor row for the mission page's Science Payload table.
+// Distinct from GliderBuildComponent/GliderComponentDetail (which are
+// always "as of today") -- everything here is resolved as of the
+// mission's own launch date, so an old mission shows the calibration
+// that was actually in effect on it, not whatever the sensor is
+// calibrated to now.
+export interface ScienceSensorRecord {
+	assetId: number;
+	assetType: string;
+	serialNumber: string | null;
+	model: string | null;
+	modelUri: string | null;
+	measuredParameters: MeasuredParameter[];
+	// null when no calibration record exists with a date on or before
+	// asOfDate (not the same as "sensor has never been calibrated" --
+	// just none on record that early).
+	calibration: SensorCalRecord | null;
+	asOfDate: string;
 }
 
 // New calibration event for an asset with a cal table (ct_sensor,

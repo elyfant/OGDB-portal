@@ -1,8 +1,16 @@
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
+import KeyFiles from "@/components/KeyFiles";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import SciencePayloadTable from "@/components/SciencePayloadTable";
 import StatTile from "@/components/StatTile";
-import { getGliderBuild, getMission, getStatusOptions } from "@/lib/api";
+import {
+	getGlider,
+	getGliderBuild,
+	getMission,
+	getMissionSciencePayload,
+	getStatusOptions,
+} from "@/lib/api";
 import {
 	formatAssetType,
 	formatCount,
@@ -65,10 +73,20 @@ export default async function MissionDetailPage({
 	const mission = await getMission(Number(id));
 	if (!mission) notFound();
 
-	const [gliderBuild, statusOptions] = await Promise.all([
-		mission.gliderAssetId ? getGliderBuild(mission.gliderAssetId) : null,
-		getStatusOptions(),
-	]);
+	const [gliderBuild, statusOptions, glider, sciencePayload] =
+		await Promise.all([
+			mission.gliderAssetId ? getGliderBuild(mission.gliderAssetId) : null,
+			getStatusOptions(),
+			mission.gliderAssetId ? getGlider(mission.gliderAssetId) : null,
+			getMissionSciencePayload(mission.id),
+		]);
+
+	// Science Payload owns the sensor rows now -- Glider Build shows
+	// everything else (structural/power/tracking), same build tree, just
+	// filtered.
+	const structuralComponents = (gliderBuild?.components ?? []).filter(
+		(c) => c.assetTypeGroup !== "sensor",
+	);
 
 	const name =
 		mission.stdMissionName ??
@@ -148,11 +166,30 @@ export default async function MissionDetailPage({
 						display: "grid",
 						gridTemplateColumns: {
 							xs: "repeat(2, 1fr)",
-							md: "repeat(6, 1fr)",
+							md: "repeat(4, 1fr)",
 						},
 						gap: 3,
 					}}
 				>
+					<Field
+						label="Glider"
+						value={
+							mission.gliderAssetId && mission.glider ? (
+								<MuiLink
+									component={Link}
+									href={`/gliders/${mission.gliderAssetId}`}
+								>
+									{mission.glider}
+								</MuiLink>
+							) : (
+								mission.glider
+							)
+						}
+					/>
+					<Field
+						label="Glider model"
+						value={glider?.platformModelFull ?? glider?.platformModel}
+					/>
 					<Field label="Site" value={mission.site} />
 					<Field label="Project" value={mission.project} />
 					<Field label="PI" value={mission.pi} />
@@ -162,6 +199,25 @@ export default async function MissionDetailPage({
 				</Box>
 			</Paper>
 
+			<Box sx={{ mb: 4 }}>
+				<Typography variant="h6" sx={{ mb: 0.5 }}>
+					Science payload
+				</Typography>
+				<Typography
+					variant="caption"
+					color="text.secondary"
+					sx={{ mb: 1.5, display: "block" }}
+				>
+					{mission.launchDate
+						? `Calibration shown as of this mission's launch date, ${formatDate(mission.launchDate)}`
+						: "Calibration shown as of today — no launch date recorded for this mission yet"}
+				</Typography>
+				<SciencePayloadTable
+					sensors={sciencePayload}
+					asOfDate={mission.launchDate ?? new Date().toISOString()}
+				/>
+			</Box>
+
 			<Box
 				sx={{
 					display: "grid",
@@ -170,163 +226,157 @@ export default async function MissionDetailPage({
 					mb: 4,
 				}}
 			>
+				<Box>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							mb: 1.5,
+						}}
+					>
+						<Typography variant="h6">Glider build</Typography>
+						{mission.gliderAssetId && (
+							<GliderBuildEditor
+								gliderId={mission.gliderAssetId}
+								components={gliderBuild?.components ?? []}
+								statusOptions={statusOptions}
+								missionId={mission.id}
+								defaultDate={mission.launchDate?.slice(0, 10)}
+							/>
+						)}
+					</Box>
+					<TableContainer component={Paper} variant="outlined">
+						<Table size="small">
+							<TableHead>
+								<TableRow>
+									<TableCell>Asset</TableCell>
+									<TableCell>Model</TableCell>
+									<TableCell>Serial number</TableCell>
+								</TableRow>
+							</TableHead>
+							<TableBody>
+								{structuralComponents.length > 0 ? (
+									structuralComponents.map((c) => (
+										<TableRow key={c.assignmentId}>
+											<TableCell sx={{ pl: 2 + (c.depth - 1) * 2 }}>
+												{formatAssetType(c.assetType)}
+												{c.position ? ` (${c.position})` : ""}
+											</TableCell>
+											<TableCell>{c.model ?? "—"}</TableCell>
+											<TableCell>{c.serialNumber ?? "—"}</TableCell>
+										</TableRow>
+									))
+								) : (
+									<EmptyTableNote colSpan={3} text="Not yet available." />
+								)}
+							</TableBody>
+						</Table>
+					</TableContainer>
+				</Box>
+
 				<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 					<Box>
 						<Typography variant="h6" sx={{ mb: 1.5 }}>
-							Science payload
+							Key files
 						</Typography>
-						<TableContainer component={Paper} variant="outlined">
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										<TableCell>Sensor</TableCell>
-										<TableCell>Serial number</TableCell>
-										<TableCell>Variables</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									<EmptyTableNote
-										colSpan={3}
-										text="Not yet available — sensor to variable linkage is pending."
-									/>
-								</TableBody>
-							</Table>
-						</TableContainer>
+						<Paper variant="outlined" sx={{ p: 2.5 }}>
+							<KeyFiles
+								missionId={mission.id}
+								missionFolderPath={mission.missionFolderPath}
+							/>
+						</Paper>
 					</Box>
 
 					<Box>
-						<Box
-							sx={{
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "space-between",
-								mb: 1.5,
-							}}
-						>
-							<Typography variant="h6">Glider build</Typography>
-							{mission.gliderAssetId && (
-								<GliderBuildEditor
-									gliderId={mission.gliderAssetId}
-									components={gliderBuild?.components ?? []}
-									statusOptions={statusOptions}
-									missionId={mission.id}
-									defaultDate={mission.launchDate?.slice(0, 10)}
-								/>
-							)}
-						</Box>
-						<TableContainer component={Paper} variant="outlined">
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										<TableCell>Asset</TableCell>
-										<TableCell>Serial number</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{gliderBuild && gliderBuild.components.length > 0 ? (
-										gliderBuild.components.map((c) => (
-											<TableRow key={c.assignmentId}>
-												<TableCell sx={{ pl: 2 + (c.depth - 1) * 2 }}>
-													{formatAssetType(c.assetType)}
-													{c.position ? ` (${c.position})` : ""}
-												</TableCell>
-												<TableCell>{c.serialNumber ?? "—"}</TableCell>
-											</TableRow>
-										))
-									) : (
-										<EmptyTableNote colSpan={2} text="Not yet available." />
-									)}
-								</TableBody>
-							</Table>
-						</TableContainer>
-					</Box>
-				</Box>
-
-				<Box>
-					<Typography variant="h6" sx={{ mb: 1.5 }}>
-						Deployment
-					</Typography>
-					<Paper variant="outlined" sx={{ p: 3 }}>
-						<Box sx={{ mb: 3 }}>
-							<Typography
-								variant="caption"
-								color="text.secondary"
-								display="block"
-								sx={{ mb: 0.5 }}
+						<Typography variant="h6" sx={{ mb: 1.5 }}>
+							Deployment
+						</Typography>
+						<Paper variant="outlined" sx={{ p: 3 }}>
+							<Box sx={{ mb: 3 }}>
+								<Typography
+									variant="caption"
+									color="text.secondary"
+									display="block"
+									sx={{ mb: 0.5 }}
+								>
+									Status
+								</Typography>
+								{mission.status ? (
+									<Chip
+										label={mission.status}
+										color={statusColor(mission.status)}
+										size="small"
+									/>
+								) : (
+									<Typography color="text.disabled">—</Typography>
+								)}
+							</Box>
+							<Box
+								sx={{
+									display: "grid",
+									gridTemplateColumns: "1fr 1fr",
+									gap: 3,
+								}}
 							>
-								Status
-							</Typography>
-							{mission.status ? (
-								<Chip
-									label={mission.status}
-									color={statusColor(mission.status)}
-									size="small"
-								/>
-							) : (
-								<Typography color="text.disabled">—</Typography>
-							)}
-						</Box>
-						<Box
-							sx={{
-								display: "grid",
-								gridTemplateColumns: "1fr 1fr",
-								gap: 3,
-							}}
-						>
-							<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-								<Typography
-									variant="overline"
-									color="text.secondary"
-									sx={{ letterSpacing: 1 }}
-								>
-									Deployment
-								</Typography>
-								<Field label="Date" value={formatDate(mission.launchDate)} />
-								<Field
-									label="Position"
-									value={formatPosition(
-										mission.launchLatitude,
-										mission.launchLongitude,
-									)}
-								/>
-								<Field
-									label="Cruise"
-									value={
-										mission.launchCruiseId
-											? `Cruise #${mission.launchCruiseId}`
-											: null
-									}
-								/>
-								<Field label="Vessel" value={null} />
+								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+									<Typography
+										variant="overline"
+										color="text.secondary"
+										sx={{ letterSpacing: 1 }}
+									>
+										Deployment
+									</Typography>
+									<Field label="Date" value={formatDate(mission.launchDate)} />
+									<Field
+										label="Position"
+										value={formatPosition(
+											mission.launchLatitude,
+											mission.launchLongitude,
+										)}
+									/>
+									<Field
+										label="Cruise"
+										value={
+											mission.launchCruiseId
+												? `Cruise #${mission.launchCruiseId}`
+												: null
+										}
+									/>
+									<Field label="Vessel" value={null} />
+								</Box>
+								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+									<Typography
+										variant="overline"
+										color="text.secondary"
+										sx={{ letterSpacing: 1 }}
+									>
+										Recovery
+									</Typography>
+									<Field
+										label="Date"
+										value={formatDate(mission.recoveryDate)}
+									/>
+									<Field
+										label="Position"
+										value={formatPosition(
+											mission.recoveryLatitude,
+											mission.recoveryLongitude,
+										)}
+									/>
+									<Field
+										label="Cruise"
+										value={
+											mission.recoveryCruiseId
+												? `Cruise #${mission.recoveryCruiseId}`
+												: null
+										}
+									/>
+									<Field label="Vessel" value={null} />
+								</Box>
 							</Box>
-							<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-								<Typography
-									variant="overline"
-									color="text.secondary"
-									sx={{ letterSpacing: 1 }}
-								>
-									Recovery
-								</Typography>
-								<Field label="Date" value={formatDate(mission.recoveryDate)} />
-								<Field
-									label="Position"
-									value={formatPosition(
-										mission.recoveryLatitude,
-										mission.recoveryLongitude,
-									)}
-								/>
-								<Field
-									label="Cruise"
-									value={
-										mission.recoveryCruiseId
-											? `Cruise #${mission.recoveryCruiseId}`
-											: null
-									}
-								/>
-								<Field label="Vessel" value={null} />
-							</Box>
-						</Box>
-					</Paper>
+						</Paper>
+					</Box>
 				</Box>
 			</Box>
 

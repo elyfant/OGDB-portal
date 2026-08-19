@@ -3,9 +3,12 @@ import type {
 	Mission,
 	MissionsLeaderboard,
 	MissionsSummary,
+	ScienceSensorRecord,
 } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
+import { getMissionSciencePayload } from "../gliders/build.helpers";
+import type { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
 
 const DAYS_EXPR =
 	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
@@ -14,6 +17,7 @@ const SELECT_MISSIONS = `
   SELECT
     id,
     (SELECT glider_asset_id FROM missions WHERE missions.id = norglider_missions.id) AS "gliderAssetId",
+    (SELECT mission_folder_path FROM missions WHERE missions.id = norglider_missions.id) AS "missionFolderPath",
     mission_number AS "missionNumber",
     mission_name AS "missionName",
     std_mission_name AS "stdMissionName",
@@ -64,6 +68,32 @@ export class MissionsService {
 			throw new NotFoundException(`Mission ${id} not found`);
 		}
 		return result.rows[0];
+	}
+
+	// Science Payload is always "as of this mission's launch date" -- a
+	// mission with no glider linked, or no launch date recorded yet, has
+	// nothing to resolve a build tree against.
+	async getSciencePayload(id: number): Promise<ScienceSensorRecord[]> {
+		const mission = await this.findOne(id);
+		if (!mission.gliderAssetId || !mission.launchDate) return [];
+		return getMissionSciencePayload(
+			this.pool,
+			mission.gliderAssetId,
+			mission.launchDate,
+		);
+	}
+
+	async updateFolderPath(
+		id: number,
+		dto: UpdateMissionFolderPathDto,
+		userId: number,
+	): Promise<Mission> {
+		await this.findOne(id);
+		await this.pool.query(
+			"UPDATE missions SET mission_folder_path = $1, changed_by = $2 WHERE id = $3",
+			[dto.missionFolderPath, userId, id],
+		);
+		return this.findOne(id);
 	}
 
 	async getSummary(): Promise<MissionsSummary> {
