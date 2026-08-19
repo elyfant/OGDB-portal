@@ -1,4 +1,5 @@
 import CalibrationHistory from "@/components/CalibrationHistory";
+import PasteCalibrationDialog from "@/components/PasteCalibrationDialog";
 import {
 	formatAssetType,
 	formatFieldName,
@@ -52,9 +53,22 @@ export default function GliderComponentDetailPanel({
 
 			{detail.calibrations !== null && (
 				<Box>
-					<Typography variant="subtitle2" sx={{ mb: 1 }}>
-						{typeLabel} calibration information
-					</Typography>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							mb: 1,
+						}}
+					>
+						<Typography variant="subtitle2">
+							{typeLabel} calibration information
+						</Typography>
+						<PasteCalibrationDialog
+							assetId={detail.assetId}
+							assetType={assetType}
+						/>
+					</Box>
 					<CalibrationHistory calibrations={detail.calibrations} />
 				</Box>
 			)}

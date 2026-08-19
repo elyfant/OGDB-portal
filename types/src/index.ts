@@ -337,6 +337,19 @@ export interface SensorCalRecord {
 	coefficients: Record<string, number | string | null>;
 }
 
+// New calibration event for an asset with a cal table (ct_sensor,
+// do_sensor, eco_sensor, slocum_forward_section). Always an INSERT, never
+// an update -- these tables are append-only, same "current = latest by
+// date" pattern as everywhere else. `coefficients` keys must be real DB
+// column names for that asset type's cal table (see gateway's
+// CAL_COLUMNS) -- the dashboard's paste-parser is responsible for
+// mapping a pasted format's variable names (e.g. "t_g") to the real
+// column name ("a0_g_apl") before this ever gets built.
+export interface RecordSensorCalibrationInput {
+	calDate: string;
+	coefficients: Record<string, number | string | null>;
+}
+
 export interface GliderStatusHistoryItem {
 	id: number;
 	assetId: number;

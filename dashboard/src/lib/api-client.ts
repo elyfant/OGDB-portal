@@ -10,6 +10,7 @@ import type {
 	NewProcessingPackageVersionInput,
 	ProcessingPackage,
 	ProcessingPackageVersion,
+	RecordSensorCalibrationInput,
 	UpdateExternalReferencesInput,
 } from "@ogdb/types";
 
@@ -108,6 +109,23 @@ export async function createProcessingPackageVersion(
 		throw new Error(data?.message ?? `Failed to create version: ${res.status}`);
 	}
 	return res.json();
+}
+
+export async function recordCalibration(
+	assetId: number,
+	input: RecordSensorCalibrationInput,
+): Promise<void> {
+	const res = await fetch(`/api/assets/${assetId}/calibrations`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to record calibration: ${res.status}`,
+		);
+	}
 }
 
 export async function setStatus(

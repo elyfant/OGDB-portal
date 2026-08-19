@@ -1,4 +1,5 @@
 import {
+	BadRequestException,
 	ConflictException,
 	Inject,
 	Injectable,
@@ -6,8 +7,13 @@ import {
 } from "@nestjs/common";
 import type { Asset, AssetSearchResult } from "@ogdb/types";
 import type { Pool } from "pg";
-import { FLAT_MODEL_TABLES } from "../common/asset-tables";
+import {
+	CAL_COLUMNS,
+	CAL_TABLES,
+	FLAT_MODEL_TABLES,
+} from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
+import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
 
 // Mirrors the classification in gliders/build.helpers.ts's fetchModels,
@@ -170,6 +176,55 @@ export class AssetsService {
 			throw err instanceof Error ? err : new Error(String(err));
 		}
 		return this.findOne(id);
+	}
+
+	// Always an INSERT -- the cal tables are append-only (same "current =
+	// latest by date" pattern as asset_status_history and everywhere else),
+	// so recording a calibration never overwrites a previous one, even an
+	// older-dated one entered after the fact.
+	async recordCalibration(
+		id: number,
+		dto: RecordSensorCalibrationDto,
+		userId: number,
+	): Promise<void> {
+		const asset = await this.pool.query(
+			`SELECT at.name AS "assetType" FROM assets a
+       JOIN asset_types at ON at.id = a.asset_type_id
+       WHERE a.id = $1`,
+			[id],
+		);
+		if (asset.rows.length === 0) {
+			throw new NotFoundException(`Asset ${id} not found`);
+		}
+		const assetType = asset.rows[0].assetType as string;
+
+		const calInfo = CAL_TABLES[assetType];
+		if (!calInfo) {
+			throw new BadRequestException(`${assetType} has no calibration table.`);
+		}
+		const [table, dateColumn] = calInfo;
+		const allowedColumns = new Set(CAL_COLUMNS[assetType] ?? []);
+
+		const keys = Object.keys(dto.coefficients);
+		const unknown = keys.filter((k) => !allowedColumns.has(k));
+		if (unknown.length > 0) {
+			throw new BadRequestException(
+				`Unknown calibration field(s) for ${assetType}: ${unknown.join(", ")}`,
+			);
+		}
+
+		const columns = [dateColumn, ...keys, "changed_by"];
+		const values = [
+			dto.calDate,
+			...keys.map((k) => dto.coefficients[k]),
+			userId,
+		];
+		const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+
+		await this.pool.query(
+			`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`,
+			values,
+		);
 	}
 }
 
