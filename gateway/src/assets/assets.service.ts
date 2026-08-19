@@ -4,10 +4,22 @@ import {
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
-import type { Asset } from "@ogdb/types";
+import type { Asset, AssetSearchResult } from "@ogdb/types";
 import type { Pool } from "pg";
+import { FLAT_MODEL_TABLES } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
+
+// Mirrors the classification in gliders/build.helpers.ts's fetchModels,
+// scoped to one type + a serial-number search instead of batching many
+// assets at once — used by the build editor's "search by serial number"
+// dropdown, so each option can show its model alongside the serial.
+const SENSOR_TYPES = new Set([
+	"ct_sensor",
+	"do_sensor",
+	"eco_sensor",
+	"mr_sensor",
+]);
 
 // Name and model only resolve for gliders right now (via
 // asset_glider_details -> platforms). Every other asset type (battery,
@@ -61,6 +73,81 @@ export class AssetsService {
 			throw new NotFoundException(`Asset ${id} not found`);
 		}
 		return result.rows[0];
+	}
+
+	async search(assetType: string, query: string): Promise<AssetSearchResult[]> {
+		const like = `%${query}%`;
+
+		if (SENSOR_TYPES.has(assetType)) {
+			const result = await this.pool.query(
+				`SELECT a.id, a.serial_number AS "serialNumber", t.pref_label AS model
+         FROM assets a
+         JOIN asset_types at ON at.id = a.asset_type_id AND at.name = $1
+         LEFT JOIN asset_sensor_details asd ON asd.asset_id = a.id
+         LEFT JOIN nvs_terms t ON t.id = asd.l22_model_id
+         WHERE a.serial_number ILIKE $2
+         ORDER BY a.serial_number
+         LIMIT 25`,
+				[assetType, like],
+			);
+			return result.rows;
+		}
+
+		if (assetType === "battery") {
+			const result = await this.pool.query(
+				`SELECT a.id, a.serial_number AS "serialNumber", bm.model
+         FROM assets a
+         JOIN asset_types at ON at.id = a.asset_type_id AND at.name = $1
+         LEFT JOIN asset_battery_details abd ON abd.asset_id = a.id
+         LEFT JOIN battery_models bm ON bm.id = abd.battery_model_id
+         WHERE a.serial_number ILIKE $2
+         ORDER BY a.serial_number
+         LIMIT 25`,
+				[assetType, like],
+			);
+			return result.rows;
+		}
+
+		if (assetType === "slocum_hull") {
+			const result = await this.pool.query(
+				`SELECT a.id, a.serial_number AS "serialNumber", hm.teledyne_part_number AS model
+         FROM assets a
+         JOIN asset_types at ON at.id = a.asset_type_id AND at.name = $1
+         LEFT JOIN asset_slocum_hull_details hd ON hd.asset_id = a.id
+         LEFT JOIN hull_models hm ON hm.id = hd.hull_model_id
+         WHERE a.serial_number ILIKE $2
+         ORDER BY a.serial_number
+         LIMIT 25`,
+				[assetType, like],
+			);
+			return result.rows;
+		}
+
+		const flatTable = FLAT_MODEL_TABLES[assetType];
+		if (flatTable) {
+			const result = await this.pool.query(
+				`SELECT a.id, a.serial_number AS "serialNumber", d.model
+         FROM assets a
+         JOIN asset_types at ON at.id = a.asset_type_id AND at.name = $1
+         LEFT JOIN ${flatTable} d ON d.asset_id = a.id
+         WHERE a.serial_number ILIKE $2
+         ORDER BY a.serial_number
+         LIMIT 25`,
+				[assetType, like],
+			);
+			return result.rows;
+		}
+
+		const result = await this.pool.query(
+			`SELECT a.id, a.serial_number AS "serialNumber", NULL::text AS model
+       FROM assets a
+       JOIN asset_types at ON at.id = a.asset_type_id AND at.name = $1
+       WHERE a.serial_number ILIKE $2
+       ORDER BY a.serial_number
+       LIMIT 25`,
+			[assetType, like],
+		);
+		return result.rows;
 	}
 
 	async setStatus(

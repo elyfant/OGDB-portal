@@ -13,6 +13,7 @@ const DAYS_EXPR =
 const SELECT_MISSIONS = `
   SELECT
     id,
+    (SELECT glider_asset_id FROM missions WHERE missions.id = norglider_missions.id) AS "gliderAssetId",
     mission_number AS "missionNumber",
     mission_name AS "missionName",
     std_mission_name AS "stdMissionName",

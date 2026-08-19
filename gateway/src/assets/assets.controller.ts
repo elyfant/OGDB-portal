@@ -5,6 +5,7 @@ import {
 	Param,
 	ParseIntPipe,
 	Patch,
+	Query,
 } from "@nestjs/common";
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -19,6 +20,13 @@ export class AssetsController {
 	@Get()
 	findAll() {
 		return this.assets.findAll();
+	}
+
+	// Must come before :id — otherwise "search" gets swallowed as an id
+	// param.
+	@Get("search")
+	search(@Query("type") type: string, @Query("q") q = "") {
+		return this.assets.search(type, q);
 	}
 
 	@Get(":id")

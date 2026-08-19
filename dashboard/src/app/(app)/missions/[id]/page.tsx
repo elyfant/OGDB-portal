@@ -1,8 +1,14 @@
 import Field from "@/components/Field";
+import GliderBuildEditor from "@/components/GliderBuildEditor";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import StatTile from "@/components/StatTile";
-import { getMission } from "@/lib/api";
-import { formatCount, formatDate, statusColor } from "@/lib/format";
+import { getGliderBuild, getMission, getStatusOptions } from "@/lib/api";
+import {
+	formatAssetType,
+	formatCount,
+	formatDate,
+	statusColor,
+} from "@/lib/format";
 import DatasetIcon from "@mui/icons-material/Dataset";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -58,6 +64,11 @@ export default async function MissionDetailPage({
 	const { id } = await params;
 	const mission = await getMission(Number(id));
 	if (!mission) notFound();
+
+	const [gliderBuild, statusOptions] = await Promise.all([
+		mission.gliderAssetId ? getGliderBuild(mission.gliderAssetId) : null,
+		getStatusOptions(),
+	]);
 
 	const name =
 		mission.stdMissionName ??
@@ -184,9 +195,25 @@ export default async function MissionDetailPage({
 					</Box>
 
 					<Box>
-						<Typography variant="h6" sx={{ mb: 1.5 }}>
-							Glider build
-						</Typography>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								mb: 1.5,
+							}}
+						>
+							<Typography variant="h6">Glider build</Typography>
+							{mission.gliderAssetId && (
+								<GliderBuildEditor
+									gliderId={mission.gliderAssetId}
+									components={gliderBuild?.components ?? []}
+									statusOptions={statusOptions}
+									missionId={mission.id}
+									defaultDate={mission.launchDate?.slice(0, 10)}
+								/>
+							)}
+						</Box>
 						<TableContainer component={Paper} variant="outlined">
 							<Table size="small">
 								<TableHead>
@@ -196,7 +223,19 @@ export default async function MissionDetailPage({
 									</TableRow>
 								</TableHead>
 								<TableBody>
-									<EmptyTableNote colSpan={2} text="Not yet available." />
+									{gliderBuild && gliderBuild.components.length > 0 ? (
+										gliderBuild.components.map((c) => (
+											<TableRow key={c.assignmentId}>
+												<TableCell sx={{ pl: 2 + (c.depth - 1) * 2 }}>
+													{formatAssetType(c.assetType)}
+													{c.position ? ` (${c.position})` : ""}
+												</TableCell>
+												<TableCell>{c.serialNumber ?? "—"}</TableCell>
+											</TableRow>
+										))
+									) : (
+										<EmptyTableNote colSpan={2} text="Not yet available." />
+									)}
 								</TableBody>
 							</Table>
 						</TableContainer>

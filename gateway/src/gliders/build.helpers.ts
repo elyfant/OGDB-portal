@@ -8,6 +8,11 @@ import type {
 	MissionsSummary,
 } from "@ogdb/types";
 import type { Pool } from "pg";
+import {
+	CAL_TABLES,
+	DETAIL_TABLES,
+	FLAT_MODEL_TABLES,
+} from "../common/asset-tables";
 
 // Mirrors missions.service.ts's DAYS_EXPR/getSummary exactly, scoped to
 // one glider instead of the whole fleet — kept as a separate query
@@ -15,50 +20,6 @@ import type { Pool } from "pg";
 // norglider_missions, which only exposes the glider's name, not its id.
 const DAYS_EXPR =
 	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
-
-// asset_types.name -> detail table name, mirrors OGDB's
-// scripts/build_glider_assignments.py ASSEMBLY_NUMBER_LOOKUP/DETAIL_TABLES
-// constants — keep these two in sync if the schema changes.
-const DETAIL_TABLES: Record<string, string> = {
-	glider: "asset_glider_details",
-	slocum_aft_section: "asset_slocum_aft_section_details",
-	slocum_forward_section: "asset_slocum_forward_section_details",
-	slocum_end_cap: "asset_slocum_end_cap_details",
-	slocum_payload_bay: "asset_slocum_payload_bay_details",
-	slocum_hull: "asset_slocum_hull_details",
-	slocum_altimeter: "asset_slocum_altimeter_details",
-	slocum_energy_bay: "asset_slocum_energy_bay_details",
-	slocum_thruster: "asset_slocum_thruster_details",
-	battery: "asset_battery_details",
-	ct_sensor: "asset_sensor_details",
-	do_sensor: "asset_sensor_details",
-	eco_sensor: "asset_sensor_details",
-	mr_sensor: "asset_sensor_details",
-};
-
-// Types whose detail table has a plain `model` text column, no NVS/
-// battery_models/hull_models indirection needed — added 2026-08-18 once
-// Fiona had real part-number values for these. Distinct from
-// DETAIL_TABLES above only in that this list feeds fetchModels' generic
-// branch; every one of these is also in DETAIL_TABLES.
-const FLAT_MODEL_TABLES: Record<string, string> = {
-	slocum_aft_section: "asset_slocum_aft_section_details",
-	slocum_forward_section: "asset_slocum_forward_section_details",
-	slocum_end_cap: "asset_slocum_end_cap_details",
-	slocum_payload_bay: "asset_slocum_payload_bay_details",
-	slocum_altimeter: "asset_slocum_altimeter_details",
-	slocum_energy_bay: "asset_slocum_energy_bay_details",
-	slocum_thruster: "asset_slocum_thruster_details",
-};
-
-// asset_types.name -> [cal table, its date column]. Only these four types
-// have a dedicated calibration history table.
-const CAL_TABLES: Record<string, [table: string, dateColumn: string]> = {
-	ct_sensor: ["asset_ct_sensor_cal", "cal_date"],
-	do_sensor: ["asset_do_sensor_cal", "cal_date"],
-	eco_sensor: ["asset_eco_sensor_cal", "cal_date"],
-	slocum_forward_section: ["asset_slocum_forward_section_cal", "service_date"],
-};
 
 const BUILD_TREE_SQL = `
   WITH RECURSIVE build AS (

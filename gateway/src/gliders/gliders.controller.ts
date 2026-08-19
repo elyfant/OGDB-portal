@@ -12,6 +12,7 @@ import {
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
+import { ApplyBuildChangesDto } from "./dto/apply-build-changes.dto";
 import { CreateGliderDto } from "./dto/create-glider.dto";
 import { SetGliderStatusDto } from "./dto/set-glider-status.dto";
 import { UpdateGliderDto } from "./dto/update-glider.dto";
@@ -50,6 +51,16 @@ export class GlidersController {
 		@CurrentUser() user: JwtPayload,
 	) {
 		return this.gliders.update(id, dto, user.sub);
+	}
+
+	@Roles("editor", "admin")
+	@Post(":id/build-changes")
+	applyBuildChanges(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: ApplyBuildChangesDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.gliders.applyBuildChanges(id, dto, user.sub);
 	}
 
 	@Roles("editor", "admin")

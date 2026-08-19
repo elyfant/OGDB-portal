@@ -187,6 +187,10 @@ export interface DatasetProcessingStatus {
 
 export interface Mission {
 	id: number;
+	// norglider_missions itself only exposes the glider's name (`glider`
+	// below) -- this is pulled in separately via missions.glider_asset_id
+	// so the mission page can locate which glider's build to edit.
+	gliderAssetId: number | null;
 	missionNumber: number | null;
 	missionName: string | null;
 	stdMissionName: string | null;
@@ -288,6 +292,69 @@ export interface GliderDeployment {
 	recoveryDate: string | null;
 	dives: number | null;
 	distanceKm: number | null;
+}
+
+export interface AssetSearchResult {
+	id: number;
+	serialNumber: string | null;
+	model: string | null;
+}
+
+// A part never seen in OGDB before -- the minimal "+ New asset" case
+// (serial + flat model text only). Not a substitute for the full
+// worksheet-based creation flow (arbitrary detail fields, battery/hull
+// model lookups) -- just covers the common case of a genuinely new
+// structural part turning up mid-edit.
+export interface NewAssetInput {
+	assetType: string;
+	serialNumber: string;
+	model?: string | null;
+}
+
+// The three actions the build editor can take on a component. "replace"
+// and "remove" both close an existing open assignment; "replace" opens a
+// new one under the same parent/position, "remove" doesn't. "add" opens
+// one with no assignment to close. All changes in one request are applied
+// as a single transaction (see ApplyBuildChangesInput). "replace"/"add"
+// take exactly one of childAssetId (existing asset) or newAsset (create
+// it first, same transaction).
+export interface BuildChangeReplace {
+	action: "replace";
+	assignmentId: number;
+	childAssetId?: number;
+	newAsset?: NewAssetInput;
+}
+
+export interface BuildChangeRemove {
+	action: "remove";
+	assignmentId: number;
+	// Setting a status alongside the removal is optional -- most removals
+	// happen because the part is going somewhere specific (calibration,
+	// factory repair), but not always known at entry time.
+	newStatusId?: number | null;
+	statusNotes?: string | null;
+}
+
+export interface BuildChangeAdd {
+	action: "add";
+	parentAssetId: number;
+	childAssetId?: number;
+	newAsset?: NewAssetInput;
+	position?: string | null;
+}
+
+export type BuildChange =
+	| BuildChangeReplace
+	| BuildChangeRemove
+	| BuildChangeAdd;
+
+export interface ApplyBuildChangesInput {
+	effectiveDate: string;
+	// Set when opened from a mission page; null when opened from the
+	// glider page for a servicing-log-driven change.
+	missionId?: number | null;
+	notes?: string | null;
+	changes: BuildChange[];
 }
 
 export interface GliderBuild {
