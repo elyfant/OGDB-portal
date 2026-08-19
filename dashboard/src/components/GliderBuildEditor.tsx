@@ -3,6 +3,8 @@
 import { applyBuildChanges, searchAssets } from "@/lib/api-client";
 import { formatAssetType } from "@/lib/format";
 import EditIcon from "@mui/icons-material/Edit";
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -12,6 +14,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
+import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -59,6 +62,10 @@ interface PickerState {
 	query: string;
 	results: AssetSearchResult[];
 	selectedId: number | null;
+	// Snapshot of the selected result's display text, captured at selection
+	// time -- lets the picker show what's selected without depending on
+	// `results` still containing it (a later search could replace that list).
+	selectedLabel: string | null;
 	newSerial: string;
 	newModel: string;
 }
@@ -84,9 +91,14 @@ function emptyPicker(): PickerState {
 		query: "",
 		results: [],
 		selectedId: null,
+		selectedLabel: null,
 		newSerial: "",
 		newModel: "",
 	};
+}
+
+function resultLabel(r: AssetSearchResult): string {
+	return `SN ${r.serialNumber ?? "—"} · ${r.model ?? "—"}`;
 }
 
 function emptyRow(): RowState {
@@ -147,6 +159,43 @@ function AssetPicker({
 		);
 	}
 
+	if (picker.selectedId) {
+		return (
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					gap: 1,
+					border: "1px solid",
+					borderColor: "divider",
+					borderRadius: 1,
+					px: 1.25,
+					py: 0.75,
+					bgcolor: "background.paper",
+				}}
+			>
+				<span style={{ fontFamily: "monospace", fontSize: 13 }}>
+					{picker.selectedLabel}
+				</span>
+				<Button
+					size="small"
+					onClick={() =>
+						onChange({
+							...picker,
+							selectedId: null,
+							selectedLabel: null,
+							query: "",
+							results: [],
+						})
+					}
+				>
+					Change
+				</Button>
+			</Box>
+		);
+	}
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
 			<TextField
@@ -169,7 +218,13 @@ function AssetPicker({
 				{picker.results.map((r) => (
 					<Box
 						key={r.id}
-						onClick={() => onChange({ ...picker, selectedId: r.id })}
+						onClick={() =>
+							onChange({
+								...picker,
+								selectedId: r.id,
+								selectedLabel: resultLabel(r),
+							})
+						}
 						sx={{
 							display: "flex",
 							justifyContent: "space-between",
@@ -178,8 +233,6 @@ function AssetPicker({
 							py: 0.75,
 							cursor: "pointer",
 							fontSize: 13,
-							bgcolor:
-								picker.selectedId === r.id ? "action.selected" : undefined,
 							"&:hover": { bgcolor: "action.hover" },
 						}}
 					>
@@ -232,6 +285,25 @@ export default function GliderBuildEditor({
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [nextAdditionId, setNextAdditionId] = useState(1);
+	const [successSummary, setSuccessSummary] = useState<string[] | null>(null);
+
+	function describePicked(picker: PickerState): string {
+		if (picker.mode === "existing") {
+			return picker.selectedLabel ?? `asset #${picker.selectedId}`;
+		}
+		return `new SN ${picker.newSerial}${picker.newModel ? ` · ${picker.newModel}` : ""}`;
+	}
+
+	function statusLabel(statusId: number | ""): string | null {
+		if (!statusId) return null;
+		const option = statusOptions.find((o) => o.id === statusId);
+		return option ? option.description || option.name : null;
+	}
+
+	function dismissSuccessBanner() {
+		setSuccessSummary(null);
+		router.refresh();
+	}
 
 	function rowFor(assignmentId: number): RowState {
 		return rows[assignmentId] ?? emptyRow();
@@ -285,8 +357,10 @@ export default function GliderBuildEditor({
 		}
 
 		const changes: BuildChange[] = [];
+		const summaryLines: string[] = [];
 		for (const c of components) {
 			const row = rowFor(c.assignmentId);
+			const label = `${formatAssetType(c.assetType)}${c.position ? ` (${c.position})` : ""}`;
 			if (row.action === "replace") {
 				if (row.picker.mode === "existing" && !row.picker.selectedId) {
 					setError(
@@ -316,6 +390,9 @@ export default function GliderBuildEditor({
 								}
 							: undefined,
 				});
+				summaryLines.push(
+					`Replaced ${label}: SN ${c.serialNumber ?? "—"} → ${describePicked(row.picker)}`,
+				);
 			} else if (row.action === "remove") {
 				changes.push({
 					action: "remove",
@@ -323,6 +400,10 @@ export default function GliderBuildEditor({
 					newStatusId: row.statusId || null,
 					statusNotes: row.statusNotes || null,
 				});
+				const status = statusLabel(row.statusId);
+				summaryLines.push(
+					`Removed ${label}: SN ${c.serialNumber ?? "—"}${status ? `, status set to ${status}` : ""}`,
+				);
 			}
 		}
 		for (const add of additions) {
@@ -353,6 +434,8 @@ export default function GliderBuildEditor({
 							}
 						: undefined,
 			});
+			const addLabel = `${formatAssetType(add.assetType)}${add.position ? ` (${add.position})` : ""}`;
+			summaryLines.push(`Added ${addLabel}: ${describePicked(add.picker)}`);
 		}
 
 		if (changes.length === 0) {
@@ -372,7 +455,11 @@ export default function GliderBuildEditor({
 			setRows({});
 			setAdditions([]);
 			setNotes("");
-			router.refresh();
+			// router.refresh() waits until the banner is dismissed -- doing it
+			// immediately risks the refresh swapping out this component (or
+			// falling back to a full navigation on a failed RSC fetch) before
+			// the user ever sees the summary.
+			setSuccessSummary(summaryLines);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save changes.");
 		} finally {
@@ -657,6 +744,30 @@ export default function GliderBuildEditor({
 					</Box>
 				</DialogActions>
 			</Dialog>
+
+			<Snackbar
+				open={successSummary !== null}
+				onClose={dismissSuccessBanner}
+				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+			>
+				<Alert
+					severity="success"
+					variant="filled"
+					sx={{ maxWidth: 480 }}
+					action={
+						<Button color="inherit" size="small" onClick={dismissSuccessBanner}>
+							OK
+						</Button>
+					}
+				>
+					<AlertTitle>Build updated</AlertTitle>
+					{successSummary?.map((line) => (
+						<Typography key={line} variant="body2">
+							{line}
+						</Typography>
+					))}
+				</Alert>
+			</Snackbar>
 		</>
 	);
 }
