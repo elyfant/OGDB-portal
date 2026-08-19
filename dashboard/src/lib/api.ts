@@ -10,6 +10,8 @@ import type {
 	Mission,
 	MissionsLeaderboard,
 	MissionsSummary,
+	OgdbUser,
+	ProcessingPackage,
 } from "@ogdb/types";
 import { redirect } from "next/navigation";
 import { getSessionToken } from "./auth";
@@ -122,6 +124,22 @@ export async function getDatasetProcessingDetail(
 		throw new Error(
 			`Failed to fetch dataset processing detail for mission ${missionId}: ${res.status}`,
 		);
+	}
+	return res.json();
+}
+
+export async function getOgdbUsers(): Promise<OgdbUser[]> {
+	const res = await apiFetch("/users");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch users: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getProcessingPackages(): Promise<ProcessingPackage[]> {
+	const res = await apiFetch("/processing-packages");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch processing packages: ${res.status}`);
 	}
 	return res.json();
 }

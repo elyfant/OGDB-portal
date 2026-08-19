@@ -11,6 +11,8 @@ import { DatasetsModule } from "./datasets/datasets.module";
 import { DbModule } from "./db/db.module";
 import { GlidersModule } from "./gliders/gliders.module";
 import { MissionsModule } from "./missions/missions.module";
+import { ProcessingPackagesModule } from "./processing-packages/processing-packages.module";
+import { UsersModule } from "./users/users.module";
 
 @Module({
 	imports: [
@@ -23,6 +25,8 @@ import { MissionsModule } from "./missions/missions.module";
 		MissionsModule,
 		DatasetsModule,
 		CruisesModule,
+		UsersModule,
+		ProcessingPackagesModule,
 	],
 	providers: [
 		{ provide: APP_GUARD, useClass: JwtAuthGuard },

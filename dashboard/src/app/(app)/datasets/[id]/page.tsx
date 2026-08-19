@@ -1,7 +1,13 @@
+import DatasetEditor from "@/components/DatasetEditor";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ProcessingStatusTable from "@/components/ProcessingStatusTable";
-import { getDatasetProcessingDetail } from "@/lib/api";
+import {
+	getDatasetProcessingDetail,
+	getOgdbUsers,
+	getProcessingPackages,
+} from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import { formatDate, statusColor } from "@/lib/format";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -46,8 +52,15 @@ export default async function DatasetDetailPage({
 	params: Promise<{ id: string }>;
 }) {
 	const { id } = await params;
-	const detail = await getDatasetProcessingDetail(Number(id));
+	const [detail, users, packages, currentUser] = await Promise.all([
+		getDatasetProcessingDetail(Number(id)),
+		getOgdbUsers(),
+		getProcessingPackages(),
+		getCurrentUser(),
+	]);
 	if (!detail) notFound();
+
+	const currentOgdbUser = users.find((u) => u.id === currentUser?.id);
 
 	const title = detail.missionNumber
 		? `${detail.missionNumber}. ${detail.missionName}`
@@ -99,9 +112,30 @@ export default async function DatasetDetailPage({
 				</Box>
 			</Paper>
 
-			<Typography variant="h6" sx={{ mb: 1.5 }}>
-				Processing status
-			</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 1.5,
+				}}
+			>
+				<Typography variant="h6">Processing status</Typography>
+				<DatasetEditor
+					missionId={detail.missionId}
+					detail={detail}
+					users={users}
+					packages={packages}
+					currentUser={
+						currentOgdbUser
+							? {
+									contactId: currentOgdbUser.contactId,
+									name: currentOgdbUser.name,
+								}
+							: null
+					}
+				/>
+			</Box>
 			<Box sx={{ mb: 4 }}>
 				<ProcessingStatusTable stages={detail.stages} />
 			</Box>

@@ -129,12 +129,16 @@ export interface DatasetProcessingStageQc {
 	removingErroneousData: boolean;
 	offsetCorrection: boolean;
 	despikingFiltering: boolean;
+	// package/versionUrl are display strings (joined at read time); the
+	// *Id fields are the raw FKs, needed to pre-select the right option
+	// when editing rather than re-resolving name -> id.
 	package: string | null;
+	packageId: number | null;
 	versionUrl: string | null;
-	// Not tracked yet — schema has the columns (qc_occurred_at/qc_who_id) but
-	// nothing populates them in practice. Always null for now.
+	versionId: number | null;
 	occurredAt: string | null;
 	who: string | null;
+	whoId: number | null;
 }
 
 export interface DatasetProcessingStageDetail {
@@ -144,11 +148,18 @@ export interface DatasetProcessingStageDetail {
 	applicable: boolean;
 	status: boolean;
 	who: string | null;
+	whoId: number | null;
 	occurredAt: string | null;
 	package: string | null;
+	packageId: number | null;
 	versionUrl: string | null;
+	versionId: number | null;
 	qc: DatasetProcessingStageQc | null;
 	isOg1: boolean | null;
+	// Derived from whether a matching `documents` row exists (document_type
+	// "<stage>_output"/"<stage>_og1") — not a real file attachment yet, so
+	// these are read-only for now (no file storage decision made). See
+	// RecordDatasetStageInput: there is deliberately no way to set these.
 	hasInternalDownload: boolean;
 	hasInternalDownloadOg1: boolean;
 }
@@ -183,6 +194,83 @@ export interface DatasetProcessingStatus {
 	l1Og1: boolean;
 	l2Status: boolean;
 	l2Og1: boolean;
+}
+
+// A person who can be picked for "who"/"QC who" -- an OGDB app user with a
+// linked contact (excludes service/test accounts). contactId is what
+// actually gets submitted: who_id/qc_who_id FK to contacts, not users. id
+// is the users.id, kept alongside so the current session's user (from
+// AuthUser.id) can be matched to their contactId for autofill.
+export interface OgdbUser {
+	id: number;
+	contactId: number;
+	name: string;
+}
+
+export interface ProcessingPackageVersion {
+	id: number;
+	versionLabel: string;
+	versionUrl: string | null;
+}
+
+// The controlled package/version catalog backing every package/version
+// field in the dataset editor (main processing and QC both draw from the
+// same list). Versions come nested since the picker always needs a
+// package's full version list at once -- no separate lazy-load endpoint
+// for a list this small.
+export interface ProcessingPackage {
+	id: number;
+	name: string;
+	versions: ProcessingPackageVersion[];
+}
+
+export interface NewProcessingPackageInput {
+	name: string;
+}
+
+export interface NewProcessingPackageVersionInput {
+	versionLabel: string;
+	versionUrl?: string | null;
+}
+
+// One new row in dataset_processing_stages -- the table is append-only
+// (a reprocessing run adds a row, never overwrites), so "editing" a stage
+// means submitting a brand new record, not patching the current one.
+export interface RecordDatasetStageInput {
+	stage: DatasetProcessingStage;
+	status: boolean;
+	whoId?: number | null;
+	occurredAt: string;
+	packageId?: number | null;
+	versionId?: number | null;
+	// null clears any previously-recorded QC for this run (not applicable);
+	// omit only when the stage doesn't support QC at all (raw/L0).
+	qc?: {
+		removingErroneousData: boolean;
+		offsetCorrection: boolean;
+		despikingFiltering: boolean;
+		qcWhoId?: number | null;
+		qcOccurredAt?: string | null;
+		qcPackageId?: number | null;
+		qcVersionId?: number | null;
+	} | null;
+	isOg1?: boolean | null;
+}
+
+// Batched so recording new runs for several stages at once is one
+// transaction, same reasoning as the glider build editor's BuildChange[].
+export interface ApplyDatasetStagesInput {
+	stages: RecordDatasetStageInput[];
+}
+
+// dataset_processing is current-state (unique per mission), not an event
+// log -- a plain update/upsert, unlike the stages above. doi lives on
+// missions, not dataset_processing, but is edited from the same form.
+export interface UpdateExternalReferencesInput {
+	doi?: string | null;
+	externalDataArchiveUrl?: string | null;
+	oceanOpsBoardUrl?: string | null;
+	coriolisUrl?: string | null;
 }
 
 export interface Mission {
