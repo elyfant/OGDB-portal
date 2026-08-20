@@ -8,6 +8,7 @@ import type {
 	DatasetProcessingStatus,
 	Glider,
 	GliderBuild,
+	LookupOption,
 	Mission,
 	MissionsLeaderboard,
 	MissionsSummary,
@@ -95,6 +96,46 @@ export async function getStatusOptions(): Promise<AssetStatusOption[]> {
 	const res = await apiFetch("/asset-status-options");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch status options: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getProjects(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/projects");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch projects: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getSites(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/sites");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch sites: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getInstitutes(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/institutes");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch institutes: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getContacts(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/contacts");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch contacts: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getMissionStatuses(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/mission-statuses");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch mission statuses: ${res.status}`);
 	}
 	return res.json();
 }

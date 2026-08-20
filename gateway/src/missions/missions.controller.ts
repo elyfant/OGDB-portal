@@ -5,10 +5,12 @@ import {
 	Param,
 	ParseIntPipe,
 	Patch,
+	Post,
 } from "@nestjs/common";
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
+import { CreateMissionDto } from "./dto/create-mission.dto";
 import { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
 import { MissionsService } from "./missions.service";
 
@@ -19,6 +21,15 @@ export class MissionsController {
 	@Get()
 	findAll() {
 		return this.missions.findAll();
+	}
+
+	@Roles("editor", "admin")
+	@Post()
+	createMission(
+		@Body() dto: CreateMissionDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.missions.createMission(dto, user.sub);
 	}
 
 	@Get("summary")

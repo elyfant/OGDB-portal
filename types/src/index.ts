@@ -283,14 +283,21 @@ export interface Mission {
 	missionName: string | null;
 	stdMissionName: string | null;
 	status: string | null;
+	statusId: number | null;
 	project: string | null;
+	projectId: number | null;
 	glider: string | null;
 	platform: string | null;
 	site: string | null;
+	siteId: number | null;
 	pi: string | null;
+	principalInvestigatorId: number | null;
 	tech: string | null;
+	technicalLeadId: number | null;
 	operatingAgency: string | null;
+	operatingAgencyId: number | null;
 	fundingAgency: string | null;
+	fundingAgencyId: number | null;
 	launchCruiseId: number | null;
 	recoveryCruiseId: number | null;
 	volume: number | null;
@@ -316,6 +323,58 @@ export interface Mission {
 
 export interface UpdateMissionFolderPathInput {
 	missionFolderPath: string | null;
+}
+
+// A simple id/name reference option -- projects, sites, institutes,
+// contacts. Shared shape since every lookup dropdown in the Add Mission
+// dialog renders identically regardless of which table backs it.
+export interface LookupOption {
+	id: number;
+	name: string;
+}
+
+// Everything the Add Mission dialog can submit. missionName is
+// deliberately absent -- it's server-computed from
+// glider/project/site/launchDate, never client-submitted, so it can't
+// drift from the naming convention. statusId/gliderAssetId/projectId/
+// siteId/launchDate are the only fields the dialog treats as required;
+// everything else is nullable/omittable.
+export interface CreateMissionInput {
+	missionNumber: number;
+	gliderAssetId: number;
+	statusId: number;
+	projectId: number;
+	siteId: number;
+	launchDate: string;
+	principalInvestigatorId?: number | null;
+	technicalLeadId?: number | null;
+	operatingAgencyId?: number | null;
+	fundingAgencyId?: number | null;
+	launchLatitude?: number | null;
+	launchLongitude?: number | null;
+	launchCruiseId?: number | null;
+	endDateScience?: string | null;
+	recoveryDate?: string | null;
+	recoveryLatitude?: number | null;
+	recoveryLongitude?: number | null;
+	recoveryCruiseId?: number | null;
+	volume?: number | null;
+	weightInAir?: number | null;
+	density?: number | null;
+	dives?: number | null;
+	distanceKm?: number | null;
+	iridiumMinutes?: number | null;
+	missionFolderPath?: string | null;
+	// The new mission's initial build, applied in the same transaction as
+	// the mission row itself -- omit/empty when the glider's current live
+	// build already covers it (most redeployments need no changes at all).
+	buildChanges?: BuildChange[];
+}
+
+export interface CreatedMission {
+	id: number;
+	missionNumber: number | null;
+	missionName: string | null;
 }
 
 export interface GliderBuildComponent {

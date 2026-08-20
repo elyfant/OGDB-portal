@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type {
+	CreatedMission,
 	Mission,
 	MissionsLeaderboard,
 	MissionsSummary,
@@ -7,17 +8,35 @@ import type {
 } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
-import { getMissionSciencePayload } from "../gliders/build.helpers";
+import {
+	applyBuildChangesTx,
+	getMissionSciencePayload,
+} from "../gliders/build.helpers";
+import type { CreateMissionDto } from "./dto/create-mission.dto";
 import type { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
+import { buildMissionName } from "./mission-name.helper";
 
 const DAYS_EXPR =
 	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
 
+// Raw FK ids alongside the display strings norglider_missions already
+// resolves -- needed for the Add Mission dialog's "autopopulate from
+// previous mission" feature, which has to set real dropdown selections,
+// not just show text. Same correlated-subquery pattern already used for
+// gliderAssetId/missionFolderPath below (norglider_missions doesn't
+// expose these directly; missions does).
 const SELECT_MISSIONS = `
   SELECT
     id,
     (SELECT glider_asset_id FROM missions WHERE missions.id = norglider_missions.id) AS "gliderAssetId",
     (SELECT mission_folder_path FROM missions WHERE missions.id = norglider_missions.id) AS "missionFolderPath",
+    (SELECT status_id FROM missions WHERE missions.id = norglider_missions.id) AS "statusId",
+    (SELECT project_id FROM missions WHERE missions.id = norglider_missions.id) AS "projectId",
+    (SELECT site_id FROM missions WHERE missions.id = norglider_missions.id) AS "siteId",
+    (SELECT principal_investigator_id FROM missions WHERE missions.id = norglider_missions.id) AS "principalInvestigatorId",
+    (SELECT technical_lead_id FROM missions WHERE missions.id = norglider_missions.id) AS "technicalLeadId",
+    (SELECT operating_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "operatingAgencyId",
+    (SELECT funding_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "fundingAgencyId",
     mission_number AS "missionNumber",
     mission_name AS "missionName",
     std_mission_name AS "stdMissionName",
@@ -94,6 +113,108 @@ export class MissionsService {
 			[dto.missionFolderPath, userId, id],
 		);
 		return this.findOne(id);
+	}
+
+	// Creates the mission row and applies its initial glider build (if
+	// any) in one transaction -- a partial save (mission created, build
+	// changes lost, or vice versa) shouldn't be possible. mission_name is
+	// always computed here, never taken from the client, so it can't
+	// drift from the naming convention.
+	async createMission(
+		dto: CreateMissionDto,
+		userId: number,
+	): Promise<CreatedMission> {
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+
+			const names = await client.query(
+				`SELECT
+           (SELECT glider_name FROM asset_glider_details WHERE asset_id = $1) AS "gliderName",
+           (SELECT name FROM projects WHERE id = $2) AS "projectName",
+           (SELECT name FROM sites WHERE id = $3) AS "siteName"`,
+				[dto.gliderAssetId, dto.projectId, dto.siteId],
+			);
+			const { gliderName, projectName, siteName } = names.rows[0];
+			if (!gliderName || !projectName || !siteName) {
+				throw new NotFoundException(
+					"Glider, project, or site not found -- can't build a mission name.",
+				);
+			}
+			const missionName = buildMissionName(
+				gliderName,
+				projectName,
+				siteName,
+				dto.launchDate,
+			);
+
+			const inserted = await client.query(
+				`INSERT INTO missions (
+           mission_number, mission_name, glider_asset_id, status_id, project_id, site_id,
+           principal_investigator_id, technical_lead_id, operating_agency_id, funding_agency_id,
+           launch_date, launch_latitude, launch_longitude, launch_cruise_id,
+           end_date_science, recovery_date, recovery_latitude, recovery_longitude, recovery_cruise_id,
+           volume, weight_in_air, density, dives, distance_km, iridium_minutes,
+           mission_folder_path, changed_by
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6,
+           $7, $8, $9, $10,
+           $11, $12, $13, $14,
+           $15, $16, $17, $18, $19,
+           $20, $21, $22, $23, $24, $25,
+           $26, $27
+         ) RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
+				[
+					dto.missionNumber,
+					missionName,
+					dto.gliderAssetId,
+					dto.statusId,
+					dto.projectId,
+					dto.siteId,
+					dto.principalInvestigatorId ?? null,
+					dto.technicalLeadId ?? null,
+					dto.operatingAgencyId ?? null,
+					dto.fundingAgencyId ?? null,
+					dto.launchDate,
+					dto.launchLatitude ?? null,
+					dto.launchLongitude ?? null,
+					dto.launchCruiseId ?? null,
+					dto.endDateScience ?? null,
+					dto.recoveryDate ?? null,
+					dto.recoveryLatitude ?? null,
+					dto.recoveryLongitude ?? null,
+					dto.recoveryCruiseId ?? null,
+					dto.volume ?? null,
+					dto.weightInAir ?? null,
+					dto.density ?? null,
+					dto.dives ?? null,
+					dto.distanceKm ?? null,
+					dto.iridiumMinutes ?? null,
+					dto.missionFolderPath ?? null,
+					userId,
+				],
+			);
+			const created: CreatedMission = inserted.rows[0];
+
+			if (dto.buildChanges && dto.buildChanges.length > 0) {
+				await applyBuildChangesTx(
+					client,
+					dto.buildChanges,
+					dto.launchDate,
+					created.id,
+					null,
+					userId,
+				);
+			}
+
+			await client.query("COMMIT");
+			return created;
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
 	}
 
 	async getSummary(): Promise<MissionsSummary> {

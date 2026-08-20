@@ -1,4 +1,10 @@
+import {
+	BadRequestException,
+	ConflictException,
+	NotFoundException,
+} from "@nestjs/common";
 import type {
+	BuildChange,
 	GliderBuild,
 	GliderBuildComponent,
 	GliderComponentDetail,
@@ -7,14 +13,16 @@ import type {
 	GliderStatusHistoryItem,
 	MeasuredParameter,
 	MissionsSummary,
+	NewAssetInput,
 	ScienceSensorRecord,
 	SensorCalRecord,
 } from "@ogdb/types";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import {
 	CAL_TABLES,
 	DETAIL_TABLES,
 	FLAT_MODEL_TABLES,
+	VALID_PARENT_TYPES,
 } from "../common/asset-tables";
 
 // Mirrors missions.service.ts's DAYS_EXPR/getSummary exactly, scoped to
@@ -487,4 +495,188 @@ export async function getGliderBuild(
 		statusHistory,
 		editHistory,
 	};
+}
+
+// Enforces docs/design/build-hierarchy.md's "Valid parent(s) by asset
+// type" table -- the write-path validation that table was always meant
+// for. Not yet a DB-level constraint, so this is the only thing standing
+// between a typo and a battery assigned under a CT sensor.
+async function assertValidParent(
+	client: PoolClient,
+	childAssetId: number,
+	parentAssetId: number,
+): Promise<void> {
+	const result = await client.query(
+		`SELECT childType.name AS "childType", parentType.name AS "parentType"
+     FROM assets child
+     JOIN asset_types childType ON childType.id = child.asset_type_id
+     JOIN assets parent ON parent.id = $2
+     JOIN asset_types parentType ON parentType.id = parent.asset_type_id
+     WHERE child.id = $1`,
+		[childAssetId, parentAssetId],
+	);
+	if (result.rows.length === 0) {
+		throw new NotFoundException(
+			`Asset ${childAssetId} or ${parentAssetId} does not exist.`,
+		);
+	}
+	const { childType, parentType } = result.rows[0];
+	const validParents = VALID_PARENT_TYPES[childType];
+	if (validParents && !validParents.includes(parentType)) {
+		throw new ConflictException(
+			`${childType} cannot be assigned under a ${parentType} -- valid parent(s): ${validParents.join(", ")}.`,
+		);
+	}
+}
+
+// Exactly one of childAssetId/newAsset is expected. newAsset covers only
+// the simple case (serial + flat model text) -- battery/hull model
+// lookups and arbitrary detail fields still go through the worksheet
+// script, not this UI.
+async function resolveOrCreateAsset(
+	client: PoolClient,
+	userId: number,
+	childAssetId: number | undefined,
+	newAsset: NewAssetInput | undefined,
+): Promise<number> {
+	if (childAssetId) return childAssetId;
+	if (!newAsset) {
+		throw new BadRequestException(
+			"Each replace/add change needs either childAssetId or newAsset.",
+		);
+	}
+
+	const typeResult = await client.query(
+		"SELECT id FROM asset_types WHERE name = $1",
+		[newAsset.assetType],
+	);
+	if (typeResult.rows.length === 0) {
+		throw new BadRequestException(`Unknown asset type: ${newAsset.assetType}`);
+	}
+	const assetTypeId = typeResult.rows[0].id;
+
+	const assetResult = await client.query(
+		"INSERT INTO assets (asset_type_id, serial_number, changed_by) VALUES ($1, $2, $3) RETURNING id",
+		[assetTypeId, newAsset.serialNumber, userId],
+	);
+	const assetId = assetResult.rows[0].id;
+
+	const flatTable = FLAT_MODEL_TABLES[newAsset.assetType];
+	if (flatTable && newAsset.model) {
+		await client.query(
+			`INSERT INTO ${flatTable} (asset_id, model) VALUES ($1, $2)`,
+			[assetId, newAsset.model],
+		);
+	}
+
+	return assetId;
+}
+
+// Applies a batch of BuildChange entries inside an already-open
+// transaction -- the caller owns BEGIN/COMMIT/ROLLBACK. Shared by
+// GlidersService.applyBuildChanges (editing an existing glider's live
+// build) and MissionsService.createMission (setting a brand-new
+// mission's initial build in the very same transaction as the mission
+// row itself, so a failure partway through can't create a mission with
+// no build or vice versa).
+export async function applyBuildChangesTx(
+	client: PoolClient,
+	changes: BuildChange[],
+	effectiveDate: string,
+	missionId: number | null,
+	notes: string | null | undefined,
+	userId: number,
+): Promise<void> {
+	for (const change of changes) {
+		if (change.action === "replace") {
+			const old = await client.query(
+				"SELECT parent_asset_id, position FROM asset_assignments WHERE id = $1 AND end_date IS NULL FOR UPDATE",
+				[change.assignmentId],
+			);
+			if (old.rows.length === 0) {
+				throw new ConflictException(
+					`Assignment ${change.assignmentId} is not currently open -- it may have already been changed.`,
+				);
+			}
+			const { parent_asset_id: parentAssetId, position } = old.rows[0];
+			const childAssetId = await resolveOrCreateAsset(
+				client,
+				userId,
+				change.childAssetId,
+				change.newAsset,
+			);
+			await assertValidParent(client, childAssetId, parentAssetId);
+
+			await client.query(
+				"UPDATE asset_assignments SET end_date = $1, updated_at = now(), changed_by = $2 WHERE id = $3",
+				[effectiveDate, userId, change.assignmentId],
+			);
+			await client.query(
+				`INSERT INTO asset_assignments
+           (child_asset_id, parent_asset_id, start_date, position, mission_id, notes, changed_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				[
+					childAssetId,
+					parentAssetId,
+					effectiveDate,
+					position,
+					missionId,
+					notes ?? null,
+					userId,
+				],
+			);
+		} else if (change.action === "remove") {
+			const old = await client.query(
+				"SELECT child_asset_id FROM asset_assignments WHERE id = $1 AND end_date IS NULL FOR UPDATE",
+				[change.assignmentId],
+			);
+			if (old.rows.length === 0) {
+				throw new ConflictException(
+					`Assignment ${change.assignmentId} is not currently open -- it may have already been changed.`,
+				);
+			}
+			await client.query(
+				"UPDATE asset_assignments SET end_date = $1, updated_at = now(), changed_by = $2 WHERE id = $3",
+				[effectiveDate, userId, change.assignmentId],
+			);
+			if (change.newStatusId) {
+				await client.query(
+					"INSERT INTO asset_status_history (asset_id, status_id, effective_date, notes, changed_by) VALUES ($1, $2, $3, $4, $5)",
+					[
+						old.rows[0].child_asset_id,
+						change.newStatusId,
+						effectiveDate,
+						change.statusNotes ?? null,
+						userId,
+					],
+				);
+			}
+		} else if (change.action === "add") {
+			const childAssetId = await resolveOrCreateAsset(
+				client,
+				userId,
+				change.childAssetId,
+				change.newAsset,
+			);
+			await assertValidParent(client, childAssetId, change.parentAssetId);
+			await client.query(
+				`INSERT INTO asset_assignments
+           (child_asset_id, parent_asset_id, start_date, position, mission_id, notes, changed_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				[
+					childAssetId,
+					change.parentAssetId,
+					effectiveDate,
+					change.position ?? null,
+					missionId,
+					notes ?? null,
+					userId,
+				],
+			);
+		} else {
+			throw new BadRequestException(
+				`Unknown change action: ${JSON.stringify(change)}`,
+			);
+		}
+	}
 }

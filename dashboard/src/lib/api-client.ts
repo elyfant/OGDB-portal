@@ -4,6 +4,8 @@ import type {
 	ApplyBuildChangesInput,
 	ApplyDatasetStagesInput,
 	AssetSearchResult,
+	CreateMissionInput,
+	CreatedMission,
 	DatasetProcessingDetail,
 	GliderBuild,
 	Mission,
@@ -15,6 +17,16 @@ import type {
 	UpdateExternalReferencesInput,
 	UpdateMissionFolderPathInput,
 } from "@ogdb/types";
+
+export async function getGliderBuildClient(
+	gliderId: number,
+): Promise<GliderBuild> {
+	const res = await fetch(`/api/gliders/${gliderId}/build`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch glider build: ${res.status}`);
+	}
+	return res.json();
+}
 
 export async function searchAssets(
 	type: string,
@@ -128,6 +140,21 @@ export async function recordCalibration(
 			data?.message ?? `Failed to record calibration: ${res.status}`,
 		);
 	}
+}
+
+export async function createMission(
+	input: CreateMissionInput,
+): Promise<CreatedMission> {
+	const res = await fetch("/api/missions", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to create mission: ${res.status}`);
+	}
+	return res.json();
 }
 
 export async function updateMissionFolderPath(
