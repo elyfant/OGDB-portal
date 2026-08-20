@@ -6,6 +6,7 @@ import { AssetsModule } from "./assets/assets.module";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { RolesGuard } from "./auth/roles.guard";
+import { CalibrationsModule } from "./calibrations/calibrations.module";
 import { CruisesModule } from "./cruises/cruises.module";
 import { DatasetsModule } from "./datasets/datasets.module";
 import { DbModule } from "./db/db.module";
@@ -22,6 +23,7 @@ import { UsersModule } from "./users/users.module";
 		GlidersModule,
 		AssetsModule,
 		AssetStatusOptionsModule,
+		CalibrationsModule,
 		MissionsModule,
 		DatasetsModule,
 		CruisesModule,

@@ -213,8 +213,9 @@ export class AssetsService {
 			);
 		}
 
-		const columns = [dateColumn, ...keys, "changed_by"];
+		const columns = ["asset_id", dateColumn, ...keys, "changed_by"];
 		const values = [
+			id,
 			dto.calDate,
 			...keys.map((k) => dto.coefficients[k]),
 			userId,

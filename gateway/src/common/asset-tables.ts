@@ -37,12 +37,14 @@ export const FLAT_MODEL_TABLES: Record<string, string> = {
 	slocum_thruster: "asset_slocum_thruster_details",
 };
 
-// asset_types.name -> [cal table, its date column]. Only these four types
-// have a dedicated calibration history table.
+// asset_types.name -> [cal table, its date column]. mr_sensor's table is
+// generic (no known coefficient columns yet, see CAL_COLUMNS) -- added
+// so every "sensor"-group type has one, for the Calibrations catalogue.
 export const CAL_TABLES: Record<string, [table: string, dateColumn: string]> = {
 	ct_sensor: ["asset_ct_sensor_cal", "cal_date"],
 	do_sensor: ["asset_do_sensor_cal", "cal_date"],
 	eco_sensor: ["asset_eco_sensor_cal", "cal_date"],
+	mr_sensor: ["asset_mr_sensor_cal", "cal_date"],
 	slocum_forward_section: ["asset_slocum_forward_section_cal", "service_date"],
 };
 
@@ -148,7 +150,12 @@ export const CAL_COLUMNS: Record<string, string[]> = {
 		"turb_maxoutput",
 		"turb_res",
 		"turb_cal_temp",
+		"calibration_facility",
 	],
+	// No known coefficient columns yet -- no legacy mr_cal table existed
+	// to migrate from, unlike ct/do/eco. Facility is the only writable
+	// field until real MR calibration data shows what else belongs here.
+	mr_sensor: ["calibration_facility"],
 	slocum_forward_section: [
 		"f_de_oil_vol_pot_voltage_min",
 		"f_de_oil_vol_pot_voltage_max",

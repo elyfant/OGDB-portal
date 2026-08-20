@@ -2,6 +2,7 @@ import "server-only";
 import type {
 	Asset,
 	AssetStatusOption,
+	CalibrationCatalogueTypeGroup,
 	Cruise,
 	DatasetProcessingDetail,
 	DatasetProcessingStatus,
@@ -162,6 +163,16 @@ export async function getMissionSciencePayload(
 		throw new Error(
 			`Failed to fetch science payload for mission ${id}: ${res.status}`,
 		);
+	}
+	return res.json();
+}
+
+export async function getCalibrationCatalogue(): Promise<
+	CalibrationCatalogueTypeGroup[]
+> {
+	const res = await apiFetch("/calibrations");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch calibration catalogue: ${res.status}`);
 	}
 	return res.json();
 }

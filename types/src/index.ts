@@ -387,6 +387,37 @@ export interface RecordSensorCalibrationInput {
 	coefficients: Record<string, number | string | null>;
 }
 
+// One row of the Calibrations catalogue -- unlike ScienceSensorRecord
+// (one calibration per sensor, as of one date), this is the FULL history:
+// every calibration ever recorded for the asset, not just the one in
+// effect on some mission. `facility` is pulled out of `coefficients`
+// separately since the catalogue gives it its own sortable column.
+export interface CalibrationCatalogueRow {
+	id: number;
+	assetId: number;
+	serialNumber: string | null;
+	calDate: string;
+	facility: string | null;
+	coefficients: Record<string, number | string | null>;
+}
+
+export interface CalibrationCatalogueModelGroup {
+	// null groups every row with no NVS L22 model recorded yet.
+	modelId: number | null;
+	model: string | null;
+	modelUri: string | null;
+	rows: CalibrationCatalogueRow[];
+}
+
+// One asset type's section of the catalogue (ct_sensor, do_sensor,
+// eco_sensor, mr_sensor -- the "sensor" asset_type_group; slocum_
+// forward_section has a cal table too but is structural, not science,
+// so it's deliberately excluded from this catalogue).
+export interface CalibrationCatalogueTypeGroup {
+	assetType: string;
+	models: CalibrationCatalogueModelGroup[];
+}
+
 export interface GliderStatusHistoryItem {
 	id: number;
 	assetId: number;
