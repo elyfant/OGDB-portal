@@ -157,6 +157,22 @@ export async function createMission(
 	return res.json();
 }
 
+export async function updateMission(
+	id: number,
+	input: CreateMissionInput,
+): Promise<CreatedMission> {
+	const res = await fetch(`/api/missions/${id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to update mission: ${res.status}`);
+	}
+	return res.json();
+}
+
 export async function updateMissionFolderPath(
 	missionId: number,
 	input: UpdateMissionFolderPathInput,

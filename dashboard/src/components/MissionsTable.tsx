@@ -1,8 +1,10 @@
 "use client";
 
+import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
+import IconButton from "@mui/material/IconButton";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -15,8 +17,9 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import type { Mission } from "@ogdb/types";
+import type { Cruise, Glider, LookupOption, Mission } from "@ogdb/types";
 import { useMemo, useState } from "react";
 import {
 	DEFAULT_VISIBLE_COLUMNS,
@@ -25,6 +28,7 @@ import {
 	formatMissionValue,
 } from "../lib/mission-columns";
 import ClickableTableRow from "./ClickableTableRow";
+import MissionFormDialog from "./MissionFormDialog";
 
 function rowSx(status: string | null) {
 	if (status === "active")
@@ -61,7 +65,27 @@ function uniqueSorted(values: (string | null)[]): string[] {
 	);
 }
 
-export default function MissionsTable({ missions }: { missions: Mission[] }) {
+export default function MissionsTable({
+	missions,
+	canEdit,
+	gliders,
+	missionStatuses,
+	projects,
+	sites,
+	contacts,
+	institutes,
+	cruises,
+}: {
+	missions: Mission[];
+	canEdit: boolean;
+	gliders: Glider[];
+	missionStatuses: LookupOption[];
+	projects: LookupOption[];
+	sites: LookupOption[];
+	contacts: LookupOption[];
+	institutes: LookupOption[];
+	cruises: Cruise[];
+}) {
 	const [visibleColumns, setVisibleColumns] = useState<(keyof Mission)[]>(
 		DEFAULT_VISIBLE_COLUMNS,
 	);
@@ -73,12 +97,13 @@ export default function MissionsTable({ missions }: { missions: Mission[] }) {
 		key: keyof Mission;
 		direction: "asc" | "desc";
 	}>({ key: "launchDate", direction: "desc" });
+	const [editingMission, setEditingMission] = useState<Mission | null>(null);
 
-	const siteOptions = useMemo(
+	const siteFilterOptions = useMemo(
 		() => uniqueSorted(missions.map((m) => m.site)),
 		[missions],
 	);
-	const projectOptions = useMemo(
+	const projectFilterOptions = useMemo(
 		() => uniqueSorted(missions.map((m) => m.project)),
 		[missions],
 	);
@@ -169,7 +194,7 @@ export default function MissionsTable({ missions }: { missions: Mission[] }) {
 					sx={{ minWidth: 140 }}
 				>
 					<MenuItem value="">All sites</MenuItem>
-					{siteOptions.map((s) => (
+					{siteFilterOptions.map((s) => (
 						<MenuItem key={s} value={s}>
 							{s}
 						</MenuItem>
@@ -184,7 +209,7 @@ export default function MissionsTable({ missions }: { missions: Mission[] }) {
 					sx={{ minWidth: 140 }}
 				>
 					<MenuItem value="">All projects</MenuItem>
-					{projectOptions.map((p) => (
+					{projectFilterOptions.map((p) => (
 						<MenuItem key={p} value={p}>
 							{p}
 						</MenuItem>
@@ -232,6 +257,7 @@ export default function MissionsTable({ missions }: { missions: Mission[] }) {
 									</TableSortLabel>
 								</TableCell>
 							))}
+							{canEdit && <TableCell align="center" style={{ width: 1 }} />}
 						</TableRow>
 					</TableHead>
 					<TableBody>
@@ -246,11 +272,43 @@ export default function MissionsTable({ missions }: { missions: Mission[] }) {
 										{formatMissionValue(mission[col.key], col)}
 									</TableCell>
 								))}
+								{canEdit && (
+									<TableCell align="center">
+										<Tooltip title="Edit this mission">
+											<IconButton
+												size="small"
+												onClick={(e) => {
+													e.stopPropagation();
+													setEditingMission(mission);
+												}}
+												onDoubleClick={(e) => e.stopPropagation()}
+											>
+												<EditIcon fontSize="small" />
+											</IconButton>
+										</Tooltip>
+									</TableCell>
+								)}
 							</ClickableTableRow>
 						))}
 					</TableBody>
 				</Table>
 			</TableContainer>
+
+			{canEdit && (
+				<MissionFormDialog
+					mode="edit"
+					mission={editingMission}
+					onClose={() => setEditingMission(null)}
+					missions={missions}
+					gliders={gliders}
+					missionStatuses={missionStatuses}
+					projects={projects}
+					sites={sites}
+					contacts={contacts}
+					institutes={institutes}
+					cruises={cruises}
+				/>
+			)}
 		</Box>
 	);
 }

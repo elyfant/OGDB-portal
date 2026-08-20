@@ -4,6 +4,7 @@ import {
 	createMission,
 	getGliderBuildClient,
 	searchAssets,
+	updateMission,
 } from "@/lib/api-client";
 import { formatAssetType } from "@/lib/format";
 import { previewMissionName } from "@/lib/mission-name";
@@ -116,6 +117,41 @@ function emptyForm(): FormState {
 	};
 }
 
+// Seeds every field straight from an existing mission's raw values --
+// the same fields SELECT_MISSIONS already exposes as FK ids (added for
+// the Add Mission dialog's autopopulate feature), reused here for the
+// same reason: setting a real dropdown selection needs the id, not the
+// resolved display string.
+function formFromMission(m: Mission): FormState {
+	return {
+		missionNumber: m.missionNumber?.toString() ?? "",
+		gliderAssetId: m.gliderAssetId ?? "",
+		statusId: m.statusId ?? "",
+		projectId: m.projectId ?? "",
+		siteId: m.siteId ?? "",
+		principalInvestigatorId: m.principalInvestigatorId ?? "",
+		technicalLeadId: m.technicalLeadId ?? "",
+		operatingAgencyId: m.operatingAgencyId ?? "",
+		fundingAgencyId: m.fundingAgencyId ?? "",
+		launchDate: m.launchDate?.slice(0, 10) ?? "",
+		launchLatitude: m.launchLatitude?.toString() ?? "",
+		launchLongitude: m.launchLongitude?.toString() ?? "",
+		launchCruiseId: m.launchCruiseId ?? "",
+		endDateScience: m.endDateScience?.slice(0, 10) ?? "",
+		recoveryDate: m.recoveryDate?.slice(0, 10) ?? "",
+		recoveryLatitude: m.recoveryLatitude?.toString() ?? "",
+		recoveryLongitude: m.recoveryLongitude?.toString() ?? "",
+		recoveryCruiseId: m.recoveryCruiseId ?? "",
+		volume: m.volume?.toString() ?? "",
+		weightInAir: m.weightInAir?.toString() ?? "",
+		density: m.density?.toString() ?? "",
+		dives: m.dives?.toString() ?? "",
+		distanceKm: m.distanceKm?.toString() ?? "",
+		iridiumMinutes: m.iridiumMinutes?.toString() ?? "",
+		missionFolderPath: m.missionFolderPath ?? "",
+	};
+}
+
 function toNumberOrNull(raw: string): number | null {
 	if (raw.trim() === "") return null;
 	const n = Number(raw);
@@ -126,7 +162,17 @@ type Picker =
 	| { mode: "replace"; assignmentId: number; assetType: string }
 	| { mode: "add" };
 
-export default function AddMissionDialog({
+// Same modal for both creating a mission and editing an existing one --
+// "edit" just skips the autopopulate box (there's no "previous mission"
+// concept when you're already editing a specific one), seeds every
+// field from the mission being edited instead of a blank form, and
+// PATCHes instead of POSTs. In edit mode the dialog's open/close is
+// externally controlled (mission/onClose) since the trigger is a
+// per-row icon in MissionsTable, not a button this component owns.
+export default function MissionFormDialog({
+	mode,
+	mission,
+	onClose,
 	missions,
 	gliders,
 	missionStatuses,
@@ -136,6 +182,9 @@ export default function AddMissionDialog({
 	institutes,
 	cruises,
 }: {
+	mode: "create" | "edit";
+	mission?: Mission | null;
+	onClose?: () => void;
 	missions: Mission[];
 	gliders: Glider[];
 	missionStatuses: LookupOption[];
@@ -146,7 +195,9 @@ export default function AddMissionDialog({
 	cruises: Cruise[];
 }) {
 	const router = useRouter();
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const open = mode === "create" ? internalOpen : mission != null;
+
 	const [form, setForm] = useState<FormState>(emptyForm);
 	const [autopopulateId, setAutopopulateId] = useState<number | "">("");
 	const [saving, setSaving] = useState(false);
@@ -183,6 +234,19 @@ export default function AddMissionDialog({
 		return String(max + 1);
 	}, [missions]);
 
+	async function loadBuild(gliderAssetId: number) {
+		setBuildLoading(true);
+		setPendingChanges([]);
+		try {
+			const build = await getGliderBuildClient(gliderAssetId);
+			setBuildComponents(build.components);
+		} catch {
+			setBuildComponents([]);
+		} finally {
+			setBuildLoading(false);
+		}
+	}
+
 	function resetAll() {
 		setForm({
 			...emptyForm(),
@@ -200,21 +264,31 @@ export default function AddMissionDialog({
 
 	function handleOpen() {
 		resetAll();
-		setOpen(true);
+		setInternalOpen(true);
 	}
 
-	async function loadBuild(gliderAssetId: number) {
-		setBuildLoading(true);
-		setPendingChanges([]);
-		try {
-			const build = await getGliderBuildClient(gliderAssetId);
-			setBuildComponents(build.components);
-		} catch {
-			setBuildComponents([]);
-		} finally {
-			setBuildLoading(false);
-		}
+	function closeDialog() {
+		if (mode === "create") setInternalOpen(false);
+		else onClose?.();
 	}
+
+	// Re-seeds the form whenever a (different) mission is opened for
+	// editing -- mission?.id going from unset to set covers both "start
+	// editing" and "close then edit the same row again" (the parent nulls
+	// mission on close, so id genuinely changes each time).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: loadBuild/mission object identity deliberately excluded -- keying on mission?.id avoids re-seeding on every parent render
+	useEffect(() => {
+		if (mode !== "edit" || !mission) return;
+		setForm(formFromMission(mission));
+		setAutopopulateId("");
+		setPendingChanges([]);
+		setPicker(null);
+		setPickerQuery("");
+		setPickerResults([]);
+		setError(null);
+		if (mission.gliderAssetId) loadBuild(mission.gliderAssetId);
+		else setBuildComponents([]);
+	}, [mode, mission?.id]);
 
 	function handleGliderChange(id: number) {
 		setForm((s) => ({ ...s, gliderAssetId: id }));
@@ -395,7 +469,7 @@ export default function AddMissionDialog({
 
 		setSaving(true);
 		try {
-			const created = await createMission({
+			const payload = {
 				missionNumber,
 				gliderAssetId: form.gliderAssetId as number,
 				statusId: form.statusId as number,
@@ -422,78 +496,91 @@ export default function AddMissionDialog({
 				iridiumMinutes: toNumberOrNull(form.iridiumMinutes),
 				missionFolderPath: form.missionFolderPath || null,
 				buildChanges: pendingChanges.length > 0 ? pendingChanges : undefined,
-			});
-			setOpen(false);
+			};
+			const result =
+				mode === "edit" && mission
+					? await updateMission(mission.id, payload)
+					: await createMission(payload);
+			closeDialog();
 			setBanner({
 				severity: "success",
-				message: `Norglider mission #${created.missionNumber} successfully created!`,
+				message:
+					mode === "edit"
+						? `Norglider mission #${result.missionNumber} successfully updated!`
+						: `Norglider mission #${result.missionNumber} successfully created!`,
 			});
 		} catch (err) {
 			setBanner({
 				severity: "error",
 				message:
-					err instanceof Error ? err.message : "Failed to create mission.",
+					err instanceof Error
+						? err.message
+						: `Failed to ${mode === "edit" ? "update" : "create"} mission.`,
 			});
 		} finally {
 			setSaving(false);
 		}
 	}
 
+	const dialogTitle =
+		mode === "edit" && mission
+			? `Edit mission — ${mission.stdMissionName ?? mission.missionName ?? ""} (#${mission.missionNumber})`
+			: "Add new mission";
+
 	return (
 		<>
-			<Button
-				variant="contained"
-				startIcon={<AddCircleOutlineIcon />}
-				onClick={handleOpen}
-			>
-				Add new mission
-			</Button>
+			{mode === "create" && (
+				<Button
+					variant="contained"
+					startIcon={<AddCircleOutlineIcon />}
+					onClick={handleOpen}
+				>
+					Add new mission
+				</Button>
+			)}
 
-			<Dialog
-				open={open}
-				onClose={() => setOpen(false)}
-				maxWidth="md"
-				fullWidth
-			>
-				<DialogTitle>Add new mission</DialogTitle>
+			<Dialog open={open} onClose={closeDialog} maxWidth="md" fullWidth>
+				<DialogTitle>{dialogTitle}</DialogTitle>
 				<DialogContent
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 3 }}
 				>
-					<Box
-						sx={{
-							display: "flex",
-							alignItems: "center",
-							gap: 1.5,
-							bgcolor: "primary.50",
-							border: "1px solid",
-							borderColor: "primary.main",
-							borderRadius: 1,
-							p: 1.5,
-						}}
-					>
-						<Typography
-							variant="caption"
-							sx={{ fontWeight: 700, whiteSpace: "nowrap" }}
+					{mode === "create" && (
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								gap: 1.5,
+								bgcolor: "primary.50",
+								border: "1px solid",
+								borderColor: "primary.main",
+								borderRadius: 1,
+								p: 1.5,
+							}}
 						>
-							Autopopulate from previous mission
-						</Typography>
-						<TextField
-							select
-							size="small"
-							fullWidth
-							value={autopopulateId}
-							onChange={(e) => handleAutopopulate(Number(e.target.value))}
-							SelectProps={{ displayEmpty: true }}
-						>
-							<MenuItem value="">— choose any past mission —</MenuItem>
-							{missions.map((m) => (
-								<MenuItem key={m.id} value={m.id}>
-									{m.stdMissionName ?? m.missionName} (#{m.missionNumber})
-								</MenuItem>
-							))}
-						</TextField>
-					</Box>
+							<Typography
+								variant="caption"
+								sx={{ fontWeight: 700, whiteSpace: "nowrap" }}
+							>
+								Autopopulate from previous mission
+							</Typography>
+							<TextField
+								select
+								size="small"
+								fullWidth
+								value={autopopulateId}
+								onChange={(e) => handleAutopopulate(Number(e.target.value))}
+								SelectProps={{ displayEmpty: true }}
+							>
+								<MenuItem value="">— choose any past mission —</MenuItem>
+								{missions.map((m) => (
+									<MenuItem key={m.id} value={m.id}>
+										{m.stdMissionName ?? m.missionName} (#{m.missionNumber})
+									</MenuItem>
+								))}
+							</TextField>
+						</Box>
+					)}
 
 					<Section label="Identity">
 						<Grid>
@@ -505,7 +592,11 @@ export default function AddMissionDialog({
 									onChange={(e) =>
 										setForm((s) => ({ ...s, missionNumber: e.target.value }))
 									}
-									helperText="Suggested next number — editable"
+									helperText={
+										mode === "create"
+											? "Suggested next number — editable"
+											: undefined
+									}
 								/>
 							</Field>
 							<Field label="Mission name" required span={2}>
@@ -1030,11 +1121,15 @@ export default function AddMissionDialog({
 					)}
 				</DialogContent>
 				<DialogActions sx={{ px: 3, py: 1.5 }}>
-					<Button onClick={() => setOpen(false)} disabled={saving}>
+					<Button onClick={closeDialog} disabled={saving}>
 						Cancel
 					</Button>
 					<Button variant="contained" onClick={handleSave} disabled={saving}>
-						{saving ? "Saving…" : "Save mission"}
+						{saving
+							? "Saving…"
+							: mode === "edit"
+								? "Save changes"
+								: "Save mission"}
 					</Button>
 				</DialogActions>
 			</Dialog>

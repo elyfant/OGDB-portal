@@ -1,4 +1,4 @@
-import AddMissionDialog from "@/components/AddMissionDialog";
+import MissionFormDialog from "@/components/MissionFormDialog";
 import MissionsTable from "@/components/MissionsTable";
 import {
 	getContacts,
@@ -50,7 +50,8 @@ export default async function MissionsPage() {
 			>
 				<Typography variant="h5">Missions</Typography>
 				{canEdit && (
-					<AddMissionDialog
+					<MissionFormDialog
+						mode="create"
 						missions={missions}
 						gliders={gliders}
 						missionStatuses={missionStatuses}
@@ -62,7 +63,17 @@ export default async function MissionsPage() {
 					/>
 				)}
 			</Box>
-			<MissionsTable missions={missions} />
+			<MissionsTable
+				missions={missions}
+				canEdit={canEdit}
+				gliders={gliders}
+				missionStatuses={missionStatuses}
+				projects={projects}
+				sites={sites}
+				contacts={contacts}
+				institutes={institutes}
+				cruises={cruises}
+			/>
 		</Box>
 	);
 }

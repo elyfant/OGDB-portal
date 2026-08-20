@@ -14,6 +14,7 @@ import {
 } from "../gliders/build.helpers";
 import type { CreateMissionDto } from "./dto/create-mission.dto";
 import type { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
+import type { UpdateMissionDto } from "./dto/update-mission.dto";
 import { buildMissionName } from "./mission-name.helper";
 
 const DAYS_EXPR =
@@ -209,6 +210,109 @@ export class MissionsService {
 
 			await client.query("COMMIT");
 			return created;
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+	}
+
+	// Same shape as createMission -- UPDATE instead of INSERT, and any
+	// build changes are dated to this mission's own launch date (not
+	// "today"), with mission_id pointing at the existing row rather than
+	// a freshly created one. mission_name is recomputed unconditionally
+	// from whatever the edit ends up submitting, same as create -- no
+	// special-casing for "did glider/project/site actually change".
+	async updateMission(
+		id: number,
+		dto: UpdateMissionDto,
+		userId: number,
+	): Promise<CreatedMission> {
+		await this.findOne(id);
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+
+			const names = await client.query(
+				`SELECT
+           (SELECT glider_name FROM asset_glider_details WHERE asset_id = $1) AS "gliderName",
+           (SELECT name FROM projects WHERE id = $2) AS "projectName",
+           (SELECT name FROM sites WHERE id = $3) AS "siteName"`,
+				[dto.gliderAssetId, dto.projectId, dto.siteId],
+			);
+			const { gliderName, projectName, siteName } = names.rows[0];
+			if (!gliderName || !projectName || !siteName) {
+				throw new NotFoundException(
+					"Glider, project, or site not found -- can't build a mission name.",
+				);
+			}
+			const missionName = buildMissionName(
+				gliderName,
+				projectName,
+				siteName,
+				dto.launchDate,
+			);
+
+			const updated = await client.query(
+				`UPDATE missions SET
+           mission_number = $1, mission_name = $2, glider_asset_id = $3, status_id = $4,
+           project_id = $5, site_id = $6,
+           principal_investigator_id = $7, technical_lead_id = $8,
+           operating_agency_id = $9, funding_agency_id = $10,
+           launch_date = $11, launch_latitude = $12, launch_longitude = $13, launch_cruise_id = $14,
+           end_date_science = $15, recovery_date = $16, recovery_latitude = $17,
+           recovery_longitude = $18, recovery_cruise_id = $19,
+           volume = $20, weight_in_air = $21, density = $22, dives = $23, distance_km = $24,
+           iridium_minutes = $25, mission_folder_path = $26, changed_by = $27, updated_at = now()
+         WHERE id = $28
+         RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
+				[
+					dto.missionNumber,
+					missionName,
+					dto.gliderAssetId,
+					dto.statusId,
+					dto.projectId,
+					dto.siteId,
+					dto.principalInvestigatorId ?? null,
+					dto.technicalLeadId ?? null,
+					dto.operatingAgencyId ?? null,
+					dto.fundingAgencyId ?? null,
+					dto.launchDate,
+					dto.launchLatitude ?? null,
+					dto.launchLongitude ?? null,
+					dto.launchCruiseId ?? null,
+					dto.endDateScience ?? null,
+					dto.recoveryDate ?? null,
+					dto.recoveryLatitude ?? null,
+					dto.recoveryLongitude ?? null,
+					dto.recoveryCruiseId ?? null,
+					dto.volume ?? null,
+					dto.weightInAir ?? null,
+					dto.density ?? null,
+					dto.dives ?? null,
+					dto.distanceKm ?? null,
+					dto.iridiumMinutes ?? null,
+					dto.missionFolderPath ?? null,
+					userId,
+					id,
+				],
+			);
+			const result: CreatedMission = updated.rows[0];
+
+			if (dto.buildChanges && dto.buildChanges.length > 0) {
+				await applyBuildChangesTx(
+					client,
+					dto.buildChanges,
+					dto.launchDate,
+					id,
+					null,
+					userId,
+				);
+			}
+
+			await client.query("COMMIT");
+			return result;
 		} catch (err) {
 			await client.query("ROLLBACK");
 			throw err;
