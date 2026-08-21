@@ -82,4 +82,32 @@ export class AssetsController {
 	) {
 		return this.assets.recordCalibration(id, dto, user.sub, certificate);
 	}
+
+	@Roles("editor", "admin")
+	@Patch(":id/calibrations/:calId")
+	@UseInterceptors(
+		FileInterceptor("certificate", {
+			storage: memoryStorage(),
+			limits: { fileSize: MAX_CERTIFICATE_BYTES },
+			fileFilter: (_req, file, callback) => {
+				if (file.mimetype !== "application/pdf") {
+					callback(
+						new BadRequestException("Certificates must be a PDF file."),
+						false,
+					);
+					return;
+				}
+				callback(null, true);
+			},
+		}),
+	)
+	updateCalibration(
+		@Param("id", ParseIntPipe) id: number,
+		@Param("calId", ParseIntPipe) calId: number,
+		@Body() dto: RecordSensorCalibrationDto,
+		@CurrentUser() user: JwtPayload,
+		@UploadedFile() certificate?: Express.Multer.File,
+	) {
+		return this.assets.updateCalibration(id, calId, dto, user.sub, certificate);
+	}
 }

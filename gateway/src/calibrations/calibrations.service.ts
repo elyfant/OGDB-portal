@@ -82,6 +82,7 @@ export class CalibrationsService {
 					changed_by,
 					created_at,
 					calibration_facility,
+					note,
 					service_event_id,
 					serialNumber,
 					modelId,
@@ -102,9 +103,11 @@ export class CalibrationsService {
 				const calibrationRow: CalibrationCatalogueRow = {
 					id,
 					assetId: asset_id,
+					assetType,
 					serialNumber,
 					calDate,
 					facility: calibration_facility ?? null,
+					notes: note ?? null,
 					coefficients,
 					certificateDocumentId: certificateDocumentId ?? null,
 				};

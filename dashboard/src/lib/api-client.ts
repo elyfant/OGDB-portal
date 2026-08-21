@@ -152,6 +152,29 @@ export async function recordCalibration(
 	}
 }
 
+export async function updateCalibration(
+	assetId: number,
+	calId: number,
+	input: RecordSensorCalibrationInput,
+	certificate?: File,
+): Promise<void> {
+	const formData = new FormData();
+	formData.append("calDate", input.calDate);
+	formData.append("coefficients", JSON.stringify(input.coefficients));
+	if (certificate) formData.append("certificate", certificate);
+
+	const res = await fetch(`/api/assets/${assetId}/calibrations/${calId}`, {
+		method: "PATCH",
+		body: formData,
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to update calibration: ${res.status}`,
+		);
+	}
+}
+
 export async function createMission(
 	input: CreateMissionInput,
 ): Promise<CreatedMission> {

@@ -20,8 +20,13 @@ export class DocumentsController {
 		@Res({ passthrough: true }) res: Response,
 	): Promise<StreamableFile> {
 		const { absolutePath, originalName } = await this.documents.getFilePath(id);
+		// "inline" (not "attachment") + a real PDF content type so the
+		// browser renders the certificate in its own tab instead of
+		// forcing a download -- the catalogue link opens this with
+		// target="_blank".
 		res.set({
-			"Content-Disposition": `attachment; filename="${originalName.replace(/"/g, "")}"`,
+			"Content-Type": "application/pdf",
+			"Content-Disposition": `inline; filename="${originalName.replace(/"/g, "")}"`,
 		});
 		return new StreamableFile(createReadStream(absolutePath));
 	}

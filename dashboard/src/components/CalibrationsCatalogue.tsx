@@ -2,9 +2,10 @@
 
 import { formatAssetType, formatDate, formatFieldValue } from "@/lib/format";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DownloadIcon from "@mui/icons-material/Download";
+import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
@@ -27,12 +28,14 @@ import type {
 	CalibrationCatalogueTypeGroup,
 } from "@ogdb/types";
 import { Fragment, useMemo, useState } from "react";
+import CalibrationFormDialog from "./CalibrationFormDialog";
 
 function buildCopyText(row: CalibrationCatalogueRow): string {
 	const lines = [
 		`serial_number=${row.serialNumber ?? ""}`,
 		`cal_date=${row.calDate}`,
 		`facility=${row.facility ?? ""}`,
+		`notes=${row.notes ?? ""}`,
 	];
 	for (const [key, value] of Object.entries(row.coefficients)) {
 		if (value === null || value === undefined) continue;
@@ -80,7 +83,15 @@ function CoefficientGrid({
 
 type SortKey = "serialNumber" | "calDate" | "facility";
 
-function ModelCalibrationTable({ rows }: { rows: CalibrationCatalogueRow[] }) {
+function ModelCalibrationTable({
+	rows,
+	canEdit,
+	onEditRow,
+}: {
+	rows: CalibrationCatalogueRow[];
+	canEdit: boolean;
+	onEditRow: (row: CalibrationCatalogueRow) => void;
+}) {
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 	const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
 		key: "calDate",
@@ -151,8 +162,10 @@ function ModelCalibrationTable({ rows }: { rows: CalibrationCatalogueRow[] }) {
 								Facility
 							</TableSortLabel>
 						</TableCell>
-						<TableCell>Certificates</TableCell>
+						<TableCell>Notes</TableCell>
+						<TableCell>Certificate</TableCell>
 						<TableCell style={{ width: 1 }} />
+						{canEdit && <TableCell style={{ width: 1 }} />}
 					</TableRow>
 				</TableHead>
 				<TableBody>
@@ -184,10 +197,28 @@ function ModelCalibrationTable({ rows }: { rows: CalibrationCatalogueRow[] }) {
 										</Box>
 									</TableCell>
 									<TableCell>{row.facility ?? "—"}</TableCell>
+									<TableCell
+										sx={{
+											maxWidth: 220,
+											overflow: "hidden",
+											textOverflow: "ellipsis",
+											whiteSpace: "nowrap",
+										}}
+									>
+										{row.notes ? (
+											<Tooltip title={row.notes}>
+												<span>{row.notes}</span>
+											</Tooltip>
+										) : (
+											"—"
+										)}
+									</TableCell>
 									<TableCell>
 										{row.certificateDocumentId ? (
 											<MuiLink
 												href={`/api/documents/${row.certificateDocumentId}/file`}
+												target="_blank"
+												rel="noreferrer"
 												onClick={(e) => e.stopPropagation()}
 												sx={{
 													display: "inline-flex",
@@ -196,7 +227,7 @@ function ModelCalibrationTable({ rows }: { rows: CalibrationCatalogueRow[] }) {
 													fontSize: 12.5,
 												}}
 											>
-												<DownloadIcon sx={{ fontSize: 15 }} />
+												<OpenInNewIcon sx={{ fontSize: 15 }} />
 												PDF
 											</MuiLink>
 										) : (
@@ -223,11 +254,26 @@ function ModelCalibrationTable({ rows }: { rows: CalibrationCatalogueRow[] }) {
 											</IconButton>
 										</Tooltip>
 									</TableCell>
+									{canEdit && (
+										<TableCell>
+											<Tooltip title="Edit this calibration">
+												<IconButton
+													size="small"
+													onClick={(e) => {
+														e.stopPropagation();
+														onEditRow(row);
+													}}
+												>
+													<EditIcon fontSize="small" />
+												</IconButton>
+											</Tooltip>
+										</TableCell>
+									)}
 								</TableRow>
 								{isOpen && (
 									<TableRow>
 										<TableCell
-											colSpan={5}
+											colSpan={canEdit ? 7 : 6}
 											sx={{ bgcolor: "action.hover", py: 2 }}
 										>
 											<CoefficientGrid coefficients={row.coefficients} />
@@ -243,7 +289,15 @@ function ModelCalibrationTable({ rows }: { rows: CalibrationCatalogueRow[] }) {
 	);
 }
 
-function ModelSection({ group }: { group: CalibrationCatalogueModelGroup }) {
+function ModelSection({
+	group,
+	canEdit,
+	onEditRow,
+}: {
+	group: CalibrationCatalogueModelGroup;
+	canEdit: boolean;
+	onEditRow: (row: CalibrationCatalogueRow) => void;
+}) {
 	return (
 		<Box sx={{ mb: 2.5 }}>
 			<Box
@@ -281,18 +335,33 @@ function ModelSection({ group }: { group: CalibrationCatalogueModelGroup }) {
 					</Tooltip>
 				)}
 			</Box>
-			<ModelCalibrationTable rows={group.rows} />
+			<ModelCalibrationTable
+				rows={group.rows}
+				canEdit={canEdit}
+				onEditRow={onEditRow}
+			/>
 		</Box>
 	);
 }
 
 export default function CalibrationsCatalogue({
 	data,
+	canEdit,
 }: {
 	data: CalibrationCatalogueTypeGroup[];
+	canEdit: boolean;
 }) {
+	const [editingRow, setEditingRow] = useState<CalibrationCatalogueRow | null>(
+		null,
+	);
+
 	return (
 		<Box>
+			<CalibrationFormDialog
+				mode="edit"
+				row={editingRow}
+				onClose={() => setEditingRow(null)}
+			/>
 			{data.map((group, index) => {
 				const recordCount = group.models.reduce(
 					(sum, m) => sum + m.rows.length,
@@ -327,7 +396,12 @@ export default function CalibrationsCatalogue({
 								</Typography>
 							) : (
 								group.models.map((m) => (
-									<ModelSection key={m.modelId ?? "unspecified"} group={m} />
+									<ModelSection
+										key={m.modelId ?? "unspecified"}
+										group={m}
+										canEdit={canEdit}
+										onEditRow={setEditingRow}
+									/>
 								))
 							)}
 						</AccordionDetails>

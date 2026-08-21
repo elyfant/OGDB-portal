@@ -1,6 +1,10 @@
 "use client";
 
-import { recordCalibration, searchAssets } from "@/lib/api-client";
+import {
+	recordCalibration,
+	searchAssets,
+	updateCalibration,
+} from "@/lib/api-client";
 import {
 	CAL_FIELDS,
 	SCIENCE_ASSET_TYPES,
@@ -8,6 +12,7 @@ import {
 } from "@/lib/calibration-fields";
 import { formatAssetType, formatFieldName } from "@/lib/format";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -15,9 +20,10 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
+import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import type { AssetSearchResult } from "@ogdb/types";
+import type { AssetSearchResult, CalibrationCatalogueRow } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -29,7 +35,7 @@ function resultLabel(r: AssetSearchResult): string {
 	return `SN ${r.serialNumber ?? "—"} · ${r.model ?? "—"}`;
 }
 
-function initialState() {
+function emptyState() {
 	return {
 		assetType: SCIENCE_ASSET_TYPES[0],
 		query: "",
@@ -42,12 +48,72 @@ function initialState() {
 	};
 }
 
-export default function AddCalibrationDialog() {
+// Seeds the form straight from an existing calibration row's current
+// values. row.coefficients is already split apart per-column, the same
+// shape CAL_FIELDS expects, so this just stringifies each one back into
+// the text-field form the dialog edits -- and folds notes back in as
+// just another field, since CAL_FIELDS.ct_sensor already treats "note"
+// as one of the ordinary coefficient fields.
+function stateFromRow(row: CalibrationCatalogueRow) {
+	const fields: Record<string, string> = {};
+	for (const [key, value] of Object.entries(row.coefficients)) {
+		if (value !== null && value !== undefined) fields[key] = String(value);
+	}
+	if (row.notes) fields.note = row.notes;
+	return {
+		assetType: row.assetType,
+		query: "",
+		results: [] as AssetSearchResult[],
+		selectedAsset: {
+			id: row.assetId,
+			serialNumber: row.serialNumber,
+			model: null,
+		} as AssetSearchResult,
+		calDate: row.calDate.slice(0, 10),
+		facility: row.facility ?? "",
+		fields,
+		certificate: null as File | null,
+	};
+}
+
+// Same dialog for adding a new calibration and editing an existing one
+// -- "edit" just seeds the form from the row being edited instead of a
+// blank one, locks the asset type/serial (what's being calibrated can't
+// change through this form), and PATCHes instead of POSTs. In edit mode
+// the dialog's open/close is externally controlled (row/onClose) since
+// the trigger is a per-row icon in CalibrationsCatalogue, not a button
+// this component owns.
+export default function CalibrationFormDialog({
+	mode,
+	row,
+	onClose,
+}: {
+	mode: "create" | "edit";
+	row?: CalibrationCatalogueRow | null;
+	onClose?: () => void;
+}) {
 	const router = useRouter();
-	const [open, setOpen] = useState(false);
-	const [state, setState] = useState(initialState);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const open = mode === "create" ? internalOpen : row != null;
+
+	const [state, setState] = useState(emptyState);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [banner, setBanner] = useState<{
+		severity: "success" | "error";
+		message: string;
+	} | null>(null);
+
+	// Re-seeds whenever a (different) row is opened for editing -- row?.id
+	// going from unset to set covers both "start editing" and "close then
+	// edit the same row again" (the parent nulls row on close, so id
+	// genuinely changes each time).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: row object identity deliberately excluded -- keying on row?.id avoids re-seeding on every parent render
+	useEffect(() => {
+		if (mode !== "edit" || !row) return;
+		setState(stateFromRow(row));
+		setError(null);
+	}, [mode, row?.id]);
 
 	useEffect(() => {
 		if (state.selectedAsset) return;
@@ -59,9 +125,15 @@ export default function AddCalibrationDialog() {
 		return () => clearTimeout(handle);
 	}, [state.assetType, state.query, state.selectedAsset]);
 
-	function reset() {
-		setState(initialState());
+	function closeDialog() {
+		if (mode === "create") setInternalOpen(false);
+		else onClose?.();
+	}
+
+	function handleOpen() {
+		setState(emptyState());
 		setError(null);
+		setInternalOpen(true);
 	}
 
 	async function handleSave() {
@@ -84,44 +156,69 @@ export default function AddCalibrationDialog() {
 			coefficients[field] = coerceCalibrationInput(raw);
 		}
 
+		const serial = state.selectedAsset.serialNumber ?? state.selectedAsset.id;
 		setSaving(true);
 		try {
-			await recordCalibration(
-				state.selectedAsset.id,
-				{ calDate: state.calDate, coefficients },
-				state.certificate ?? undefined,
-			);
-			setOpen(false);
-			reset();
-			router.refresh();
+			if (mode === "edit" && row) {
+				await updateCalibration(
+					state.selectedAsset.id,
+					row.id,
+					{ calDate: state.calDate, coefficients },
+					state.certificate ?? undefined,
+				);
+			} else {
+				await recordCalibration(
+					state.selectedAsset.id,
+					{ calDate: state.calDate, coefficients },
+					state.certificate ?? undefined,
+				);
+			}
+			closeDialog();
+			setBanner({
+				severity: "success",
+				message:
+					mode === "edit"
+						? `Calibration updated for SN ${serial}.`
+						: `Calibration recorded for SN ${serial}.`,
+			});
 		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Failed to save calibration.",
-			);
+			setBanner({
+				severity: "error",
+				message:
+					err instanceof Error
+						? err.message
+						: `Failed to ${mode === "edit" ? "update" : "save"} calibration.`,
+			});
 		} finally {
 			setSaving(false);
 		}
 	}
 
+	function dismissBanner() {
+		setBanner(null);
+		router.refresh();
+	}
+
 	const coefficientFields = CAL_FIELDS[state.assetType] ?? [];
+	const dialogTitle =
+		mode === "edit"
+			? `Edit calibration — SN ${row?.serialNumber ?? ""}`
+			: "Add calibration coefficients";
 
 	return (
 		<>
-			<Button
-				variant="contained"
-				startIcon={<AddCircleOutlineIcon />}
-				onClick={() => setOpen(true)}
-			>
-				Add calibration coefficients
-			</Button>
+			{mode === "create" && (
+				<Button
+					variant="contained"
+					startIcon={<AddCircleOutlineIcon />}
+					onClick={handleOpen}
+				>
+					Add calibration coefficients
+				</Button>
+			)}
 
-			<Dialog
-				open={open}
-				onClose={() => setOpen(false)}
-				maxWidth="sm"
-				fullWidth
-			>
-				<DialogTitle>Add calibration coefficients</DialogTitle>
+			<Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
+				<DialogTitle>{dialogTitle}</DialogTitle>
 				<DialogContent
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 2 }}
@@ -131,10 +228,10 @@ export default function AddCalibrationDialog() {
 						size="small"
 						label="Asset type"
 						value={state.assetType}
-						disabled={!!state.selectedAsset}
+						disabled={mode === "edit" || !!state.selectedAsset}
 						onChange={(e) =>
 							setState((s) => ({
-								...initialState(),
+								...emptyState(),
 								assetType: e.target.value,
 							}))
 						}
@@ -163,19 +260,21 @@ export default function AddCalibrationDialog() {
 							<span style={{ fontFamily: "monospace", fontSize: 13 }}>
 								{resultLabel(state.selectedAsset)}
 							</span>
-							<Button
-								size="small"
-								onClick={() =>
-									setState((s) => ({
-										...s,
-										selectedAsset: null,
-										query: "",
-										results: [],
-									}))
-								}
-							>
-								Change
-							</Button>
+							{mode === "create" && (
+								<Button
+									size="small"
+									onClick={() =>
+										setState((s) => ({
+											...s,
+											selectedAsset: null,
+											query: "",
+											results: [],
+										}))
+									}
+								>
+									Change
+								</Button>
+							)}
 						</Box>
 					) : (
 						<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
@@ -333,20 +432,37 @@ export default function AddCalibrationDialog() {
 					)}
 				</DialogContent>
 				<DialogActions sx={{ px: 3, py: 1.5 }}>
-					<Button
-						onClick={() => {
-							setOpen(false);
-							reset();
-						}}
-						disabled={saving}
-					>
+					<Button onClick={closeDialog} disabled={saving}>
 						Cancel
 					</Button>
 					<Button variant="contained" onClick={handleSave} disabled={saving}>
-						{saving ? "Saving…" : "Save calibration"}
+						{saving
+							? "Saving…"
+							: mode === "edit"
+								? "Save changes"
+								: "Save calibration"}
 					</Button>
 				</DialogActions>
 			</Dialog>
+
+			<Snackbar
+				open={banner !== null}
+				onClose={dismissBanner}
+				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+			>
+				<Alert
+					severity={banner?.severity}
+					variant="filled"
+					sx={{ maxWidth: 480 }}
+					action={
+						<Button color="inherit" size="small" onClick={dismissBanner}>
+							OK
+						</Button>
+					}
+				>
+					{banner?.message}
+				</Alert>
+			</Snackbar>
 		</>
 	);
 }

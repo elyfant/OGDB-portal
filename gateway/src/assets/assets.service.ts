@@ -295,6 +295,137 @@ export class AssetsService {
 			client.release();
 		}
 	}
+
+	// Unlike recordCalibration, this is a real UPDATE in place -- not
+	// another append. The cal tables are append-only for recording a new
+	// calibration *event*, but this endpoint isn't that: it's correcting
+	// or completing the record of one already-recorded event (a typo, a
+	// coefficient missed the first time, attaching a certificate after
+	// the fact), which is a different thing from "the sensor was
+	// recalibrated again." A full-replace PATCH (every known coefficient
+	// column gets set, not just the ones present in the request) so that
+	// clearing a field in the edit form actually clears it in the DB,
+	// same convention as MissionsService.updateMission.
+	async updateCalibration(
+		assetId: number,
+		calId: number,
+		dto: RecordSensorCalibrationDto,
+		userId: number,
+		certificate?: Express.Multer.File,
+	): Promise<void> {
+		const asset = await this.pool.query(
+			`SELECT at.name AS "assetType" FROM assets a
+       JOIN asset_types at ON at.id = a.asset_type_id
+       WHERE a.id = $1`,
+			[assetId],
+		);
+		if (asset.rows.length === 0) {
+			throw new NotFoundException(`Asset ${assetId} not found`);
+		}
+		const assetType = asset.rows[0].assetType as string;
+
+		const calInfo = CAL_TABLES[assetType];
+		if (!calInfo) {
+			throw new BadRequestException(`${assetType} has no calibration table.`);
+		}
+		const [table, dateColumn] = calInfo;
+		const allColumns = CAL_COLUMNS[assetType] ?? [];
+		const allowedColumns = new Set(allColumns);
+
+		const unknown = Object.keys(dto.coefficients).filter(
+			(k) => !allowedColumns.has(k),
+		);
+		if (unknown.length > 0) {
+			throw new BadRequestException(
+				`Unknown calibration field(s) for ${assetType}: ${unknown.join(", ")}`,
+			);
+		}
+
+		const hasServiceEventColumn = table === "asset_ct_sensor_cal";
+		if (certificate && !hasServiceEventColumn) {
+			throw new BadRequestException(
+				`Certificates aren't supported for ${assetType} yet.`,
+			);
+		}
+
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+
+			const existing = await client.query(
+				`SELECT asset_id${hasServiceEventColumn ? ", service_event_id" : ""}
+         FROM ${table} WHERE id = $1 FOR UPDATE`,
+				[calId],
+			);
+			if (existing.rows.length === 0 || existing.rows[0].asset_id !== assetId) {
+				throw new NotFoundException(
+					`Calibration ${calId} not found for asset ${assetId}.`,
+				);
+			}
+
+			let serviceEventId: number | null = hasServiceEventColumn
+				? (existing.rows[0].service_event_id ?? null)
+				: null;
+			const createdNewServiceEvent = Boolean(certificate) && !serviceEventId;
+
+			if (certificate) {
+				if (!serviceEventId) {
+					const eventType = await client.query(
+						"SELECT id FROM asset_service_event_types WHERE name = $1",
+						[CALIBRATION_EVENT_TYPE],
+					);
+					const eventInsert = await client.query(
+						`INSERT INTO asset_service_events (asset_id, event_type_id, event_date, changed_by)
+             VALUES ($1, $2, $3, $4) RETURNING id`,
+						[assetId, eventType.rows[0].id, dto.calDate, userId],
+					);
+					serviceEventId = eventInsert.rows[0].id;
+				}
+				// A second certificate on the same service event just
+				// supersedes the first -- the catalogue's LATERAL join
+				// already picks the latest by created_at, same "current =
+				// latest by date" pattern as everywhere else. The old file
+				// stays on disk, functionally superseded rather than
+				// deleted.
+				const { fileReference } =
+					await this.documents.saveUploadedFile(certificate);
+				await this.documents.createDocumentRecord(client, {
+					assetId,
+					serviceEventId: serviceEventId as number,
+					documentType: "certificate",
+					fileReference,
+					changedBy: userId,
+				});
+			}
+
+			const setParts = [`${dateColumn} = $1`, "changed_by = $2"];
+			const values: unknown[] = [dto.calDate, userId];
+			let i = 3;
+			for (const col of allColumns) {
+				setParts.push(`${col} = $${i}`);
+				values.push(dto.coefficients[col] ?? null);
+				i++;
+			}
+			if (createdNewServiceEvent) {
+				setParts.push(`service_event_id = $${i}`);
+				values.push(serviceEventId);
+				i++;
+			}
+			values.push(calId);
+
+			await client.query(
+				`UPDATE ${table} SET ${setParts.join(", ")} WHERE id = $${i}`,
+				values,
+			);
+
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+	}
 }
 
 function isFkViolation(err: unknown): boolean {

@@ -454,9 +454,18 @@ export interface RecordSensorCalibrationInput {
 export interface CalibrationCatalogueRow {
 	id: number;
 	assetId: number;
+	// Denormalized from the surrounding CalibrationCatalogueTypeGroup so
+	// a row carries everything an edit dialog needs (which cal table/
+	// column set applies) without the caller having to thread it down
+	// through ModelSection/ModelCalibrationTable separately.
+	assetType: string;
 	serialNumber: string | null;
 	calDate: string;
 	facility: string | null;
+	// Only ct_sensor's cal table has a notes column today -- null for
+	// every other asset type, same as facility being null wherever it
+	// was never recorded.
+	notes: string | null;
 	coefficients: Record<string, number | string | null>;
 	// Only ever set for ct_sensor rows (the only cal table with a
 	// service_event_id link to hang a certificate off today) -- null

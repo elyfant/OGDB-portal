@@ -1,4 +1,4 @@
-import AddCalibrationDialog from "@/components/AddCalibrationDialog";
+import CalibrationFormDialog from "@/components/CalibrationFormDialog";
 import CalibrationsCatalogue from "@/components/CalibrationsCatalogue";
 import { getCalibrationCatalogue } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -33,9 +33,9 @@ export default async function CalibrationsPage() {
 						model.
 					</Typography>
 				</Box>
-				{canEdit && <AddCalibrationDialog />}
+				{canEdit && <CalibrationFormDialog mode="create" />}
 			</Box>
-			<CalibrationsCatalogue data={data} />
+			<CalibrationsCatalogue data={data} canEdit={canEdit} />
 		</Box>
 	);
 }
