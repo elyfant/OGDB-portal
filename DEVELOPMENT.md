@@ -53,6 +53,20 @@ VS Code (or whatever), in `~/projects/OGDB-portal`, same as always.
 
 ## 2. Test locally — dev mode
 
+One-time setup, only needed for the calibration certificate parser
+(`gateway/scripts/parse_certificate.py`, invoked by the gateway as a
+subprocess — Debian's system Python refuses global `pip install`
+per PEP 668, hence the venv):
+```bash
+cd ~/projects/OGDB-portal/gateway
+python3 -m venv .venv-parse
+.venv-parse/bin/pip install pdfplumber python-dateutil
+```
+The gateway finds it automatically at `gateway/.venv-parse/bin/python3`
+(no env var needed) as long as it's started via `npm run start:dev`
+from the `gateway/` workspace. The Docker image builds its own venv at
+a fixed path instead (see `Dockerfile.gateway`).
+
 Two terminals, fast iteration with hot reload:
 
 ```bash

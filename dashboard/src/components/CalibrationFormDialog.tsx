@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	parseCertificate,
 	recordCalibration,
 	searchAssets,
 	updateCalibration,
@@ -15,10 +16,13 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
@@ -26,6 +30,9 @@ import Typography from "@mui/material/Typography";
 import type { AssetSearchResult, CalibrationCatalogueRow } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
+const SCRAPE_CONFIRMATION_LABEL =
+	"The PDF scraping of the coefficients in this certificate isn't perfect — I confirm I've double-checked these values myself.";
 
 function today(): string {
 	return new Date().toISOString().slice(0, 10);
@@ -104,6 +111,16 @@ export default function CalibrationFormDialog({
 		message: string;
 	} | null>(null);
 
+	// "Read in certificate" state. scraped tracks whether the currently
+	// attached file actually populated something -- that's what the
+	// confirmation checkbox gates on, not just "a file is attached"
+	// (pure manual entry, or a file the parser couldn't read, has
+	// nothing scraped to double-check).
+	const [parsing, setParsing] = useState(false);
+	const [parseWarning, setParseWarning] = useState<string | null>(null);
+	const [scraped, setScraped] = useState(false);
+	const [confirmedScrape, setConfirmedScrape] = useState(false);
+
 	// Re-seeds whenever a (different) row is opened for editing -- row?.id
 	// going from unset to set covers both "start editing" and "close then
 	// edit the same row again" (the parent nulls row on close, so id
@@ -113,6 +130,9 @@ export default function CalibrationFormDialog({
 		if (mode !== "edit" || !row) return;
 		setState(stateFromRow(row));
 		setError(null);
+		setParseWarning(null);
+		setScraped(false);
+		setConfirmedScrape(false);
 	}, [mode, row?.id]);
 
 	useEffect(() => {
@@ -133,7 +153,58 @@ export default function CalibrationFormDialog({
 	function handleOpen() {
 		setState(emptyState());
 		setError(null);
+		setParseWarning(null);
+		setScraped(false);
+		setConfirmedScrape(false);
 		setInternalOpen(true);
+	}
+
+	function clearCertificate() {
+		setState((s) => ({ ...s, certificate: null }));
+		setParseWarning(null);
+		setScraped(false);
+		setConfirmedScrape(false);
+	}
+
+	async function handleCertificateSelected(file: File | null) {
+		setState((s) => ({ ...s, certificate: file }));
+		setParseWarning(null);
+		setScraped(false);
+		setConfirmedScrape(false);
+		if (!file || !state.selectedAsset) return;
+
+		setParsing(true);
+		try {
+			const result = await parseCertificate(state.selectedAsset.id, file);
+			if (!result.recognized) {
+				setParseWarning(
+					result.reason ??
+						"Couldn't automatically read this certificate -- enter the coefficients manually.",
+				);
+				return;
+			}
+			setState((s) => ({
+				...s,
+				facility: result.facility ?? s.facility,
+				calDate: result.calDate ?? s.calDate,
+				fields: {
+					...s.fields,
+					...Object.fromEntries(
+						Object.entries(result.coefficients ?? {}).map(([k, v]) => [
+							k,
+							String(v),
+						]),
+					),
+				},
+			}));
+			setScraped(true);
+		} catch (err) {
+			setParseWarning(
+				err instanceof Error ? err.message : "Failed to read certificate.",
+			);
+		} finally {
+			setParsing(false);
+		}
 	}
 
 	async function handleSave() {
@@ -357,30 +428,44 @@ export default function CalibrationFormDialog({
 					</Box>
 
 					{state.assetType === "ct_sensor" && (
-						<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-							<Button component="label" size="small">
-								{state.certificate
-									? state.certificate.name
-									: "Attach certificate (PDF)"}
-								<input
-									type="file"
-									accept="application/pdf"
-									hidden
-									onChange={(e) =>
-										setState((s) => ({
-											...s,
-											certificate: e.target.files?.[0] ?? null,
-										}))
-									}
-								/>
-							</Button>
-							{state.certificate && (
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+							<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
 								<Button
+									component="label"
 									size="small"
-									onClick={() => setState((s) => ({ ...s, certificate: null }))}
+									disabled={!state.selectedAsset || parsing}
 								>
-									Remove
+									Read in certificate
+									<input
+										type="file"
+										accept="application/pdf"
+										hidden
+										onChange={(e) =>
+											handleCertificateSelected(e.target.files?.[0] ?? null)
+										}
+									/>
 								</Button>
+								{parsing && <CircularProgress size={16} />}
+								{state.certificate && !parsing && (
+									<Button size="small" onClick={clearCertificate}>
+										Remove
+									</Button>
+								)}
+							</Box>
+							{!state.selectedAsset && (
+								<Typography variant="caption" color="text.disabled">
+									Pick an asset above first.
+								</Typography>
+							)}
+							{state.certificate && (
+								<Typography variant="caption" color="text.secondary">
+									{state.certificate.name}
+								</Typography>
+							)}
+							{parseWarning && (
+								<Alert severity="warning" sx={{ py: 0, fontSize: 12.5 }}>
+									{parseWarning}
+								</Alert>
 							)}
 						</Box>
 					)}
@@ -425,6 +510,22 @@ export default function CalibrationFormDialog({
 						</Box>
 					)}
 
+					{scraped && (
+						<FormControlLabel
+							control={
+								<Checkbox
+									checked={confirmedScrape}
+									onChange={(e) => setConfirmedScrape(e.target.checked)}
+								/>
+							}
+							label={
+								<Typography variant="body2">
+									{SCRAPE_CONFIRMATION_LABEL}
+								</Typography>
+							}
+						/>
+					)}
+
 					{error && (
 						<Typography color="error" variant="body2">
 							{error}
@@ -435,7 +536,11 @@ export default function CalibrationFormDialog({
 					<Button onClick={closeDialog} disabled={saving}>
 						Cancel
 					</Button>
-					<Button variant="contained" onClick={handleSave} disabled={saving}>
+					<Button
+						variant="contained"
+						onClick={handleSave}
+						disabled={saving || (scraped && !confirmedScrape)}
+					>
 						{saving
 							? "Saving…"
 							: mode === "edit"

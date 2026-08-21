@@ -11,6 +11,7 @@ import type {
 	Mission,
 	NewProcessingPackageInput,
 	NewProcessingPackageVersionInput,
+	ParsedCertificate,
 	ProcessingPackage,
 	ProcessingPackageVersion,
 	RecordSensorCalibrationInput,
@@ -173,6 +174,30 @@ export async function updateCalibration(
 			data?.message ?? `Failed to update calibration: ${res.status}`,
 		);
 	}
+}
+
+// Read-only preview -- doesn't save anything, just scrapes the PDF for
+// coefficients/facility/date so the dialog can populate its fields.
+// assetId only picks which route to hit; the parser itself doesn't use
+// it (parsing isn't asset-specific).
+export async function parseCertificate(
+	assetId: number,
+	certificate: File,
+): Promise<ParsedCertificate> {
+	const formData = new FormData();
+	formData.append("certificate", certificate);
+
+	const res = await fetch(
+		`/api/assets/${assetId}/calibrations/parse-certificate`,
+		{ method: "POST", body: formData },
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to read certificate: ${res.status}`,
+		);
+	}
+	return res.json();
 }
 
 export async function createMission(

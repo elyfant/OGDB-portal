@@ -28,8 +28,21 @@ RUN npm run build --workspace=gateway
 FROM node:20-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+
+# python3 + pdfplumber for parse_certificate.py (the "Read in
+# certificate" calibration-coefficient scraper) -- a venv rather than
+# a bare `pip install` since Debian's system Python refuses global
+# installs (PEP 668). Kept out of the build stage entirely; nothing
+# else in the gateway needs Python.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& python3 -m venv /opt/parse-venv \
+	&& /opt/parse-venv/bin/pip install --no-cache-dir pdfplumber python-dateutil
+ENV PARSE_CERTIFICATE_PYTHON=/opt/parse-venv/bin/python3
+
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/gateway/dist ./dist
+COPY gateway/scripts ./scripts
 
 EXPOSE 3001
 # nest-cli.json sets sourceRoot: "src", so the compiled entry point

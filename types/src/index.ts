@@ -446,6 +446,20 @@ export interface RecordSensorCalibrationInput {
 	coefficients: Record<string, number | string | null>;
 }
 
+// Result of scraping an uploaded certificate PDF for coefficients --
+// "Read in certificate" in the calibration dialog. recognized: false
+// means the parser didn't know this facility/model combination (or
+// couldn't find a date/coefficients on it); reason is shown to the
+// user rather than silently failing.
+export interface ParsedCertificate {
+	recognized: boolean;
+	reason?: string;
+	model?: string;
+	facility?: string;
+	calDate?: string;
+	coefficients?: Record<string, number>;
+}
+
 // One row of the Calibrations catalogue -- unlike ScienceSensorRecord
 // (one calibration per sensor, as of one date), this is the FULL history:
 // every calibration ever recorded for the asset, not just the one in

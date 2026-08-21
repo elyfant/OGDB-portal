@@ -8,6 +8,11 @@ dist/
 *.tsbuildinfo
 *.dump
 *.sql
+__pycache__/
+
+# Local Python venv for gateway/scripts/parse_certificate.py -- the
+# Docker image builds its own at /opt/parse-venv (see Dockerfile.gateway).
+gateway/.venv-parse/
 
 # Machine-local symlinks to sibling projects (absolute paths, won't resolve
 # on another machine/checkout) — see DEVELOPMENT.md "Cross-project context".
