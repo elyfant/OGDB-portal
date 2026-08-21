@@ -458,6 +458,11 @@ export interface CalibrationCatalogueRow {
 	calDate: string;
 	facility: string | null;
 	coefficients: Record<string, number | string | null>;
+	// Only ever set for ct_sensor rows (the only cal table with a
+	// service_event_id link to hang a certificate off today) -- null
+	// means no certificate uploaded, not that certificates aren't
+	// supported for this row.
+	certificateDocumentId: number | null;
 }
 
 export interface CalibrationCatalogueModelGroup {

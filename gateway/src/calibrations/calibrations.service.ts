@@ -35,13 +35,42 @@ export class CalibrationsService {
 			if (!calInfo) continue;
 			const [table, dateColumn] = calInfo;
 
+			// Only ct_sensor's cal table has service_event_id -- the join
+			// to documents (a calibration's certificate, if one was
+			// uploaded) only applies there. LATERAL + LIMIT 1 rather than
+			// a plain join, so this can never multiply rows even if more
+			// than one document ever ends up on the same service event
+			// (the policy is one bundled PDF per calibration, but nothing
+			// at the DB level enforces that).
+			// file_reference must match the UUID-prefixed local-storage
+			// pattern -- historical rows backfilled before this VM-storage
+			// design store the original legacy share path instead (e.g.
+			// "/Data/gfi/projects/.../CERT.pdf"), which was never copied
+			// here and can't be served. Those are excluded rather than
+			// surfacing a link that 404s; Fiona will re-upload them by hand.
+			const documentJoin =
+				table === "asset_ct_sensor_cal"
+					? `LEFT JOIN LATERAL (
+					SELECT id FROM documents
+					WHERE service_event_id = c.service_event_id
+					AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
+					ORDER BY created_at DESC LIMIT 1
+				 ) doc ON true`
+					: "";
+			const documentSelect =
+				table === "asset_ct_sensor_cal"
+					? `, doc.id AS "certificateDocumentId"`
+					: `, NULL AS "certificateDocumentId"`;
+
 			const result = await this.pool.query(
 				`SELECT c.*, a.serial_number AS "serialNumber",
                 l22.id AS "modelId", l22.pref_label AS "model", l22.uri AS "modelUri"
+                ${documentSelect}
            FROM ${table} c
            JOIN assets a ON a.id = c.asset_id
            LEFT JOIN asset_sensor_details asd ON asd.asset_id = a.id
            LEFT JOIN nvs_terms l22 ON l22.id = asd.l22_model_id
+           ${documentJoin}
           ORDER BY l22.pref_label NULLS LAST, a.serial_number, c.${dateColumn} DESC`,
 			);
 
@@ -53,10 +82,12 @@ export class CalibrationsService {
 					changed_by,
 					created_at,
 					calibration_facility,
+					service_event_id,
 					serialNumber,
 					modelId,
 					model,
 					modelUri,
+					certificateDocumentId,
 					[dateColumn]: calDate,
 					...coefficients
 				} = row;
@@ -75,6 +106,7 @@ export class CalibrationsService {
 					calDate,
 					facility: calibration_facility ?? null,
 					coefficients,
+					certificateDocumentId: certificateDocumentId ?? null,
 				};
 				group.rows.push(calibrationRow);
 			}

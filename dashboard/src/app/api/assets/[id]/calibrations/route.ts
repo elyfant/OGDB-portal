@@ -13,11 +13,18 @@ export async function POST(
 	}
 
 	const { id } = await params;
-	const body = await request.text();
+	// Multipart now (an optional certificate file rides alongside the
+	// calibration data) -- buffered rather than streamed through, since a
+	// PDF certificate is small enough that this is simpler than dealing
+	// with fetch's `duplex` requirement for streaming request bodies.
+	// The original Content-Type (with its multipart boundary) has to be
+	// forwarded as-is; generating a new one would lose the boundary.
+	const contentType = request.headers.get("content-type") ?? "";
+	const body = await request.arrayBuffer();
 	const res = await fetch(`${API_URL}/assets/${id}/calibrations`, {
 		method: "POST",
 		headers: {
-			"Content-Type": "application/json",
+			"Content-Type": contentType,
 			Authorization: `Bearer ${token}`,
 		},
 		body,

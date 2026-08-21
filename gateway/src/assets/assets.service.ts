@@ -13,8 +13,14 @@ import {
 	FLAT_MODEL_TABLES,
 } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
+import { DocumentsService } from "../documents/documents.service";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
+
+// The one calibration-related asset_service_event_types row -- used to
+// give every calibration insert a matching service event, so a
+// certificate has something to attach to via documents.service_event_id.
+const CALIBRATION_EVENT_TYPE = "calibration";
 
 // Mirrors the classification in gliders/build.helpers.ts's fetchModels,
 // scoped to one type + a serial-number search instead of batching many
@@ -62,7 +68,10 @@ const SELECT_ASSETS = `
 
 @Injectable()
 export class AssetsService {
-	constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+	constructor(
+		@Inject(PG_POOL) private readonly pool: Pool,
+		private readonly documents: DocumentsService,
+	) {}
 
 	async findAll(): Promise<Asset[]> {
 		const result = await this.pool.query(
@@ -182,10 +191,18 @@ export class AssetsService {
 	// latest by date" pattern as asset_status_history and everywhere else),
 	// so recording a calibration never overwrites a previous one, even an
 	// older-dated one entered after the fact.
+	//
+	// When a certificate file is attached, the whole thing -- cal row,
+	// asset_service_events row, saved file, documents row -- happens in
+	// one transaction. Only ct_sensor's cal table has the
+	// service_event_id column a certificate needs to attach to; other
+	// asset types can still record coefficients, just not a certificate
+	// yet.
 	async recordCalibration(
 		id: number,
 		dto: RecordSensorCalibrationDto,
 		userId: number,
+		certificate?: Express.Multer.File,
 	): Promise<void> {
 		const asset = await this.pool.query(
 			`SELECT at.name AS "assetType" FROM assets a
@@ -213,19 +230,70 @@ export class AssetsService {
 			);
 		}
 
-		const columns = ["asset_id", dateColumn, ...keys, "changed_by"];
-		const values = [
-			id,
-			dto.calDate,
-			...keys.map((k) => dto.coefficients[k]),
-			userId,
-		];
-		const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+		if (certificate && table !== "asset_ct_sensor_cal") {
+			throw new BadRequestException(
+				`Certificates aren't supported for ${assetType} yet.`,
+			);
+		}
 
-		await this.pool.query(
-			`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`,
-			values,
-		);
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+
+			let serviceEventId: number | null = null;
+			if (certificate) {
+				const eventType = await client.query(
+					"SELECT id FROM asset_service_event_types WHERE name = $1",
+					[CALIBRATION_EVENT_TYPE],
+				);
+				const eventInsert = await client.query(
+					`INSERT INTO asset_service_events (asset_id, event_type_id, event_date, changed_by)
+           VALUES ($1, $2, $3, $4) RETURNING id`,
+					[id, eventType.rows[0].id, dto.calDate, userId],
+				);
+				serviceEventId = eventInsert.rows[0].id;
+			}
+
+			const columns = [
+				"asset_id",
+				dateColumn,
+				...keys,
+				"changed_by",
+				...(serviceEventId ? ["service_event_id"] : []),
+			];
+			const values = [
+				id,
+				dto.calDate,
+				...keys.map((k) => dto.coefficients[k]),
+				userId,
+				...(serviceEventId ? [serviceEventId] : []),
+			];
+			const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+
+			await client.query(
+				`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`,
+				values,
+			);
+
+			if (certificate && serviceEventId) {
+				const { fileReference } =
+					await this.documents.saveUploadedFile(certificate);
+				await this.documents.createDocumentRecord(client, {
+					assetId: id,
+					serviceEventId,
+					documentType: "certificate",
+					fileReference,
+					changedBy: userId,
+				});
+			}
+
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
 	}
 }
 

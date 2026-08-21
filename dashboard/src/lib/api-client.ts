@@ -128,11 +128,21 @@ export async function createProcessingPackageVersion(
 export async function recordCalibration(
 	assetId: number,
 	input: RecordSensorCalibrationInput,
+	certificate?: File,
 ): Promise<void> {
+	// Always multipart -- even with no file, so the proxy route and the
+	// gateway endpoint only ever have to handle one request shape.
+	// coefficients rides along as a JSON-stringified field (matching
+	// RecordSensorCalibrationDto's Transform) since multipart/form-data
+	// can't nest a real object in one field.
+	const formData = new FormData();
+	formData.append("calDate", input.calDate);
+	formData.append("coefficients", JSON.stringify(input.coefficients));
+	if (certificate) formData.append("certificate", certificate);
+
 	const res = await fetch(`/api/assets/${assetId}/calibrations`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(input),
+		body: formData,
 	});
 	if (!res.ok) {
 		const data = await res.json().catch(() => null);

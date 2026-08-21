@@ -1,4 +1,5 @@
 import {
+	BadRequestException,
 	Body,
 	Controller,
 	Get,
@@ -7,13 +8,22 @@ import {
 	Patch,
 	Post,
 	Query,
+	UploadedFile,
+	UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { AssetsService } from "./assets.service";
 import { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import { SetAssetStatusDto } from "./dto/set-asset-status.dto";
+
+// Calibration certificates only -- one PDF per calibration entry (any
+// bundling of multiple sub-certs into one file happens before upload,
+// not something this endpoint handles).
+const MAX_CERTIFICATE_BYTES = 20 * 1024 * 1024;
 
 @Controller("assets")
 export class AssetsController {
@@ -48,11 +58,28 @@ export class AssetsController {
 
 	@Roles("editor", "admin")
 	@Post(":id/calibrations")
+	@UseInterceptors(
+		FileInterceptor("certificate", {
+			storage: memoryStorage(),
+			limits: { fileSize: MAX_CERTIFICATE_BYTES },
+			fileFilter: (_req, file, callback) => {
+				if (file.mimetype !== "application/pdf") {
+					callback(
+						new BadRequestException("Certificates must be a PDF file."),
+						false,
+					);
+					return;
+				}
+				callback(null, true);
+			},
+		}),
+	)
 	recordCalibration(
 		@Param("id", ParseIntPipe) id: number,
 		@Body() dto: RecordSensorCalibrationDto,
 		@CurrentUser() user: JwtPayload,
+		@UploadedFile() certificate?: Express.Multer.File,
 	) {
-		return this.assets.recordCalibration(id, dto, user.sub);
+		return this.assets.recordCalibration(id, dto, user.sub, certificate);
 	}
 }

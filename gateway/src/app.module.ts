@@ -10,6 +10,7 @@ import { CalibrationsModule } from "./calibrations/calibrations.module";
 import { CruisesModule } from "./cruises/cruises.module";
 import { DatasetsModule } from "./datasets/datasets.module";
 import { DbModule } from "./db/db.module";
+import { DocumentsModule } from "./documents/documents.module";
 import { GlidersModule } from "./gliders/gliders.module";
 import { LookupsModule } from "./lookups/lookups.module";
 import { MissionsModule } from "./missions/missions.module";
@@ -25,6 +26,7 @@ import { UsersModule } from "./users/users.module";
 		AssetsModule,
 		AssetStatusOptionsModule,
 		CalibrationsModule,
+		DocumentsModule,
 		LookupsModule,
 		MissionsModule,
 		DatasetsModule,

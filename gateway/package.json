@@ -27,6 +27,7 @@
     "@nestjs/cli": "^10.4.9",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^20.17.6",
     "@types/pg": "^8.11.10",
     "dotenv": "^16.4.5",

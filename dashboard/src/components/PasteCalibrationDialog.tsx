@@ -39,6 +39,7 @@ export default function PasteCalibrationDialog({
 	const [open, setOpen] = useState(false);
 	const [text, setText] = useState("");
 	const [calDate, setCalDate] = useState(today());
+	const [certificate, setCertificate] = useState<File | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +55,7 @@ export default function PasteCalibrationDialog({
 	function reset() {
 		setText("");
 		setCalDate(today());
+		setCertificate(null);
 		setError(null);
 	}
 
@@ -71,7 +73,11 @@ export default function PasteCalibrationDialog({
 		}
 		setSaving(true);
 		try {
-			await recordCalibration(assetId, { calDate, coefficients });
+			await recordCalibration(
+				assetId,
+				{ calDate, coefficients },
+				certificate ?? undefined,
+			);
 			setOpen(false);
 			reset();
 			router.refresh();
@@ -116,23 +122,37 @@ export default function PasteCalibrationDialog({
 						minRows={8}
 						fullWidth
 						size="small"
-						placeholder={
-							"calibcomm=' Serial #: 0187  CAL: 11212';\nt_g=4.36266253E-03;\n..."
-						}
+						placeholder={"t_g=4.36266253E-03;\nt_h=6.27190307E-04;\n..."}
 						value={text}
 						onChange={(e) => setText(e.target.value)}
 						sx={{ "& textarea": { fontFamily: "monospace", fontSize: 12 } }}
 					/>
 
-					<TextField
-						size="small"
-						type="date"
-						label="Calibration date"
-						value={calDate}
-						onChange={(e) => setCalDate(e.target.value)}
-						InputLabelProps={{ shrink: true }}
-						sx={{ maxWidth: 220 }}
-					/>
+					<Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+						<TextField
+							size="small"
+							type="date"
+							label="Calibration date"
+							value={calDate}
+							onChange={(e) => setCalDate(e.target.value)}
+							InputLabelProps={{ shrink: true }}
+							sx={{ maxWidth: 220 }}
+						/>
+						<Button component="label" size="small">
+							{certificate ? certificate.name : "Attach certificate (PDF)"}
+							<input
+								type="file"
+								accept="application/pdf"
+								hidden
+								onChange={(e) => setCertificate(e.target.files?.[0] ?? null)}
+							/>
+						</Button>
+						{certificate && (
+							<Button size="small" onClick={() => setCertificate(null)}>
+								Remove
+							</Button>
+						)}
+					</Box>
 
 					{mappedEntries.length > 0 && (
 						<Box>

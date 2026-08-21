@@ -31,6 +31,13 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       PORT: 3001
+      DOCUMENTS_DIR: /app/storage/documents
+    volumes:
+      # Uploaded calibration certificates and other mission documents —
+      # a named volume, not the container's own writable layer, so they
+      # survive `docker compose up -d --build` (which recreates the
+      # container from scratch on every deploy).
+      - documents_data:/app/storage/documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,3 +79,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  documents_data:

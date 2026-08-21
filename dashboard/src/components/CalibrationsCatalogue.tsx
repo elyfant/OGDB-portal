@@ -2,6 +2,7 @@
 
 import { formatAssetType, formatDate, formatFieldValue } from "@/lib/format";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DownloadIcon from "@mui/icons-material/Download";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Accordion from "@mui/material/Accordion";
@@ -184,14 +185,30 @@ function ModelCalibrationTable({ rows }: { rows: CalibrationCatalogueRow[] }) {
 									</TableCell>
 									<TableCell>{row.facility ?? "—"}</TableCell>
 									<TableCell>
-										<Tooltip title="Not connected yet">
-											<Chip
-												label="—"
-												size="small"
-												variant="outlined"
-												sx={{ color: "text.disabled" }}
-											/>
-										</Tooltip>
+										{row.certificateDocumentId ? (
+											<MuiLink
+												href={`/api/documents/${row.certificateDocumentId}/file`}
+												onClick={(e) => e.stopPropagation()}
+												sx={{
+													display: "inline-flex",
+													alignItems: "center",
+													gap: 0.5,
+													fontSize: 12.5,
+												}}
+											>
+												<DownloadIcon sx={{ fontSize: 15 }} />
+												PDF
+											</MuiLink>
+										) : (
+											<Tooltip title="Not connected yet">
+												<Chip
+													label="—"
+													size="small"
+													variant="outlined"
+													sx={{ color: "text.disabled" }}
+												/>
+											</Tooltip>
+										)}
 									</TableCell>
 									<TableCell>
 										<Tooltip title="Copy all coefficients">

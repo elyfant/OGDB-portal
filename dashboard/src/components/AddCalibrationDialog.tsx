@@ -38,6 +38,7 @@ function initialState() {
 		calDate: today(),
 		facility: "",
 		fields: {} as Record<string, string>,
+		certificate: null as File | null,
 	};
 }
 
@@ -85,10 +86,11 @@ export default function AddCalibrationDialog() {
 
 		setSaving(true);
 		try {
-			await recordCalibration(state.selectedAsset.id, {
-				calDate: state.calDate,
-				coefficients,
-			});
+			await recordCalibration(
+				state.selectedAsset.id,
+				{ calDate: state.calDate, coefficients },
+				state.certificate ?? undefined,
+			);
 			setOpen(false);
 			reset();
 			router.refresh();
@@ -254,6 +256,35 @@ export default function AddCalibrationDialog() {
 							sx={{ flex: 1 }}
 						/>
 					</Box>
+
+					{state.assetType === "ct_sensor" && (
+						<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+							<Button component="label" size="small">
+								{state.certificate
+									? state.certificate.name
+									: "Attach certificate (PDF)"}
+								<input
+									type="file"
+									accept="application/pdf"
+									hidden
+									onChange={(e) =>
+										setState((s) => ({
+											...s,
+											certificate: e.target.files?.[0] ?? null,
+										}))
+									}
+								/>
+							</Button>
+							{state.certificate && (
+								<Button
+									size="small"
+									onClick={() => setState((s) => ({ ...s, certificate: null }))}
+								>
+									Remove
+								</Button>
+							)}
+						</Box>
+					)}
 
 					{coefficientFields.length > 0 && (
 						<Box>
