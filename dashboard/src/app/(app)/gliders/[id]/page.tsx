@@ -3,12 +3,20 @@ import GliderBuildEditor from "@/components/GliderBuildEditor";
 import GliderCurrentBuild from "@/components/GliderCurrentBuild";
 import GliderDeploymentHistory from "@/components/GliderDeploymentHistory";
 import GliderEditHistory from "@/components/GliderEditHistory";
+import GliderFormDialog from "@/components/GliderFormDialog";
 import GliderServicingHistory from "@/components/GliderServicingHistory";
 import GliderStatusBox from "@/components/GliderStatusBox";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
 import StatTile from "@/components/StatTile";
-import { getGlider, getGliderBuild, getStatusOptions } from "@/lib/api";
+import {
+	getGlider,
+	getGliderBuild,
+	getInstitutes,
+	getPlatforms,
+	getStatusOptions,
+} from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import { formatCount, formatDate } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -56,10 +64,16 @@ export default async function GliderDetailPage({
 	const { id } = await params;
 	const glider = await getGlider(Number(id));
 	if (!glider) notFound();
-	const [build, statusOptions] = await Promise.all([
-		getGliderBuild(Number(id)),
-		getStatusOptions(),
-	]);
+	const [build, statusOptions, platforms, institutes, user] = await Promise.all(
+		[
+			getGliderBuild(Number(id)),
+			getStatusOptions(),
+			getPlatforms(),
+			getInstitutes(),
+			getCurrentUser(),
+		],
+	);
+	const canEdit = user?.role === "editor" || user?.role === "admin";
 
 	const platformModel = glider.platform
 		? [glider.platform, glider.platformModel].filter(Boolean).join(" ")
@@ -139,9 +153,24 @@ export default async function GliderDetailPage({
 				/>
 			</Box>
 
-			<Typography variant="h6" sx={{ mb: 1.5 }}>
-				About glider
-			</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 1.5,
+				}}
+			>
+				<Typography variant="h6">About glider</Typography>
+				{canEdit && (
+					<GliderFormDialog
+						mode="edit"
+						glider={glider}
+						platforms={platforms}
+						institutes={institutes}
+					/>
+				)}
+			</Box>
 			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 				<Box
 					sx={{

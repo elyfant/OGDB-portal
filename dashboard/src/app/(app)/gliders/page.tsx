@@ -33,7 +33,11 @@ export default async function GlidersPage() {
 			>
 				<Typography variant="h5">Glider fleet</Typography>
 				{canEdit && (
-					<GliderFormDialog platforms={platforms} institutes={institutes} />
+					<GliderFormDialog
+						mode="create"
+						platforms={platforms}
+						institutes={institutes}
+					/>
 				)}
 			</Box>
 			<Typography variant="subtitle1" color="text.secondary">

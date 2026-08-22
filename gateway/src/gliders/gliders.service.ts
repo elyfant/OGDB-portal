@@ -36,9 +36,12 @@ const SELECT_FLEET = `
     pmfr."NVS_L35_preferred_label" AS "platformManufacturerName",
     pmfr."NVS_L35_url" AS "platformManufacturerUri",
     a.purchase_date AS "purchaseDate",
+    a.purchase_value_usd::float8 AS "purchaseValueUsd",
     aso.id AS "statusId",
     aso.name AS status,
-    cas.effective_date AS "statusEffectiveDate"
+    cas.effective_date AS "statusEffectiveDate",
+    agd.platform_id AS "platformId",
+    a.institute_id AS "instituteId"
   FROM assets a
   JOIN asset_glider_details agd ON agd.asset_id = a.id
   LEFT JOIN platforms p ON p.id = agd.platform_id
@@ -128,10 +131,29 @@ export class GlidersService {
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
-			if (dto.serialNumber !== undefined) {
+			if (
+				dto.serialNumber !== undefined ||
+				dto.instituteId !== undefined ||
+				dto.purchaseDate !== undefined ||
+				dto.purchaseValueUsd !== undefined
+			) {
 				await client.query(
-					"UPDATE assets SET serial_number = $1, updated_at = now(), changed_by = $3 WHERE id = $2",
-					[dto.serialNumber, id, userId],
+					`UPDATE assets SET
+             serial_number = COALESCE($1, serial_number),
+             institute_id = COALESCE($2, institute_id),
+             purchase_date = COALESCE($3, purchase_date),
+             purchase_value_usd = COALESCE($4, purchase_value_usd),
+             updated_at = now(),
+             changed_by = $6
+           WHERE id = $5`,
+					[
+						dto.serialNumber ?? null,
+						dto.instituteId ?? null,
+						dto.purchaseDate ?? null,
+						dto.purchaseValueUsd ?? null,
+						id,
+						userId,
+					],
 				);
 			}
 			if (

@@ -22,6 +22,7 @@ import type {
 	ProcessingPackageVersion,
 	RecordSensorCalibrationInput,
 	UpdateExternalReferencesInput,
+	UpdateGliderInput,
 	UpdateMissionFolderPathInput,
 } from "@ogdb/types";
 
@@ -215,6 +216,22 @@ export async function createGlider(input: CreateGliderInput): Promise<Glider> {
 	if (!res.ok) {
 		const data = await res.json().catch(() => null);
 		throw new Error(data?.message ?? `Failed to create glider: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function updateGlider(
+	id: number,
+	input: UpdateGliderInput,
+): Promise<Glider> {
+	const res = await fetch(`/api/gliders/${id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to update glider: ${res.status}`);
 	}
 	return res.json();
 }

@@ -61,9 +61,15 @@ export interface Glider {
 	platformManufacturerName: string | null;
 	platformManufacturerUri: string | null;
 	purchaseDate: string | null;
+	purchaseValueUsd: number | null;
 	statusId: number | null;
 	status: AssetStatus | null;
 	statusEffectiveDate: string | null;
+	// Raw FK ids alongside the resolved display strings above (platform,
+	// owner) — needed to pre-select the right dropdown option when
+	// editing, the same reason Mission exposes both siteId and site.
+	platformId: number | null;
+	instituteId: number | null;
 }
 
 export interface CreateGliderInput {
@@ -81,6 +87,9 @@ export interface UpdateGliderInput {
 	wmo?: string | null;
 	platformId?: number | null;
 	serialNumber?: string | null;
+	instituteId?: number | null;
+	purchaseDate?: string | null;
+	purchaseValueUsd?: number | null;
 }
 
 export interface SetGliderStatusInput {

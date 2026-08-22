@@ -1,7 +1,9 @@
 "use client";
 
-import { createGlider } from "@/lib/api-client";
+import { createGlider, updateGlider } from "@/lib/api-client";
+import { formatDate, formatUsd } from "@/lib/format";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -13,7 +15,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import type { LookupOption } from "@ogdb/types";
+import type { Glider, LookupOption } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 
@@ -39,25 +41,86 @@ function emptyForm(): FormState {
 	};
 }
 
-export default function GliderFormDialog({
-	platforms,
-	institutes,
-}: {
-	platforms: LookupOption[];
-	institutes: LookupOption[];
-}) {
+function formFromGlider(g: Glider): FormState {
+	return {
+		name: g.name,
+		serialNumber: g.serialNumber ?? "",
+		wmo: g.wmo ?? "",
+		platformId: g.platformId ?? "",
+		instituteId: g.instituteId ?? "",
+		purchaseDate: g.purchaseDate?.slice(0, 10) ?? "",
+		purchaseValueUsd: g.purchaseValueUsd?.toString() ?? "",
+	};
+}
+
+const FIELD_LABELS: { key: keyof FormState; label: string }[] = [
+	{ key: "name", label: "Name" },
+	{ key: "serialNumber", label: "Serial number" },
+	{ key: "wmo", label: "WMO" },
+	{ key: "platformId", label: "Platform" },
+	{ key: "instituteId", label: "Owner" },
+	{ key: "purchaseDate", label: "Purchase date" },
+	{ key: "purchaseValueUsd", label: "Purchase value" },
+];
+
+function displayValue(
+	key: keyof FormState,
+	value: FormState[keyof FormState],
+	platforms: LookupOption[],
+	institutes: LookupOption[],
+): string {
+	if (value === "" || value === null || value === undefined) return "—";
+	if (key === "platformId") {
+		return platforms.find((p) => p.id === value)?.name ?? "—";
+	}
+	if (key === "instituteId") {
+		return institutes.find((i) => i.id === value)?.name ?? "—";
+	}
+	if (key === "purchaseDate") return formatDate(String(value));
+	if (key === "purchaseValueUsd") return formatUsd(Number(value));
+	return String(value);
+}
+
+function summarizeChanges(
+	before: FormState,
+	after: FormState,
+	platforms: LookupOption[],
+	institutes: LookupOption[],
+): string[] {
+	return FIELD_LABELS.filter(({ key }) => before[key] !== after[key]).map(
+		({ key, label }) =>
+			`${label}: ${displayValue(key, before[key], platforms, institutes)} → ${displayValue(key, after[key], platforms, institutes)}`,
+	);
+}
+
+type Props =
+	| { mode: "create"; platforms: LookupOption[]; institutes: LookupOption[] }
+	| {
+			mode: "edit";
+			glider: Glider;
+			platforms: LookupOption[];
+			institutes: LookupOption[];
+	  };
+
+export default function GliderFormDialog(props: Props) {
+	const { mode, platforms, institutes } = props;
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(emptyForm);
+	const [initialForm, setInitialForm] = useState<FormState>(emptyForm);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [banner, setBanner] = useState<{
 		severity: "success" | "error";
 		message: string;
+		changes?: string[];
 	} | null>(null);
 
 	function handleOpen() {
-		setForm(emptyForm());
+		const initial =
+			mode === "edit" ? formFromGlider(props.glider) : emptyForm();
+		setForm(initial);
+		setInitialForm(initial);
 		setError(null);
 		setOpen(true);
 	}
@@ -88,7 +151,7 @@ export default function GliderFormDialog({
 
 		setSaving(true);
 		try {
-			const glider = await createGlider({
+			const payload = {
 				name: form.name.trim(),
 				serialNumber: form.serialNumber.trim() || undefined,
 				wmo: form.wmo.trim() || undefined,
@@ -96,17 +159,37 @@ export default function GliderFormDialog({
 				instituteId: form.instituteId || undefined,
 				purchaseDate: form.purchaseDate || undefined,
 				purchaseValueUsd: purchaseValueUsd ?? undefined,
-			});
+			};
+			const glider =
+				mode === "edit"
+					? await updateGlider(props.glider.id, payload)
+					: await createGlider(payload);
 			closeDialog();
-			setBanner({
-				severity: "success",
-				message: `Glider "${glider.name}" successfully created!`,
-			});
+			if (mode === "edit") {
+				const changes = summarizeChanges(
+					initialForm,
+					form,
+					platforms,
+					institutes,
+				);
+				setBanner({
+					severity: "success",
+					message: `Glider "${glider.name}" successfully updated!`,
+					changes,
+				});
+			} else {
+				setBanner({
+					severity: "success",
+					message: `Glider "${glider.name}" successfully created!`,
+				});
+			}
 		} catch (err) {
 			setBanner({
 				severity: "error",
 				message:
-					err instanceof Error ? err.message : "Failed to create glider.",
+					err instanceof Error
+						? err.message
+						: `Failed to ${mode === "edit" ? "update" : "create"} glider.`,
 			});
 		} finally {
 			setSaving(false);
@@ -117,14 +200,16 @@ export default function GliderFormDialog({
 		<>
 			<Button
 				variant="contained"
-				startIcon={<AddCircleOutlineIcon />}
+				startIcon={mode === "edit" ? <EditIcon /> : <AddCircleOutlineIcon />}
 				onClick={handleOpen}
 			>
-				Add new glider
+				{mode === "edit" ? "Edit glider details" : "Add new glider"}
 			</Button>
 
-			<Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
-				<DialogTitle>Add new glider</DialogTitle>
+			<Dialog open={open} onClose={closeDialog} maxWidth="md" fullWidth>
+				<DialogTitle>
+					{mode === "edit" ? "Edit glider details" : "Add new glider"}
+				</DialogTitle>
 				<DialogContent
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 3 }}
@@ -206,7 +291,8 @@ export default function GliderFormDialog({
 
 					<Typography variant="caption" color="text.secondary">
 						Manufacturer is set later by editing the glider — not part of this
-						form. New gliders start with status "Lab".
+						form.
+						{mode === "create" && ' New gliders start with status "Lab".'}
 					</Typography>
 
 					{error && (
@@ -220,7 +306,11 @@ export default function GliderFormDialog({
 						Cancel
 					</Button>
 					<Button variant="contained" onClick={handleSave} disabled={saving}>
-						{saving ? "Saving…" : "Create glider"}
+						{saving
+							? "Saving…"
+							: mode === "edit"
+								? "Save changes"
+								: "Create glider"}
 					</Button>
 				</DialogActions>
 			</Dialog>
@@ -241,6 +331,15 @@ export default function GliderFormDialog({
 					}
 				>
 					{banner?.message}
+					{banner?.changes && banner.changes.length > 0 && (
+						<Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+							{banner.changes.map((c) => (
+								<li key={c}>
+									<Typography variant="caption">{c}</Typography>
+								</li>
+							))}
+						</Box>
+					)}
 				</Alert>
 			</Snackbar>
 		</>
