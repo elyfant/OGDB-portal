@@ -16,6 +16,13 @@ import {
 import DataTable from "./DataTable";
 import FilterBar from "./FilterBar";
 
+// Datasets have no missionNumber field of their own — the page fetches
+// missions alongside dataset statuses and merges it in, since it's the
+// same natural index used on the Missions table.
+export type DatasetRow = DatasetProcessingStatus & {
+	missionNumber: number | null;
+};
+
 function StatusIcon({ done }: { done: boolean }) {
 	return done ? (
 		<CheckCircleIcon fontSize="small" color="success" />
@@ -25,7 +32,7 @@ function StatusIcon({ done }: { done: boolean }) {
 }
 
 const STAGE_COLUMNS: {
-	key: keyof DatasetProcessingStatus;
+	key: keyof DatasetRow;
 	label: string;
 }[] = [
 	{ key: "l0Status", label: "L0" },
@@ -35,7 +42,13 @@ const STAGE_COLUMNS: {
 	{ key: "l2Og1", label: "L2 OG1" },
 ];
 
-const DATASET_COLUMNS: ColumnDef<DatasetProcessingStatus>[] = [
+const DATASET_COLUMNS: ColumnDef<DatasetRow>[] = [
+	{
+		key: "missionNumber",
+		label: "Mission #",
+		kind: "number",
+		defaultVisible: true,
+	},
 	{
 		key: "missionName",
 		label: "Mission",
@@ -43,7 +56,7 @@ const DATASET_COLUMNS: ColumnDef<DatasetProcessingStatus>[] = [
 		defaultVisible: true,
 	},
 	...STAGE_COLUMNS.map(
-		({ key, label }): ColumnDef<DatasetProcessingStatus> => ({
+		({ key, label }): ColumnDef<DatasetRow> => ({
 			key,
 			label,
 			kind: "boolean",
@@ -57,11 +70,11 @@ const DATASET_COLUMNS: ColumnDef<DatasetProcessingStatus>[] = [
 export default function DatasetsTable({
 	datasets,
 }: {
-	datasets: DatasetProcessingStatus[];
+	datasets: DatasetRow[];
 }) {
 	const [filterState, setFilterState] = useState<FilterState>({});
 
-	const missionFilter: FilterDef<DatasetProcessingStatus> = useMemo(() => {
+	const missionFilter: FilterDef<DatasetRow> = useMemo(() => {
 		const seen = new Map<number, string>();
 		for (const d of datasets) seen.set(d.missionId, d.missionName);
 		const options = Array.from(seen, ([id, name]) => ({
@@ -89,12 +102,12 @@ export default function DatasetsTable({
 	);
 
 	return (
-		<DataTable<DatasetProcessingStatus>
+		<DataTable<DatasetRow>
 			rows={filteredRows}
 			columns={DATASET_COLUMNS}
 			getRowId={(d) => d.missionId}
 			getRowHref={(d) => `/datasets/${d.missionId}`}
-			defaultSort={{ key: "missionName", direction: "asc" }}
+			defaultSort={{ key: "missionNumber", direction: "desc" }}
 			csvFileNameBase="datasets"
 			toolbarLeft={
 				<>

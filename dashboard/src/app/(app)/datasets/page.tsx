@@ -1,10 +1,20 @@
-import DatasetsTable from "@/components/DatasetsTable";
-import { getDatasetProcessingStatuses } from "@/lib/api";
+import DatasetsTable, { type DatasetRow } from "@/components/DatasetsTable";
+import { getDatasetProcessingStatuses, getMissions } from "@/lib/api";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export default async function DatasetsPage() {
-	const datasets = await getDatasetProcessingStatuses();
+	const [datasets, missions] = await Promise.all([
+		getDatasetProcessingStatuses(),
+		getMissions(),
+	]);
+	const missionNumberById = new Map(
+		missions.map((m) => [m.id, m.missionNumber]),
+	);
+	const rows: DatasetRow[] = datasets.map((d) => ({
+		...d,
+		missionNumber: missionNumberById.get(d.missionId) ?? null,
+	}));
 
 	return (
 		<Box>
@@ -15,7 +25,7 @@ export default async function DatasetsPage() {
 				Every dataset associated with missions carried out by the fleet, click
 				on a dataset to view its details and history.
 			</Typography>
-			<DatasetsTable datasets={datasets} />
+			<DatasetsTable datasets={rows} />
 		</Box>
 	);
 }
