@@ -112,9 +112,6 @@ export default async function MissionDetailPage({
 				}}
 			>
 				<Typography variant="h5">Mission: {name}</Typography>
-					<Typography variant="subtitle1" color="text.secondary">
-						Every mission carried out by the fleet, click on a mission to view its details and history.
-				</Typography>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
 					<MuiLink
 						component={Link}

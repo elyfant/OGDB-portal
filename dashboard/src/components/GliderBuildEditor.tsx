@@ -267,7 +267,7 @@ export default function GliderBuildEditor({
 	statusOptions,
 	missionId,
 	defaultDate,
-	triggerLabel = "Edit build",
+	triggerLabel = "Edit glider build",
 }: {
 	gliderId: number;
 	components: GliderBuildComponent[];

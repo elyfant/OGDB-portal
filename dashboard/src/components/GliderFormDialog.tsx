@@ -200,7 +200,14 @@ export default function GliderFormDialog(props: Props) {
 		<>
 			<Button
 				variant="contained"
-				startIcon={mode === "edit" ? <EditIcon /> : <AddCircleOutlineIcon />}
+				size="small"
+				startIcon={
+					mode === "edit" ? (
+						<EditIcon fontSize="small" />
+					) : (
+						<AddCircleOutlineIcon fontSize="small" />
+					)
+				}
 				onClick={handleOpen}
 			>
 				{mode === "edit" ? "Edit glider details" : "Add new glider"}
