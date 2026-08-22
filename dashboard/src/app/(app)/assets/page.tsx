@@ -17,6 +17,10 @@ export default async function AssetsPage() {
 			<Typography variant="h5" sx={{ mb: 2 }}>
 				Assets
 			</Typography>
+				<Typography variant="subtitle1" color="text.secondary">
+						Every asset in the pool, grouped by type and
+						model. Click on an asset to view its details and history.
+				</Typography>
 			<AssetsTable
 				assets={assets}
 				statusOptions={statusOptions}

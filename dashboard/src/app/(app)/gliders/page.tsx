@@ -17,6 +17,9 @@ export default async function GlidersPage() {
 			<Typography variant="h5" sx={{ mb: 2 }}>
 				Glider fleet
 			</Typography>
+				<Typography variant="subtitle1" color="text.secondary">
+						Every glider in the fleet, click on a glider to view its details and history.
+				</Typography>
 			<GlidersTable
 				gliders={gliders}
 				statusOptions={statusOptions}

@@ -1,68 +1,31 @@
 "use client";
 
 import EditIcon from "@mui/icons-material/Edit";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
-import ListItemText from "@mui/material/ListItemText";
-import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
-import Select, { type SelectChangeEvent } from "@mui/material/Select";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import TableSortLabel from "@mui/material/TableSortLabel";
-import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import type { SxProps, Theme } from "@mui/material/styles";
 import type { Cruise, Glider, LookupOption, Mission } from "@ogdb/types";
 import { useMemo, useState } from "react";
+import { TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
+import { MISSION_COLUMNS } from "../lib/mission-columns";
+import { buildMissionFilters } from "../lib/mission-filters";
 import {
-	DEFAULT_VISIBLE_COLUMNS,
-	MISSION_COLUMNS,
-	type MissionColumnKind,
-	formatMissionValue,
-} from "../lib/mission-columns";
-import ClickableTableRow from "./ClickableTableRow";
+	type FilterState,
+	applyFilters,
+	isFilterActive,
+} from "../lib/table-filters";
+import DataTable from "./DataTable";
+import FilterBar from "./FilterBar";
 import MissionFormDialog from "./MissionFormDialog";
 
-function rowSx(status: string | null) {
+function rowSx(status: string | null): SxProps<Theme> | undefined {
 	if (status === "active")
 		return { backgroundColor: "rgba(76, 175, 80, 0.16)" };
 	if (status === "scheduled")
 		return { backgroundColor: "rgba(255, 152, 0, 0.16)" };
 	return undefined;
-}
-
-function compareValues(
-	a: Mission[keyof Mission],
-	b: Mission[keyof Mission],
-	kind: MissionColumnKind,
-	direction: "asc" | "desc",
-): number {
-	if (a === null || a === undefined)
-		return b === null || b === undefined ? 0 : 1;
-	if (b === null || b === undefined) return -1;
-
-	let cmp: number;
-	if (kind === "number") {
-		cmp = (a as number) - (b as number);
-	} else if (kind === "date") {
-		cmp = new Date(a as string).getTime() - new Date(b as string).getTime();
-	} else {
-		cmp = String(a).localeCompare(String(b));
-	}
-	return direction === "asc" ? cmp : -cmp;
-}
-
-function uniqueSorted(values: (string | null)[]): string[] {
-	return Array.from(new Set(values.filter((v): v is string => !!v))).sort(
-		(a, b) => a.localeCompare(b),
-	);
 }
 
 export default function MissionsTable({
@@ -86,213 +49,76 @@ export default function MissionsTable({
 	institutes: LookupOption[];
 	cruises: Cruise[];
 }) {
-	const [visibleColumns, setVisibleColumns] = useState<(keyof Mission)[]>(
-		DEFAULT_VISIBLE_COLUMNS,
-	);
-	const [site, setSite] = useState("");
-	const [project, setProject] = useState("");
-	const [dateFrom, setDateFrom] = useState("");
-	const [dateTo, setDateTo] = useState("");
-	const [sort, setSort] = useState<{
-		key: keyof Mission;
-		direction: "asc" | "desc";
-	}>({ key: "launchDate", direction: "desc" });
+	const [filterState, setFilterState] = useState<FilterState>({});
 	const [editingMission, setEditingMission] = useState<Mission | null>(null);
 
-	const siteFilterOptions = useMemo(
-		() => uniqueSorted(missions.map((m) => m.site)),
-		[missions],
-	);
-	const projectFilterOptions = useMemo(
-		() => uniqueSorted(missions.map((m) => m.project)),
-		[missions],
+	const missionFilters = useMemo(
+		() => buildMissionFilters({ sites, projects, missionStatuses, gliders }),
+		[sites, projects, missionStatuses, gliders],
 	);
 
-	const filteredRows = useMemo(() => {
-		return missions.filter((m) => {
-			if (site && m.site !== site) return false;
-			if (project && m.project !== project) return false;
-			const launchDay = m.launchDate?.slice(0, 10);
-			if (dateFrom && (!launchDay || launchDay < dateFrom)) return false;
-			if (dateTo && (!launchDay || launchDay > dateTo)) return false;
-			return true;
-		});
-	}, [missions, site, project, dateFrom, dateTo]);
-
-	const sortColumn = MISSION_COLUMNS.find((c) => c.key === sort.key);
-
-	const sortedRows = useMemo(() => {
-		if (!sortColumn) return filteredRows;
-		return [...filteredRows].sort((a, b) =>
-			compareValues(a[sort.key], b[sort.key], sortColumn.kind, sort.direction),
-		);
-	}, [filteredRows, sort, sortColumn]);
-
-	const visibleColumnDefs = MISSION_COLUMNS.filter((c) =>
-		visibleColumns.includes(c.key),
+	const filteredRows = useMemo(
+		() => applyFilters(missions, missionFilters, filterState),
+		[missions, missionFilters, filterState],
 	);
 
-	function handleSort(key: keyof Mission) {
-		setSort((prev) =>
-			prev.key === key
-				? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
-				: { key, direction: "asc" },
-		);
-	}
-
-	function handleColumnsChange(event: SelectChangeEvent<(keyof Mission)[]>) {
-		const value = event.target.value;
-		setVisibleColumns(
-			typeof value === "string"
-				? (value.split(",") as (keyof Mission)[])
-				: value,
-		);
-	}
-
-	function resetFilters() {
-		setSite("");
-		setProject("");
-		setDateFrom("");
-		setDateTo("");
-	}
+	const hasActiveFilters = missionFilters.some((f) =>
+		isFilterActive(f, filterState[f.key]),
+	);
 
 	return (
-		<Box>
-			<Box
-				sx={{
-					display: "flex",
-					flexWrap: "wrap",
-					alignItems: "center",
-					gap: 2,
-					mb: 2,
-				}}
-			>
-				<Select
-					multiple
-					size="small"
-					value={visibleColumns}
-					onChange={handleColumnsChange}
-					renderValue={(selected) => `${selected.length} columns`}
-					sx={{ minWidth: 160 }}
-				>
-					{MISSION_COLUMNS.map((col) => (
-						<MenuItem key={col.key} value={col.key}>
-							<Checkbox
-								checked={visibleColumns.includes(col.key)}
-								size="small"
-							/>
-							<ListItemText primary={col.label} />
-						</MenuItem>
-					))}
-				</Select>
-
-				<Select
-					size="small"
-					value={site}
-					onChange={(e) => setSite(e.target.value)}
-					displayEmpty
-					sx={{ minWidth: 140 }}
-				>
-					<MenuItem value="">All sites</MenuItem>
-					{siteFilterOptions.map((s) => (
-						<MenuItem key={s} value={s}>
-							{s}
-						</MenuItem>
-					))}
-				</Select>
-
-				<Select
-					size="small"
-					value={project}
-					onChange={(e) => setProject(e.target.value)}
-					displayEmpty
-					sx={{ minWidth: 140 }}
-				>
-					<MenuItem value="">All projects</MenuItem>
-					{projectFilterOptions.map((p) => (
-						<MenuItem key={p} value={p}>
-							{p}
-						</MenuItem>
-					))}
-				</Select>
-
-				<TextField
-					label="Launch after"
-					type="date"
-					size="small"
-					InputLabelProps={{ shrink: true }}
-					value={dateFrom}
-					onChange={(e) => setDateFrom(e.target.value)}
-				/>
-				<TextField
-					label="Launch before"
-					type="date"
-					size="small"
-					InputLabelProps={{ shrink: true }}
-					value={dateTo}
-					onChange={(e) => setDateTo(e.target.value)}
-				/>
-
-				<Button size="small" onClick={resetFilters}>
-					Reset filters
-				</Button>
-
-				<Typography variant="body2" color="text.secondary" sx={{ ml: "auto" }}>
-					Showing {sortedRows.length} of {missions.length} missions
-				</Typography>
-			</Box>
-
-			<TableContainer component={Paper}>
-				<Table size="small">
-					<TableHead>
-						<TableRow>
-							{visibleColumnDefs.map((col) => (
-								<TableCell key={col.key} align={col.align}>
-									<TableSortLabel
-										active={sort.key === col.key}
-										direction={sort.key === col.key ? sort.direction : "asc"}
-										onClick={() => handleSort(col.key)}
+		<>
+			<DataTable<Mission>
+				rows={filteredRows}
+				columns={MISSION_COLUMNS}
+				getRowId={(m) => m.id}
+				getRowHref={(m) => `/missions/${m.id}`}
+				rowSx={(m) => rowSx(m.status)}
+				defaultSort={{ key: "launchDate", direction: "desc" }}
+				csvFileNameBase="missions"
+				renderRowActions={
+					canEdit
+						? (m) => (
+								<Tooltip title="Edit this mission">
+									<IconButton
+										size="small"
+										onClick={(e) => {
+											e.stopPropagation();
+											setEditingMission(m);
+										}}
+										onDoubleClick={(e) => e.stopPropagation()}
 									>
-										{col.label}
-									</TableSortLabel>
-								</TableCell>
-							))}
-							{canEdit && <TableCell align="center" style={{ width: 1 }} />}
-						</TableRow>
-					</TableHead>
-					<TableBody>
-						{sortedRows.map((mission) => (
-							<ClickableTableRow
-								key={mission.id}
-								href={`/missions/${mission.id}`}
-								sx={rowSx(mission.status)}
+										<EditIcon fontSize="small" />
+									</IconButton>
+								</Tooltip>
+							)
+						: undefined
+				}
+				toolbarLeft={
+					<>
+						<FilterBar
+							rows={missions}
+							filters={missionFilters}
+							value={filterState}
+							onChange={setFilterState}
+						/>
+						{hasActiveFilters && (
+							<Button
+								size="small"
+								sx={{ height: TOOLBAR_CONTROL_HEIGHT }}
+								onClick={() => setFilterState({})}
 							>
-								{visibleColumnDefs.map((col) => (
-									<TableCell key={col.key} align={col.align}>
-										{formatMissionValue(mission[col.key], col)}
-									</TableCell>
-								))}
-								{canEdit && (
-									<TableCell align="center">
-										<Tooltip title="Edit this mission">
-											<IconButton
-												size="small"
-												onClick={(e) => {
-													e.stopPropagation();
-													setEditingMission(mission);
-												}}
-												onDoubleClick={(e) => e.stopPropagation()}
-											>
-												<EditIcon fontSize="small" />
-											</IconButton>
-										</Tooltip>
-									</TableCell>
-								)}
-							</ClickableTableRow>
-						))}
-					</TableBody>
-				</Table>
-			</TableContainer>
+								Clear filters
+							</Button>
+						)}
+					</>
+				}
+				toolbarRight={
+					<Typography variant="body2" color="text.secondary">
+						Showing {filteredRows.length} of {missions.length} missions
+					</Typography>
+				}
+			/>
 
 			{canEdit && (
 				<MissionFormDialog
@@ -309,6 +135,6 @@ export default function MissionsTable({
 					cruises={cruises}
 				/>
 			)}
-		</Box>
+		</>
 	);
 }

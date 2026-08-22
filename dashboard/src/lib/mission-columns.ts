@@ -1,18 +1,7 @@
 import type { Mission } from "@ogdb/types";
+import { type ColumnDef, defaultVisibleColumns } from "./data-table";
 
-export type MissionColumnKind = "string" | "number" | "date";
-
-export interface MissionColumnDef {
-	key: keyof Mission;
-	label: string;
-	kind: MissionColumnKind;
-	defaultVisible: boolean;
-	align?: "right";
-	/** Capitalize the first letter for display — only for known lowercase single-word/phrase fields, not slugs like std_mission_name. */
-	capitalize?: boolean;
-}
-
-export const MISSION_COLUMNS: MissionColumnDef[] = [
+export const MISSION_COLUMNS: ColumnDef<Mission>[] = [
 	{
 		key: "missionNumber",
 		label: "Mission #",
@@ -192,31 +181,4 @@ export const MISSION_COLUMNS: MissionColumnDef[] = [
 	},
 ];
 
-export const DEFAULT_VISIBLE_COLUMNS = MISSION_COLUMNS.filter(
-	(c) => c.defaultVisible,
-).map((c) => c.key);
-
-export function formatMissionValue(
-	value: Mission[keyof Mission],
-	column: MissionColumnDef,
-): string {
-	if (value === null || value === undefined || value === "") return "—";
-	if (column.kind === "date") {
-		return new Date(value as string).toLocaleDateString("en-GB", {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-		});
-	}
-	if (column.kind === "number") {
-		return (value as number).toLocaleString("en-GB", {
-			maximumFractionDigits: 2,
-		});
-	}
-	if (typeof value === "string") {
-		return column.capitalize
-			? value.charAt(0).toUpperCase() + value.slice(1)
-			: value;
-	}
-	return String(value);
-}
+export const DEFAULT_VISIBLE_COLUMNS = defaultVisibleColumns(MISSION_COLUMNS);

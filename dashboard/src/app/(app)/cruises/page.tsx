@@ -19,6 +19,9 @@ export default async function CruisesPage() {
 			<Typography variant="h5" sx={{ mb: 2 }}>
 				Cruises
 			</Typography>
+				<Typography variant="subtitle1" color="text.secondary">
+						Every research cruise associated with the fleet, click on a cruise to view its details and history.
+				</Typography>
 			<TableContainer component={Paper}>
 				<Table size="small">
 					<TableHead>

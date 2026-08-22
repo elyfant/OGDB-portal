@@ -28,6 +28,9 @@ export default async function DatasetsPage() {
 			<Typography variant="h5" sx={{ mb: 2 }}>
 				Datasets
 			</Typography>
+								<Typography variant="subtitle1" color="text.secondary">
+									Every dataset associated with missions carried out by the fleet, click on a dataset to view its details and history.
+							</Typography>
 			<TableContainer component={Paper}>
 				<Table size="small">
 					<TableHead>

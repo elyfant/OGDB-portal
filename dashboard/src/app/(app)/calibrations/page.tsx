@@ -28,7 +28,7 @@ export default async function CalibrationsPage() {
 					<Typography variant="h5" sx={{ mb: 0.5 }}>
 						Calibrations
 					</Typography>
-					<Typography variant="body2" color="text.secondary">
+					<Typography variant="subtitle1" color="text.secondary">
 						Every science sensor's calibration history, grouped by type and
 						model.
 					</Typography>
