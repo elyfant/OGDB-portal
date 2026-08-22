@@ -37,24 +37,32 @@ export default async function HomePage() {
 						value={formatCount(summary.totalMissions)}
 						icon={ExploreIcon}
 						colorRole="blue"
+						href="/missions"
+						tooltip="Go to missions"
 					/>
 					<StatTile
 						label="Total dives"
 						value={formatCount(summary.totalDives)}
 						icon={WavesIcon}
 						colorRole="orange"
+						href="/missions"
+						tooltip="Go to missions"
 					/>
 					<StatTile
 						label="Total distance (km)"
 						value={formatCount(summary.totalDistanceKm)}
 						icon={StraightenIcon}
 						colorRole="aqua"
+						href="/missions"
+						tooltip="Go to missions"
 					/>
 					<StatTile
 						label="Total days in water"
 						value={formatCount(summary.totalDays)}
 						icon={ScheduleIcon}
 						colorRole="yellow"
+						href="/missions"
+						tooltip="Go to missions"
 					/>
 				</Box>
 
@@ -74,6 +82,12 @@ export default async function HomePage() {
 							title="Most days in water"
 							winner={leaderboard.mostDaysInWater.glider}
 							detail={`${formatCount(leaderboard.mostDaysInWater.days)} days`}
+							href={
+								leaderboard.mostDaysInWater.gliderAssetId
+									? `/gliders/${leaderboard.mostDaysInWater.gliderAssetId}`
+									: undefined
+							}
+							tooltip={`Go to ${leaderboard.mostDaysInWater.glider}'s details page`}
 						/>
 					)}
 					{leaderboard.longestTraveller && (
@@ -82,6 +96,12 @@ export default async function HomePage() {
 							title="Longest traveller"
 							winner={leaderboard.longestTraveller.glider}
 							detail={`${formatCount(leaderboard.longestTraveller.distanceKm)} km`}
+							href={
+								leaderboard.longestTraveller.gliderAssetId
+									? `/gliders/${leaderboard.longestTraveller.gliderAssetId}`
+									: undefined
+							}
+							tooltip={`Go to ${leaderboard.longestTraveller.glider}'s details page`}
 						/>
 					)}
 					{leaderboard.mostDives && (
@@ -90,6 +110,12 @@ export default async function HomePage() {
 							title="Most dives"
 							winner={leaderboard.mostDives.glider}
 							detail={`${formatCount(leaderboard.mostDives.dives)} dives`}
+							href={
+								leaderboard.mostDives.gliderAssetId
+									? `/gliders/${leaderboard.mostDives.gliderAssetId}`
+									: undefined
+							}
+							tooltip={`Go to ${leaderboard.mostDives.glider}'s details page`}
 						/>
 					)}
 				</Box>
@@ -104,6 +130,8 @@ export default async function HomePage() {
 								`Mission: ${leaderboard.longestDeployment.stdMissionName}`,
 								`${formatCount(leaderboard.longestDeployment.days)} days`,
 							]}
+							href={`/missions/${leaderboard.longestDeployment.missionId}`}
+							tooltip={`Go to mission ${leaderboard.longestDeployment.stdMissionName}`}
 						/>
 					)}
 					{leaderboard.mostProjectDays && (
@@ -112,6 +140,8 @@ export default async function HomePage() {
 							title="Most project days"
 							winner={leaderboard.mostProjectDays.project}
 							detail={`${formatCount(leaderboard.mostProjectDays.days)} days`}
+							href="/missions"
+							tooltip="Go to missions page"
 						/>
 					)}
 					{leaderboard.mostSiteDays && (
@@ -120,6 +150,8 @@ export default async function HomePage() {
 							title="Most site days"
 							winner={leaderboard.mostSiteDays.site}
 							detail={`${formatCount(leaderboard.mostSiteDays.days)} days`}
+							href="/missions"
+							tooltip="Go to missions page"
 						/>
 					)}
 				</Box>

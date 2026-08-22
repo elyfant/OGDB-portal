@@ -93,11 +93,24 @@ export interface MissionsSummary {
 }
 
 export interface MissionsLeaderboard {
-	mostDaysInWater: { glider: string; days: number } | null;
-	longestTraveller: { glider: string; distanceKm: number } | null;
-	mostDives: { glider: string; dives: number } | null;
+	mostDaysInWater: {
+		glider: string;
+		gliderAssetId: number | null;
+		days: number;
+	} | null;
+	longestTraveller: {
+		glider: string;
+		gliderAssetId: number | null;
+		distanceKm: number;
+	} | null;
+	mostDives: {
+		glider: string;
+		gliderAssetId: number | null;
+		dives: number;
+	} | null;
 	longestDeployment: {
 		glider: string;
+		missionId: number;
 		stdMissionName: string;
 		days: number;
 	} | null;

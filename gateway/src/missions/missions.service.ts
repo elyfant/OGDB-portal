@@ -334,8 +334,9 @@ export class MissionsService {
 	}
 
 	async getLeaderboard(): Promise<MissionsLeaderboard> {
-		const [byGlider, longestMission, topProject, topSite] = await Promise.all([
-			this.pool.query(`
+		const [byGlider, longestMission, topProject, topSite, gliderIdsResult] =
+			await Promise.all([
+				this.pool.query(`
         SELECT
           glider,
           COALESCE(SUM(dives), 0)::int AS "totalDives",
@@ -345,14 +346,14 @@ export class MissionsService {
         WHERE glider IS NOT NULL
         GROUP BY glider
       `),
-			this.pool.query(`
-        SELECT glider, std_mission_name AS "stdMissionName", ${DAYS_EXPR}::int AS days
+				this.pool.query(`
+        SELECT id AS "missionId", glider, std_mission_name AS "stdMissionName", ${DAYS_EXPR}::int AS days
         FROM norglider_missions
         WHERE recovery_date IS NOT NULL AND launch_date IS NOT NULL
         ORDER BY days DESC
         LIMIT 1
       `),
-			this.pool.query(`
+				this.pool.query(`
         SELECT project, COALESCE(SUM(${DAYS_EXPR}), 0)::int AS days
         FROM norglider_missions
         WHERE project IS NOT NULL
@@ -360,7 +361,7 @@ export class MissionsService {
         ORDER BY days DESC
         LIMIT 1
       `),
-			this.pool.query(`
+				this.pool.query(`
         SELECT site, COALESCE(SUM(${DAYS_EXPR}), 0)::int AS days
         FROM norglider_missions
         WHERE site IS NOT NULL
@@ -368,7 +369,22 @@ export class MissionsService {
         ORDER BY days DESC
         LIMIT 1
       `),
-		]);
+				// norglider_missions exposes the glider's *name*, not its
+				// asset id (the view joins asset_glider_details for display
+				// but doesn't select the id) -- resolved here by name instead
+				// of reshaping the view, since glider_name is unique and this
+				// is the only place that needs the id.
+				this.pool.query(
+					"SELECT asset_id AS id, glider_name AS name FROM asset_glider_details",
+				),
+			]);
+
+		const gliderIds = new Map<string, number>(
+			gliderIdsResult.rows.map((r: { id: number; name: string }) => [
+				r.name,
+				r.id,
+			]),
+		);
 
 		const gliders = byGlider.rows as {
 			glider: string;
@@ -390,16 +406,25 @@ export class MissionsService {
 
 		return {
 			mostDaysInWater: mostDaysGlider
-				? { glider: mostDaysGlider.glider, days: mostDaysGlider.totalDays }
+				? {
+						glider: mostDaysGlider.glider,
+						gliderAssetId: gliderIds.get(mostDaysGlider.glider) ?? null,
+						days: mostDaysGlider.totalDays,
+					}
 				: null,
 			longestTraveller: mostDistanceGlider
 				? {
 						glider: mostDistanceGlider.glider,
+						gliderAssetId: gliderIds.get(mostDistanceGlider.glider) ?? null,
 						distanceKm: Math.round(mostDistanceGlider.totalDistanceKm),
 					}
 				: null,
 			mostDives: mostDivesGlider
-				? { glider: mostDivesGlider.glider, dives: mostDivesGlider.totalDives }
+				? {
+						glider: mostDivesGlider.glider,
+						gliderAssetId: gliderIds.get(mostDivesGlider.glider) ?? null,
+						dives: mostDivesGlider.totalDives,
+					}
 				: null,
 			longestDeployment: longestMission.rows[0] ?? null,
 			mostProjectDays: topProject.rows[0] ?? null,

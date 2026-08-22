@@ -4,34 +4,50 @@ import type { SvgIconComponent } from "@mui/icons-material";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import { useRouter } from "next/navigation";
 
 export default function ChampionshipCard({
 	icon: Icon,
 	title,
 	winner,
 	detail,
+	href,
+	tooltip,
 }: {
 	icon: SvgIconComponent;
 	title: string;
 	winner: string;
 	detail: string | string[];
+	href?: string;
+	tooltip?: string;
 }) {
 	const theme = useTheme();
+	const router = useRouter();
 	const color = theme.palette.primary.main;
 	const detailLines = Array.isArray(detail) ? detail : [detail];
 
-	return (
+	const card = (
 		<Paper
 			elevation={0}
+			onClick={href ? () => router.push(href) : undefined}
 			sx={{
-				flex: "1 1 260px",
+				width: "100%",
 				p: 3,
 				textAlign: "center",
 				border: "1px solid",
 				borderColor: "divider",
 				borderRadius: 3,
+				...(href && {
+					cursor: "pointer",
+					transition: "border-color 0.15s, box-shadow 0.15s",
+					"&:hover": {
+						borderColor: "primary.main",
+						boxShadow: 1,
+					},
+				}),
 			}}
 		>
 			<Box
@@ -68,5 +84,14 @@ export default function ChampionshipCard({
 				</Typography>
 			))}
 		</Paper>
+	);
+
+	if (!href) {
+		return <Box sx={{ flex: "1 1 260px" }}>{card}</Box>;
+	}
+	return (
+		<Box sx={{ flex: "1 1 260px" }}>
+			<Tooltip title={tooltip ?? ""}>{card}</Tooltip>
+		</Box>
 	);
 }
