@@ -1,7 +1,13 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+	ConflictException,
+	Inject,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
 import type { Cruise } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
+import type { CreateCruiseDto } from "./dto/create-cruise.dto";
 
 const SELECT_CRUISES = `
   SELECT
@@ -22,6 +28,18 @@ const SELECT_CRUISES = `
   LEFT JOIN institutes i ON i.id = c.institute_id
 `;
 
+function mapDbError(err: unknown): Error {
+	if (
+		err &&
+		typeof err === "object" &&
+		"code" in err &&
+		(err as { code: string }).code === "23505"
+	) {
+		return new ConflictException("A cruise with that name already exists.");
+	}
+	return err instanceof Error ? err : new Error(String(err));
+}
+
 @Injectable()
 export class CruisesService {
 	constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -41,5 +59,31 @@ export class CruisesService {
 			throw new NotFoundException(`Cruise ${id} not found`);
 		}
 		return result.rows[0];
+	}
+
+	async create(dto: CreateCruiseDto): Promise<Cruise> {
+		try {
+			const result = await this.pool.query(
+				`INSERT INTO cruises
+          (cruise_name, cruise_number, vessel, institute_id, cruise_leader, area, start_date, end_date, departure, destination)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING id`,
+				[
+					dto.cruiseName,
+					dto.cruiseNumber ?? null,
+					dto.vesselId ?? null,
+					dto.instituteId ?? null,
+					dto.cruiseLeader ?? null,
+					dto.area,
+					dto.startDate,
+					dto.endDate,
+					dto.startPort ?? null,
+					dto.endPort ?? null,
+				],
+			);
+			return this.findOne(result.rows[0].id);
+		} catch (err) {
+			throw mapDbError(err);
+		}
 	}
 }

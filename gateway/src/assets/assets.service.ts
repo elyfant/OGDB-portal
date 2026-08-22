@@ -14,6 +14,7 @@ import {
 } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
 import { DocumentsService } from "../documents/documents.service";
+import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
 
@@ -185,6 +186,55 @@ export class AssetsService {
 			throw err instanceof Error ? err : new Error(String(err));
 		}
 		return this.findOne(id);
+	}
+
+	// Generic fields only -- gliders go through GlidersService.create
+	// instead, since that's the one asset type with its own detail table
+	// (asset_glider_details) this app knows how to populate. Creating a
+	// "glider" here would leave that table empty and produce a broken
+	// row (no name, no platform) that GlidersTable/detail pages assume
+	// always exists.
+	async create(dto: CreateAssetDto, userId: number): Promise<Asset> {
+		const typeResult = await this.pool.query(
+			"SELECT name FROM asset_types WHERE id = $1",
+			[dto.assetTypeId],
+		);
+		if (typeResult.rows.length === 0) {
+			throw new BadRequestException(
+				`Asset type ${dto.assetTypeId} does not exist.`,
+			);
+		}
+		if (typeResult.rows[0].name === "glider") {
+			throw new BadRequestException(
+				"Gliders are created from the Fleet page, not here.",
+			);
+		}
+
+		const result = await this.pool.query(
+			`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value_usd, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+			[
+				dto.assetTypeId,
+				dto.serialNumber ?? null,
+				dto.notes ?? null,
+				dto.purchaseDate ?? null,
+				dto.purchaseValueUsd ?? null,
+				userId,
+			],
+		);
+		const assetId = result.rows[0].id;
+
+		// New gear sits in the lab before it's deployed -- give every
+		// asset a real starting status rather than leaving it unset (the
+		// same asset_status_history insert setStatus() uses).
+		await this.pool.query(
+			`INSERT INTO asset_status_history (asset_id, status_id, changed_by)
+       SELECT $1, id, $2 FROM asset_status_options WHERE name = 'lab'`,
+			[assetId, userId],
+		);
+
+		return this.findOne(assetId);
 	}
 
 	// Always an INSERT -- the cal tables are append-only (same "current =

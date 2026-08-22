@@ -136,6 +136,17 @@ export interface Asset {
 	statusEffectiveDate: string | null;
 }
 
+// Generic fields only — every asset type has these, but only gliders
+// (created via CreateGliderInput instead) have their own detail-table
+// fields modeled yet. assetTypeId must not resolve to "glider".
+export interface CreateAssetInput {
+	assetTypeId: number;
+	serialNumber?: string | null;
+	notes?: string | null;
+	purchaseDate?: string | null;
+	purchaseValueUsd?: number | null;
+}
+
 export type DatasetProcessingStage = "raw" | "L0" | "L1" | "L2";
 
 export interface DatasetProcessingStageQc {
@@ -654,4 +665,17 @@ export interface Cruise {
 	endDate: string;
 	startPort: string | null;
 	endPort: string | null;
+}
+
+export interface CreateCruiseInput {
+	cruiseName: string;
+	cruiseNumber?: string | null;
+	vesselId?: number | null;
+	instituteId?: number | null;
+	cruiseLeader?: string | null;
+	area: string;
+	startDate: string;
+	endDate: string;
+	startPort?: string | null;
+	endPort?: string | null;
 }

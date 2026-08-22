@@ -3,10 +3,16 @@
 import type {
 	ApplyBuildChangesInput,
 	ApplyDatasetStagesInput,
+	Asset,
 	AssetSearchResult,
+	CreateAssetInput,
+	CreateCruiseInput,
+	CreateGliderInput,
 	CreateMissionInput,
 	CreatedMission,
+	Cruise,
 	DatasetProcessingDetail,
+	Glider,
 	GliderBuild,
 	Mission,
 	NewProcessingPackageInput,
@@ -196,6 +202,45 @@ export async function parseCertificate(
 		throw new Error(
 			data?.message ?? `Failed to read certificate: ${res.status}`,
 		);
+	}
+	return res.json();
+}
+
+export async function createGlider(input: CreateGliderInput): Promise<Glider> {
+	const res = await fetch("/api/gliders", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to create glider: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function createAsset(input: CreateAssetInput): Promise<Asset> {
+	const res = await fetch("/api/assets", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to create asset: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function createCruise(input: CreateCruiseInput): Promise<Cruise> {
+	const res = await fetch("/api/cruises", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to create cruise: ${res.status}`);
 	}
 	return res.json();
 }

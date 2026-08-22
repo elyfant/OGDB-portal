@@ -56,4 +56,18 @@ export class LookupsService {
 		);
 		return result.rows;
 	}
+
+	async getVessels(): Promise<LookupOption[]> {
+		const result = await this.pool.query(
+			"SELECT id, name FROM vessels ORDER BY name",
+		);
+		return result.rows;
+	}
+
+	async getAssetTypes(): Promise<LookupOption[]> {
+		const result = await this.pool.query(
+			"SELECT id, name FROM asset_types ORDER BY name",
+		);
+		return result.rows;
+	}
 }

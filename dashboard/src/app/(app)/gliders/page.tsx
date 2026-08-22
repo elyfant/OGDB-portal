@@ -1,3 +1,4 @@
+import GliderFormDialog from "@/components/GliderFormDialog";
 import GlidersTable from "@/components/GlidersTable";
 import { getGliders, getStatusOptions } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -14,12 +15,21 @@ export default async function GlidersPage() {
 
 	return (
 		<Box>
-			<Typography variant="h5" sx={{ mb: 2 }}>
-				Glider fleet
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 2,
+				}}
+			>
+				<Typography variant="h5">Glider fleet</Typography>
+				{canEdit && <GliderFormDialog />}
+			</Box>
+			<Typography variant="subtitle1" color="text.secondary">
+				Every glider in the fleet, click on a glider to view its details and
+				history.
 			</Typography>
-				<Typography variant="subtitle1" color="text.secondary">
-						Every glider in the fleet, click on a glider to view its details and history.
-				</Typography>
 			<GlidersTable
 				gliders={gliders}
 				statusOptions={statusOptions}

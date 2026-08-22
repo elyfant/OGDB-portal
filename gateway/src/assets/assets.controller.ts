@@ -18,6 +18,7 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { AssetsService } from "./assets.service";
 import { CertificateParserService } from "./certificate-parser.service";
+import { CreateAssetDto } from "./dto/create-asset.dto";
 import { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import { SetAssetStatusDto } from "./dto/set-asset-status.dto";
 
@@ -66,6 +67,12 @@ export class AssetsController {
 	@Get(":id")
 	findOne(@Param("id", ParseIntPipe) id: number) {
 		return this.assets.findOne(id);
+	}
+
+	@Roles("editor", "admin")
+	@Post()
+	create(@Body() dto: CreateAssetDto, @CurrentUser() user: JwtPayload) {
+		return this.assets.create(dto, user.sub);
 	}
 
 	@Roles("editor", "admin")

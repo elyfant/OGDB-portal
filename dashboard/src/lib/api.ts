@@ -124,6 +124,22 @@ export async function getInstitutes(): Promise<LookupOption[]> {
 	return res.json();
 }
 
+export async function getVessels(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/vessels");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch vessels: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getAssetTypes(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/asset-types");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch asset types: ${res.status}`);
+	}
+	return res.json();
+}
+
 export async function getContacts(): Promise<LookupOption[]> {
 	const res = await apiFetch("/lookups/contacts");
 	if (!res.ok) {

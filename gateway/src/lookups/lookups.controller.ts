@@ -29,4 +29,14 @@ export class LookupsController {
 	getMissionStatuses() {
 		return this.lookups.getMissionStatuses();
 	}
+
+	@Get("vessels")
+	getVessels() {
+		return this.lookups.getVessels();
+	}
+
+	@Get("asset-types")
+	getAssetTypes() {
+		return this.lookups.getAssetTypes();
+	}
 }
