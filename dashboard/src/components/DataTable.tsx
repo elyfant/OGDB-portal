@@ -227,7 +227,9 @@ function RowCells<T>({
 		<>
 			{columns.map((col) => (
 				<TableCell key={col.key} align={col.align}>
-					{formatColumnValue(row[col.key], col)}
+					{col.renderCell
+						? col.renderCell(row)
+						: formatColumnValue(row[col.key], col)}
 				</TableCell>
 			))}
 			{renderRowActions && (

@@ -1,19 +1,23 @@
+import type { ReactNode } from "react";
+
 // MUI's small-size Select, Chip, and Button don't share a common height by
 // default (40px vs 24px vs ~31px) — pin every toolbar control to this so a
 // row of mixed controls (column picker, filter chips, buttons) lines up.
 export const TOOLBAR_CONTROL_HEIGHT = 40;
 
-export type ColumnKind = "string" | "number" | "date";
+export type ColumnKind = "string" | "number" | "date" | "boolean";
 
 export interface ColumnDef<T> {
 	key: Extract<keyof T, string>;
 	label: string;
 	kind: ColumnKind;
 	defaultVisible: boolean;
-	align?: "right";
+	align?: "right" | "center";
 	/** Capitalize the first letter for display — only for known lowercase single-word/phrase fields, not slugs. */
 	capitalize?: boolean;
 	format?: (value: unknown) => string;
+	/** Overrides the cell's on-screen display (e.g. an inline status editor, an icon) — sort/filter/CSV export still use the raw column value. */
+	renderCell?: (row: T) => ReactNode;
 }
 
 export function defaultVisibleColumns<T>(
@@ -40,6 +44,7 @@ export function formatColumnValue<T>(
 			maximumFractionDigits: 2,
 		});
 	}
+	if (column.kind === "boolean") return value ? "Yes" : "No";
 	if (typeof value === "string") {
 		return column.capitalize
 			? value.charAt(0).toUpperCase() + value.slice(1)
@@ -55,6 +60,7 @@ export function toCsvCell<T>(value: unknown, column: ColumnDef<T>): string {
 	if (value === null || value === undefined || value === "") return "";
 	if (column.kind === "date") return String(value).slice(0, 10);
 	if (column.kind === "number") return String(value);
+	if (column.kind === "boolean") return value ? "true" : "false";
 	if (typeof value === "string") {
 		return column.capitalize
 			? value.charAt(0).toUpperCase() + value.slice(1)
@@ -103,6 +109,8 @@ export function compareColumnValues(
 		cmp = (a as number) - (b as number);
 	} else if (kind === "date") {
 		cmp = new Date(a as string).getTime() - new Date(b as string).getTime();
+	} else if (kind === "boolean") {
+		cmp = (a ? 1 : 0) - (b ? 1 : 0);
 	} else {
 		cmp = String(a).localeCompare(String(b));
 	}
