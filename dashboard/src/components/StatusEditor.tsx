@@ -1,5 +1,6 @@
 "use client";
 
+import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
 import Select, { type SelectChangeEvent } from "@mui/material/Select";
@@ -42,35 +43,42 @@ export default function StatusEditor({
 	}
 
 	return (
-		<Select
-			size="small"
-			value={value}
-			onChange={handleChange}
-			disabled={pending || disabled}
-			displayEmpty
-			variant="standard"
-			disableUnderline
-			renderValue={(selected) => {
-				const option = options.find((o) => o.id === selected);
-				if (!option) {
+		// Stops a click here from bubbling to the row's own onClick
+		// (rows now navigate on a single click) -- covers both the
+		// closed select's trigger and, since React bubbles portalled
+		// content through the component tree rather than the DOM tree,
+		// clicks on the open menu's options too.
+		<Box component="span" onClick={(e) => e.stopPropagation()}>
+			<Select
+				size="small"
+				value={value}
+				onChange={handleChange}
+				disabled={pending || disabled}
+				displayEmpty
+				variant="standard"
+				disableUnderline
+				renderValue={(selected) => {
+					const option = options.find((o) => o.id === selected);
+					if (!option) {
+						return (
+							<Chip label="Status not set" size="small" variant="outlined" />
+						);
+					}
 					return (
-						<Chip label="Status not set" size="small" variant="outlined" />
+						<Chip
+							label={STATUS_LABEL[option.name]}
+							color={STATUS_COLOR[option.name]}
+							size="small"
+						/>
 					);
-				}
-				return (
-					<Chip
-						label={STATUS_LABEL[option.name]}
-						color={STATUS_COLOR[option.name]}
-						size="small"
-					/>
-				);
-			}}
-		>
-			{options.map((option) => (
-				<MenuItem key={option.id} value={option.id}>
-					{STATUS_LABEL[option.name]}
-				</MenuItem>
-			))}
-		</Select>
+				}}
+			>
+				{options.map((option) => (
+					<MenuItem key={option.id} value={option.id}>
+						{STATUS_LABEL[option.name]}
+					</MenuItem>
+				))}
+			</Select>
+		</Box>
 	);
 }

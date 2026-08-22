@@ -11,7 +11,7 @@ export default function ClickableTableRow({ href, sx, ...props }: Props) {
 	return (
 		<TableRow
 			hover
-			onDoubleClick={() => router.push(href)}
+			onClick={() => router.push(href)}
 			sx={{ cursor: "pointer", ...sx }}
 			{...props}
 		/>
