@@ -4,6 +4,7 @@ import ConnectingAirports from "@mui/icons-material/ConnectingAirports";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import DirectionsBoatIcon from "@mui/icons-material/DirectionsBoat";
 import HomeIcon from "@mui/icons-material/Home";
+import InsightsIcon from "@mui/icons-material/Insights";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import RouteIcon from "@mui/icons-material/Route";
 import SensorsIcon from "@mui/icons-material/Sensors";
@@ -30,9 +31,14 @@ import UserMenu from "./UserMenu";
 
 const DRAWER_WIDTH = 240;
 
-const HOME_ITEM = { label: "Home", href: "/", icon: HomeIcon };
-
 const NAV_GROUPS = [
+	{
+		label: "Home",
+		items: [
+			{ label: "Home", href: "/", icon: HomeIcon },
+			{ label: "Mission Stats", href: "/mission-stats", icon: InsightsIcon },
+		],
+	},
 	{
 		label: "Assets",
 		items: [
@@ -109,31 +115,9 @@ export default function AppShell({
 			>
 				<Toolbar />
 				<Box sx={{ overflow: "auto", pt: 1 }}>
-					<Typography
-						variant="overline"
-						sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
-					>
-						Home
-					</Typography>
-					<List>
-						<ListItemButton
-							component={Link}
-							href={HOME_ITEM.href}
-							selected={isActive(pathname, HOME_ITEM.href)}
-						>
-							<ListItemIcon>
-								<HOME_ITEM.icon
-									color={
-										isActive(pathname, HOME_ITEM.href) ? "primary" : "inherit"
-									}
-								/>
-							</ListItemIcon>
-							<ListItemText primary={HOME_ITEM.label} />
-						</ListItemButton>
-					</List>
-					{NAV_GROUPS.map((group) => (
+					{NAV_GROUPS.map((group, i) => (
 						<Box key={group.label}>
-							<Divider />
+							{i > 0 && <Divider />}
 							<Typography
 								variant="overline"
 								sx={{ pl: 2, color: "primary.main", fontWeight: 600 }}
