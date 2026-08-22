@@ -85,13 +85,29 @@ export class GlidersService {
 		try {
 			await client.query("BEGIN");
 			const assetResult = await client.query(
-				"INSERT INTO assets (asset_type_id, serial_number, changed_by) VALUES ($1, $2, $3) RETURNING id",
-				[GLIDER_ASSET_TYPE_ID, dto.serialNumber ?? null, userId],
+				`INSERT INTO assets (asset_type_id, serial_number, institute_id, purchase_date, purchase_value_usd, changed_by)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id`,
+				[
+					GLIDER_ASSET_TYPE_ID,
+					dto.serialNumber ?? null,
+					dto.instituteId ?? null,
+					dto.purchaseDate ?? null,
+					dto.purchaseValueUsd ?? null,
+					userId,
+				],
 			);
 			const assetId = assetResult.rows[0].id;
 			await client.query(
 				"INSERT INTO asset_glider_details (asset_id, glider_name, platform_id, wmo) VALUES ($1, $2, $3, $4)",
 				[assetId, dto.name, dto.platformId ?? null, dto.wmo ?? null],
+			);
+			// New gear sits in the lab before it's deployed -- same default
+			// AssetsService.create uses for every other asset type.
+			await client.query(
+				`INSERT INTO asset_status_history (asset_id, status_id, changed_by)
+         SELECT $1, id, $2 FROM asset_status_options WHERE name = 'lab'`,
+				[assetId, userId],
 			);
 			await client.query("COMMIT");
 			return this.findOne(assetId);

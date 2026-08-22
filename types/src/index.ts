@@ -71,6 +71,9 @@ export interface CreateGliderInput {
 	wmo?: string | null;
 	platformId?: number | null;
 	serialNumber?: string | null;
+	instituteId?: number | null;
+	purchaseDate?: string | null;
+	purchaseValueUsd?: number | null;
 }
 
 export interface UpdateGliderInput {

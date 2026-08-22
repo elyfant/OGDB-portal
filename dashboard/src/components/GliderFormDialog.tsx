@@ -9,9 +9,11 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import type { LookupOption } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 
@@ -19,13 +21,31 @@ interface FormState {
 	name: string;
 	serialNumber: string;
 	wmo: string;
+	platformId: number | "";
+	instituteId: number | "";
+	purchaseDate: string;
+	purchaseValueUsd: string;
 }
 
 function emptyForm(): FormState {
-	return { name: "", serialNumber: "", wmo: "" };
+	return {
+		name: "",
+		serialNumber: "",
+		wmo: "",
+		platformId: "",
+		instituteId: "",
+		purchaseDate: "",
+		purchaseValueUsd: "",
+	};
 }
 
-export default function GliderFormDialog() {
+export default function GliderFormDialog({
+	platforms,
+	institutes,
+}: {
+	platforms: LookupOption[];
+	institutes: LookupOption[];
+}) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(emptyForm);
@@ -57,6 +77,14 @@ export default function GliderFormDialog() {
 			setError("Name is required.");
 			return;
 		}
+		const purchaseValueUsd =
+			form.purchaseValueUsd.trim() === ""
+				? null
+				: Number(form.purchaseValueUsd);
+		if (purchaseValueUsd !== null && Number.isNaN(purchaseValueUsd)) {
+			setError("Purchase value must be a number.");
+			return;
+		}
 
 		setSaving(true);
 		try {
@@ -64,6 +92,10 @@ export default function GliderFormDialog() {
 				name: form.name.trim(),
 				serialNumber: form.serialNumber.trim() || undefined,
 				wmo: form.wmo.trim() || undefined,
+				platformId: form.platformId || undefined,
+				instituteId: form.instituteId || undefined,
+				purchaseDate: form.purchaseDate || undefined,
+				purchaseValueUsd: purchaseValueUsd ?? undefined,
 			});
 			closeDialog();
 			setBanner({
@@ -99,7 +131,7 @@ export default function GliderFormDialog() {
 				>
 					<Section label="Details">
 						<Grid>
-							<Field label="Name" required span={2}>
+							<Field label="Name" required span={3}>
 								<TextField
 									size="small"
 									fullWidth
@@ -129,12 +161,52 @@ export default function GliderFormDialog() {
 									}
 								/>
 							</Field>
+							<Field label="Platform">
+								<LookupSelect
+									value={form.platformId}
+									options={platforms}
+									onChange={(v) => setForm((s) => ({ ...s, platformId: v }))}
+								/>
+							</Field>
+							<Field label="Owner">
+								<LookupSelect
+									value={form.instituteId}
+									options={institutes}
+									onChange={(v) => setForm((s) => ({ ...s, instituteId: v }))}
+								/>
+							</Field>
+							<Field label="Purchase date">
+								<TextField
+									type="date"
+									size="small"
+									fullWidth
+									InputLabelProps={{ shrink: true }}
+									value={form.purchaseDate}
+									onChange={(e) =>
+										setForm((s) => ({ ...s, purchaseDate: e.target.value }))
+									}
+								/>
+							</Field>
+							<Field label="Purchase value (USD)">
+								<TextField
+									type="number"
+									size="small"
+									fullWidth
+									value={form.purchaseValueUsd}
+									onChange={(e) =>
+										setForm((s) => ({
+											...s,
+											purchaseValueUsd: e.target.value,
+										}))
+									}
+								/>
+							</Field>
 						</Grid>
 					</Section>
 
 					<Typography variant="caption" color="text.secondary">
-						Platform, manufacturer, owner, and status are set later by editing
-						the glider — not part of this form.
+						Manufacturer is set later by editing the glider — not part of this
+						form. New gliders start with status "Lab".
 					</Typography>
 
 					{error && (
@@ -195,7 +267,7 @@ function Grid({ children }: { children: ReactNode }) {
 		<Box
 			sx={{
 				display: "grid",
-				gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+				gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
 				gap: 2,
 			}}
 		>
@@ -230,5 +302,32 @@ function Field({
 			</Typography>
 			{children}
 		</Box>
+	);
+}
+
+function LookupSelect({
+	value,
+	options,
+	onChange,
+}: {
+	value: number | "";
+	options: LookupOption[];
+	onChange: (value: number | "") => void;
+}) {
+	return (
+		<TextField
+			select
+			size="small"
+			fullWidth
+			value={value}
+			onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
+		>
+			<MenuItem value="">—</MenuItem>
+			{options.map((o) => (
+				<MenuItem key={o.id} value={o.id}>
+					{o.name}
+				</MenuItem>
+			))}
+		</TextField>
 	);
 }

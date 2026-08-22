@@ -132,6 +132,14 @@ export async function getVessels(): Promise<LookupOption[]> {
 	return res.json();
 }
 
+export async function getPlatforms(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/platforms");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch platforms: ${res.status}`);
+	}
+	return res.json();
+}
+
 export async function getAssetTypes(): Promise<LookupOption[]> {
 	const res = await apiFetch("/lookups/asset-types");
 	if (!res.ok) {

@@ -1,16 +1,24 @@
 import GliderFormDialog from "@/components/GliderFormDialog";
 import GlidersTable from "@/components/GlidersTable";
-import { getGliders, getStatusOptions } from "@/lib/api";
+import {
+	getGliders,
+	getInstitutes,
+	getPlatforms,
+	getStatusOptions,
+} from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export default async function GlidersPage() {
-	const [gliders, statusOptions, user] = await Promise.all([
-		getGliders(),
-		getStatusOptions(),
-		getCurrentUser(),
-	]);
+	const [gliders, statusOptions, platforms, institutes, user] =
+		await Promise.all([
+			getGliders(),
+			getStatusOptions(),
+			getPlatforms(),
+			getInstitutes(),
+			getCurrentUser(),
+		]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
 	return (
@@ -24,7 +32,9 @@ export default async function GlidersPage() {
 				}}
 			>
 				<Typography variant="h5">Glider fleet</Typography>
-				{canEdit && <GliderFormDialog />}
+				{canEdit && (
+					<GliderFormDialog platforms={platforms} institutes={institutes} />
+				)}
 			</Box>
 			<Typography variant="subtitle1" color="text.secondary">
 				Every glider in the fleet, click on a glider to view its details and

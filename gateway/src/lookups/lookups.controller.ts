@@ -39,4 +39,9 @@ export class LookupsController {
 	getAssetTypes() {
 		return this.lookups.getAssetTypes();
 	}
+
+	@Get("platforms")
+	getPlatforms() {
+		return this.lookups.getPlatforms();
+	}
 }

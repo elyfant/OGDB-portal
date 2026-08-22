@@ -70,4 +70,18 @@ export class LookupsService {
 		);
 		return result.rows;
 	}
+
+	// Display name comes from the B76 NVS term (e.g. "Teledyne Webb
+	// Research Slocum G3 glider"), not platforms.name/model (short
+	// internal codes like "slocum"/"G3") -- falls back to those only if
+	// a platform hasn't been NVS-mapped yet.
+	async getPlatforms(): Promise<LookupOption[]> {
+		const result = await this.pool.query(
+			`SELECT p.id, COALESCE(nt.pref_label, p.name || ' ' || p.model) AS name
+       FROM platforms p
+       LEFT JOIN nvs_terms nt ON nt.id = p.b76_model_id
+       ORDER BY name`,
+		);
+		return result.rows;
+	}
 }
