@@ -1,8 +1,10 @@
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import KeyFiles from "@/components/KeyFiles";
+import { siteToArea } from "@/components/mission-stats/site-areas";
 import MissionTrackMapLoader from "@/components/MissionTrackMapLoader";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import RegionIcon from "@/components/RegionIcon";
 import SciencePayloadTable from "@/components/SciencePayloadTable";
 import StatTile from "@/components/StatTile";
 import {
@@ -128,40 +130,54 @@ export default async function MissionDetailPage({
 				current={name}
 			/>
 
-			<Box
+			<Paper
+				variant="outlined"
 				sx={{
-					display: "flex",
-					alignItems: "baseline",
-					justifyContent: "space-between",
-					flexWrap: "wrap",
-					gap: 2,
+					p: 3,
 					mb: 3,
+					display: "flex",
+					alignItems: "center",
+					gap: 3,
+					flexWrap: "wrap",
 				}}
 			>
-				<Typography variant="h5">Mission: {name}</Typography>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
-					<MuiLink
-						component={Link}
-						href={`/datasets/${mission.id}`}
+				<RegionIcon area={siteToArea(mission.site)} width={160} />
+				<Box sx={{ flex: 1, minWidth: 220 }}>
+					<Box
 						sx={{
 							display: "flex",
 							alignItems: "center",
-							gap: 0.75,
-							fontWeight: 500,
+							gap: 1.5,
+							flexWrap: "wrap",
 						}}
 					>
-						<DatasetIcon fontSize="small" />
-						View data processing status
-					</MuiLink>
-					{mission.status && (
-						<Chip
-							label={mission.status}
-							color={statusColor(mission.status)}
-							size="small"
-						/>
-					)}
+						<Typography variant="h5">{name}</Typography>
+						{mission.status && (
+							<Chip
+								label={mission.status}
+								color={statusColor(mission.status)}
+								size="small"
+							/>
+						)}
+					</Box>
+					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+						{formatDate(mission.launchDate)} – {formatDate(mission.recoveryDate)}
+					</Typography>
 				</Box>
-			</Box>
+				<MuiLink
+					component={Link}
+					href={`/datasets/${mission.id}`}
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 0.75,
+						fontWeight: 500,
+					}}
+				>
+					<DatasetIcon fontSize="small" />
+					View data processing status
+				</MuiLink>
+			</Paper>
 
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5, mb: 4 }}>
 				<StatTile
