@@ -93,9 +93,9 @@ export default async function MissionDetailPage({
 	);
 
 	const name =
-		mission.stdMissionName ??
-		mission.missionName ??
-		`Mission ${mission.missionNumber ?? mission.id}`;
+		mission.stdMissionName ?? mission.missionName ?? `Mission ${mission.id}`;
+	const title =
+		mission.missionNumber != null ? `${mission.missionNumber}. ${name}` : name;
 
 	const platform =
 		mission.platform === "slocum" || mission.platform === "seaglider"
@@ -141,7 +141,7 @@ export default async function MissionDetailPage({
 					flexWrap: "wrap",
 				}}
 			>
-				<RegionIcon area={siteToArea(mission.site)} width={160} />
+				<RegionIcon area={siteToArea(mission.site)} width={72} />
 				<Box sx={{ flex: 1, minWidth: 220 }}>
 					<Box
 						sx={{
@@ -151,7 +151,7 @@ export default async function MissionDetailPage({
 							flexWrap: "wrap",
 						}}
 					>
-						<Typography variant="h5">{name}</Typography>
+						<Typography variant="h5">{title}</Typography>
 						{mission.status && (
 							<Chip
 								label={mission.status}

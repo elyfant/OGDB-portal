@@ -1,7 +1,9 @@
 import DatasetEditor from "@/components/DatasetEditor";
 import Field from "@/components/Field";
+import { siteToArea } from "@/components/mission-stats/site-areas";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ProcessingStatusTable from "@/components/ProcessingStatusTable";
+import RegionIcon from "@/components/RegionIcon";
 import {
 	getDatasetProcessingDetail,
 	getOgdbUsers,
@@ -9,9 +11,10 @@ import {
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, statusColor } from "@/lib/format";
+import RouteIcon from "@mui/icons-material/Route";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
-import Link from "@mui/material/Link";
+import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -19,6 +22,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 function ExternalRefRow({
@@ -35,9 +39,9 @@ function ExternalRefRow({
 			<TableCell sx={{ color: "text.secondary" }}>{label}</TableCell>
 			<TableCell align="right">
 				{url ? (
-					<Link href={url} target="_blank" rel="noreferrer">
+					<MuiLink href={url} target="_blank" rel="noreferrer">
 						{linkText}
-					</Link>
+					</MuiLink>
 				) : (
 					<Typography color="text.disabled">not yet available</Typography>
 				)}
@@ -73,23 +77,55 @@ export default async function DatasetDetailPage({
 				catalogueHref="/datasets"
 				current={detail.missionName}
 			/>
-			<Box
+
+			<Paper
+				variant="outlined"
 				sx={{
+					p: 3,
+					mb: 3,
 					display: "flex",
-					alignItems: "baseline",
-					justifyContent: "space-between",
-					mb: 2,
+					alignItems: "center",
+					gap: 3,
+					flexWrap: "wrap",
 				}}
 			>
-				<Typography variant="h5">{title}</Typography>
-				{detail.status && (
-					<Chip
-						label={detail.status}
-						color={statusColor(detail.status)}
-						size="small"
-					/>
-				)}
-			</Box>
+				<RegionIcon area={siteToArea(detail.site)} width={72} />
+				<Box sx={{ flex: 1, minWidth: 220 }}>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							gap: 1.5,
+							flexWrap: "wrap",
+						}}
+					>
+						<Typography variant="h5">{title}</Typography>
+						{detail.status && (
+							<Chip
+								label={detail.status}
+								color={statusColor(detail.status)}
+								size="small"
+							/>
+						)}
+					</Box>
+					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+						{formatDate(detail.launchDate)} – {formatDate(detail.recoveryDate)}
+					</Typography>
+				</Box>
+				<MuiLink
+					component={Link}
+					href={`/missions/${detail.missionId}`}
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 0.75,
+						fontWeight: 500,
+					}}
+				>
+					<RouteIcon fontSize="small" />
+					View mission details
+				</MuiLink>
+			</Paper>
 
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				About dataset
