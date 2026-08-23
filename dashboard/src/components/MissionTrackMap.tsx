@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { useEffect, useState } from "react";
 import {
 	CircleMarker,
 	LayerGroup,
@@ -74,6 +75,24 @@ export default function MissionTrackMap({
 	deployment: LatLon | null;
 	recovery: LatLon | null;
 }) {
+	// react-leaflet v4's MapContainer creates its Leaflet map from a
+	// useCallback ref with an empty dependency array -- that callback's
+	// closure permanently sees context===null from its first invocation,
+	// so if the ref ever fires a second time on the same DOM node (which
+	// is exactly what React 18 StrictMode's dev-mode double-invoke does
+	// to callback refs), it tries to init a second Leaflet map on a
+	// container that's already initialized and throws. Bumping this key
+	// once after mount forces a real unmount+remount via React's
+	// key-based reconciliation instead of a ref recycle, so MapContainer
+	// only ever sees one ref-callback cycle per instance -- the
+	// react-leaflet-recommended workaround until v5 (React 19) fixes
+	// this internally. Costs one harmless extra create/teardown cycle
+	// on first mount.
+	const [mapKey, setMapKey] = useState(0);
+	useEffect(() => {
+		setMapKey((k) => k + 1);
+	}, []);
+
 	const linePositions: [number, number][] = tracks.map((t) => [
 		t.latitude,
 		t.longitude,
@@ -106,6 +125,7 @@ export default function MissionTrackMap({
 
 	return (
 		<MapContainer
+			key={mapKey}
 			bounds={boundsPoints}
 			boundsOptions={{ padding: [24, 24] }}
 			style={{ height: "100%", width: "100%" }}
