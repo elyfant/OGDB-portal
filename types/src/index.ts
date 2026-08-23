@@ -361,6 +361,12 @@ export interface UpdateMissionFolderPathInput {
 	missionFolderPath: string | null;
 }
 
+export interface MissionTrackPoint {
+	latitude: number;
+	longitude: number;
+	utc: string;
+}
+
 // A simple id/name reference option -- projects, sites, institutes,
 // contacts. Shared shape since every lookup dropdown in the Add Mission
 // dialog renders identically regardless of which table backs it.

@@ -4,6 +4,7 @@ import type {
 	Mission,
 	MissionsLeaderboard,
 	MissionsSummary,
+	MissionTrackPoint,
 	ScienceSensorRecord,
 } from "@ogdb/types";
 import type { Pool } from "pg";
@@ -101,6 +102,18 @@ export class MissionsService {
 			mission.gliderAssetId,
 			mission.launchDate,
 		);
+	}
+
+	async getTracks(id: number): Promise<MissionTrackPoint[]> {
+		await this.findOne(id);
+		const result = await this.pool.query(
+			`SELECT latitude, longitude, utc
+       FROM tracks
+       WHERE missions_id = $1
+       ORDER BY utc ASC`,
+			[id],
+		);
+		return result.rows;
 	}
 
 	async updateFolderPath(

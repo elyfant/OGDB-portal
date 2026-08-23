@@ -1,6 +1,7 @@
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import KeyFiles from "@/components/KeyFiles";
+import MissionTrackMapLoader from "@/components/MissionTrackMapLoader";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import SciencePayloadTable from "@/components/SciencePayloadTable";
 import StatTile from "@/components/StatTile";
@@ -9,6 +10,7 @@ import {
 	getGliderBuild,
 	getMission,
 	getMissionSciencePayload,
+	getMissionTracks,
 	getStatusOptions,
 } from "@/lib/api";
 import {
@@ -40,7 +42,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 const PLACEHOLDER_SECTIONS = [
-	"Map of glider tracks",
 	"Mission information",
 	"Project information",
 	"Piloting history",
@@ -73,12 +74,13 @@ export default async function MissionDetailPage({
 	const mission = await getMission(Number(id));
 	if (!mission) notFound();
 
-	const [gliderBuild, statusOptions, glider, sciencePayload] =
+	const [gliderBuild, statusOptions, glider, sciencePayload, tracks] =
 		await Promise.all([
 			mission.gliderAssetId ? getGliderBuild(mission.gliderAssetId) : null,
 			getStatusOptions(),
 			mission.gliderAssetId ? getGlider(mission.gliderAssetId) : null,
 			getMissionSciencePayload(mission.id),
+			getMissionTracks(mission.id),
 		]);
 
 	// Science Payload owns the sensor rows now -- Glider Build shows
@@ -93,8 +95,33 @@ export default async function MissionDetailPage({
 		mission.missionName ??
 		`Mission ${mission.missionNumber ?? mission.id}`;
 
+	const platform =
+		mission.platform === "slocum" || mission.platform === "seaglider"
+			? mission.platform
+			: null;
+	const deployment =
+		mission.launchLatitude !== null && mission.launchLongitude !== null
+			? { latitude: mission.launchLatitude, longitude: mission.launchLongitude }
+			: null;
+	const recovery =
+		mission.recoveryLatitude !== null && mission.recoveryLongitude !== null
+			? {
+					latitude: mission.recoveryLatitude,
+					longitude: mission.recoveryLongitude,
+				}
+			: null;
+
 	return (
 		<Box>
+			<Box sx={{ mx: -3, mt: -3, mb: 3, height: "33vh" }}>
+				<MissionTrackMapLoader
+					tracks={tracks}
+					platform={platform}
+					deployment={deployment}
+					recovery={recovery}
+				/>
+			</Box>
+
 			<PageBreadcrumb
 				catalogue="Missions"
 				catalogueHref="/missions"

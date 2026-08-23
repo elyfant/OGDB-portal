@@ -55,6 +55,11 @@ export class MissionsController {
 		return this.missions.getSciencePayload(id);
 	}
 
+	@Get(":id/tracks")
+	getTracks(@Param("id", ParseIntPipe) id: number) {
+		return this.missions.getTracks(id);
+	}
+
 	@Roles("editor", "admin")
 	@Patch(":id")
 	updateMission(

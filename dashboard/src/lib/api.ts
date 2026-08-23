@@ -12,6 +12,7 @@ import type {
 	Mission,
 	MissionsLeaderboard,
 	MissionsSummary,
+	MissionTrackPoint,
 	OgdbUser,
 	ProcessingPackage,
 	ScienceSensorRecord,
@@ -216,6 +217,16 @@ export async function getMission(id: number): Promise<Mission | null> {
 	if (res.status === 404) return null;
 	if (!res.ok) {
 		throw new Error(`Failed to fetch mission ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getMissionTracks(
+	id: number,
+): Promise<MissionTrackPoint[]> {
+	const res = await apiFetch(`/missions/${id}/tracks`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch tracks for mission ${id}: ${res.status}`);
 	}
 	return res.json();
 }
