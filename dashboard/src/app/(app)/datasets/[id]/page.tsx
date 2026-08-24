@@ -1,4 +1,5 @@
 import DatasetEditor from "@/components/DatasetEditor";
+import DatasetHistoryTable from "@/components/DatasetHistoryTable";
 import Field from "@/components/Field";
 import { siteToArea } from "@/components/mission-stats/site-areas";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
@@ -29,20 +30,48 @@ function ExternalRefRow({
 	label,
 	url,
 	linkText,
+	pushStatus,
 }: {
 	label: string;
 	url: string | null;
 	linkText: string;
+	pushStatus?: "none" | "DM" | "PUB";
 }) {
 	return (
 		<TableRow>
 			<TableCell sx={{ color: "text.secondary" }}>{label}</TableCell>
-			<TableCell align="right">
+			<TableCell
+				align="right"
+				sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1.5 }}
+			>
 				{url ? (
 					<MuiLink href={url} target="_blank" rel="noreferrer">
 						{linkText}
 					</MuiLink>
 				) : (
+					<Typography color="text.disabled">not yet available</Typography>
+				)}
+				{pushStatus && pushStatus !== "none" && (
+					<Chip
+						size="small"
+						label={pushStatus === "DM" ? "Delayed mode pushed" : "Published pushed"}
+						color={pushStatus === "PUB" ? "success" : "default"}
+					/>
+				)}
+			</TableCell>
+		</TableRow>
+	);
+}
+
+// DOI is an identifier (e.g. "10.1234/xyz"), not a URL -- shown as
+// whatever was typed into the field, not wrapped in a link that would
+// otherwise 404 against this app's own origin.
+function TextRow({ label, value }: { label: string; value: string | null }) {
+	return (
+		<TableRow>
+			<TableCell sx={{ color: "text.secondary" }}>{label}</TableCell>
+			<TableCell align="right">
+				{value ?? (
 					<Typography color="text.disabled">not yet available</Typography>
 				)}
 			</TableCell>
@@ -157,20 +186,29 @@ export default async function DatasetDetailPage({
 				}}
 			>
 				<Typography variant="h6">Processing status</Typography>
-				<DatasetEditor
-					missionId={detail.missionId}
-					detail={detail}
-					users={users}
-					packages={packages}
-					currentUser={
-						currentOgdbUser
-							? {
-									contactId: currentOgdbUser.contactId,
-									name: currentOgdbUser.name,
-								}
-							: null
-					}
-				/>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+					<MuiLink
+						component={Link}
+						href="/datasets/qc-pipeline"
+						variant="body2"
+					>
+						NorGliders QC processing pipeline
+					</MuiLink>
+					<DatasetEditor
+						missionId={detail.missionId}
+						detail={detail}
+						users={users}
+						packages={packages}
+						currentUser={
+							currentOgdbUser
+								? {
+										contactId: currentOgdbUser.contactId,
+										name: currentOgdbUser.name,
+									}
+								: null
+						}
+					/>
+				</Box>
 			</Box>
 			<Box sx={{ mb: 4 }}>
 				<ProcessingStatusTable stages={detail.stages} />
@@ -182,20 +220,23 @@ export default async function DatasetDetailPage({
 			<TableContainer component={Paper} variant="outlined" sx={{ mb: 4 }}>
 				<Table size="small">
 					<TableBody>
-						<ExternalRefRow
-							label="DOI"
-							url={detail.doi}
-							linkText="view record"
-						/>
-						<ExternalRefRow
-							label="External data archive"
-							url={detail.externalDataArchiveUrl}
-							linkText="view archive"
-						/>
+						<TextRow label="DOI" value={detail.doi} />
 						<ExternalRefRow
 							label="Ocean Ops Board (real-time data)"
 							url={detail.oceanOpsBoardUrl}
 							linkText="view record"
+						/>
+						<ExternalRefRow
+							label="NorGliders ERDDAP L1 (timeseries)"
+							url={detail.erddapL1Url}
+							linkText="view dataset"
+							pushStatus={detail.erddapL1Status}
+						/>
+						<ExternalRefRow
+							label="NorGliders ERDDAP L2 (gridded)"
+							url={detail.erddapL2Url}
+							linkText="view dataset"
+							pushStatus={detail.erddapL2Status}
 						/>
 						<ExternalRefRow
 							label="Coriolis (real-time data)"
@@ -209,38 +250,7 @@ export default async function DatasetDetailPage({
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				History
 			</Typography>
-			<TableContainer
-				component={Paper}
-				variant="outlined"
-				sx={{ maxHeight: 260, overflowY: "auto" }}
-			>
-				<Table size="small">
-					<TableBody>
-						{detail.history.length === 0 ? (
-							<TableRow>
-								<TableCell sx={{ color: "text.disabled" }}>
-									No updates yet.
-								</TableCell>
-							</TableRow>
-						) : (
-							detail.history.map((entry, i) => (
-								<TableRow key={`${entry.occurredAt}-${i}`}>
-									<TableCell
-										sx={{
-											color: "text.secondary",
-											whiteSpace: "nowrap",
-											width: 180,
-										}}
-									>
-										{formatDate(entry.occurredAt)}
-									</TableCell>
-									<TableCell>{entry.description}</TableCell>
-								</TableRow>
-							))
-						)}
-					</TableBody>
-				</Table>
-			</TableContainer>
+			<DatasetHistoryTable history={detail.history} />
 		</Box>
 	);
 }

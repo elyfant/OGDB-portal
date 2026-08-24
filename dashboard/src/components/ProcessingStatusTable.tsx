@@ -23,11 +23,14 @@ import type { DatasetProcessingStageDetail } from "@ogdb/types";
 import { Fragment, useState } from "react";
 
 const STAGE_LABEL: Record<string, string> = {
-	raw: "Raw data archived",
-	L0: "L0",
-	L1: "L1 (timeseries)",
-	L2: "L2 (gridded)",
+	raw: "Raw data archival",
+	L0: "L0 dataset",
+	DM: "Delayed mode dataset",
+	PUB: "Published dataset",
 };
+// Matches DatasetEditor's OG1_CAPABLE_STAGES -- L0 is a raw-format
+// conversion, not OG1-eligible.
+const OG1_CAPABLE_STAGES = new Set(["DM", "PUB"]);
 
 function Tick({ done }: { done: boolean }) {
 	return done ? (
@@ -49,25 +52,22 @@ function Pending() {
 	return <Typography color="text.secondary">—</Typography>;
 }
 
-// version_url is just a link — no separate version-label column in the
-// schema — so derive something short and readable from the URL's last
-// path segment (works for typical GitHub/GitLab release URLs) rather
-// than showing the full URL or a meaningless generic word.
-function versionLabel(url: string): string {
-	try {
-		const segments = new URL(url).pathname.split("/").filter(Boolean);
-		return segments.at(-1) || url;
-	} catch {
-		return url;
-	}
-}
-
-function VersionLink({ url, prefix }: { url: string | null; prefix?: string }) {
-	if (!url) return <Pending />;
+function VersionLink({
+	url,
+	label,
+	prefix,
+}: {
+	url: string | null;
+	label: string | null;
+	prefix?: string;
+}) {
+	if (!label && !url) return <Pending />;
+	const text = label ?? url;
+	if (!url) return <>{text}</>;
 	return (
 		<Link href={url} target="_blank" rel="noreferrer" sx={{ fontSize: 13 }}>
 			{prefix ? `${prefix}: ` : ""}
-			{versionLabel(url)}{" "}
+			{text}{" "}
 			<OpenInNewIcon sx={{ fontSize: 12, verticalAlign: -1 }} />
 		</Link>
 	);
@@ -82,47 +82,19 @@ function DownloadIndicator({ available }: { available: boolean }) {
 	);
 }
 
-function QcDetailRow({
-	qc,
-}: { qc: NonNullable<DatasetProcessingStageDetail["qc"]> }) {
+function StageDetailRow({ stage }: { stage: DatasetProcessingStageDetail }) {
 	return (
 		<TableRow>
 			<TableCell colSpan={10} sx={{ py: 0, borderBottom: "none" }}>
 				<Collapse in>
 					<Box sx={{ py: 2, pl: 4, bgcolor: "action.hover" }}>
-						<Box
-							sx={{
-								display: "grid",
-								gridTemplateColumns: "repeat(3, 1fr)",
-								gap: 1,
-								mb: 1.5,
-								fontSize: 13,
-							}}
+						<Typography
+							variant="body2"
+							color="text.secondary"
+							sx={{ whiteSpace: "pre-wrap", fontSize: 13 }}
 						>
-							<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-								<Tick done={qc.removingErroneousData} /> Removing erroneous data
-							</Box>
-							<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-								<Tick done={qc.offsetCorrection} /> Offset correction (ship CTD)
-							</Box>
-							<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-								<Tick done={qc.despikingFiltering} /> Despiking / filtering
-							</Box>
-						</Box>
-						<Box
-							sx={{ display: "flex", gap: 3, flexWrap: "wrap", fontSize: 13 }}
-						>
-							<Typography variant="body2" color="text.secondary">
-								QC package: {qc.package ?? "—"}
-							</Typography>
-							<VersionLink url={qc.versionUrl} prefix="QC version" />
-							<Typography variant="body2" color="text.disabled">
-								QC occurred at: not tracked yet
-							</Typography>
-							<Typography variant="body2" color="text.disabled">
-								QC by: not tracked yet
-							</Typography>
-						</Box>
+							{stage.processingNotes ?? "No processing notes recorded."}
+						</Typography>
 					</Box>
 				</Collapse>
 			</TableCell>
@@ -184,7 +156,7 @@ export default function ProcessingStatusTable({
 								</TableCell>
 								<TableCell>
 									{s.applicable ? (
-										<VersionLink url={s.versionUrl} />
+										<VersionLink url={s.versionUrl} label={s.versionLabel} />
 									) : (
 										<NotApplicable />
 									)}
@@ -192,9 +164,10 @@ export default function ProcessingStatusTable({
 								<TableCell>
 									{!s.applicable ? (
 										<NotApplicable />
-									) : s.qc ? (
+									) : s.processingNotes ? (
 										<Chip
-											label="Applied"
+											icon={<Tick done={Boolean(s.qcDone)} />}
+											label="Notes"
 											size="small"
 											onClick={() => toggle(s.stage)}
 											deleteIcon={
@@ -206,17 +179,15 @@ export default function ProcessingStatusTable({
 											}
 											onDelete={() => toggle(s.stage)}
 										/>
-									) : (
+									) : s.qcDone === null ? (
 										<Pending />
+									) : (
+										<Tick done={s.qcDone} />
 									)}
 								</TableCell>
 								<TableCell>
-									{s.applicable ? (
-										s.isOg1 === null ? (
-											<Pending />
-										) : (
-											<Tick done={s.isOg1} />
-										)
+									{OG1_CAPABLE_STAGES.has(s.stage) ? (
+										<Tick done={Boolean(s.isOg1)} />
 									) : (
 										<NotApplicable />
 									)}
@@ -236,7 +207,9 @@ export default function ProcessingStatusTable({
 									)}
 								</TableCell>
 							</TableRow>
-							{s.qc && expanded.has(s.stage) && <QcDetailRow qc={s.qc} />}
+							{s.processingNotes && expanded.has(s.stage) && (
+								<StageDetailRow stage={s} />
+							)}
 						</Fragment>
 					))}
 				</TableBody>

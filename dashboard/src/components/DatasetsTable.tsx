@@ -36,10 +36,10 @@ const STAGE_COLUMNS: {
 	label: string;
 }[] = [
 	{ key: "l0Status", label: "L0" },
-	{ key: "l1Status", label: "L1" },
-	{ key: "l1Og1", label: "L1 OG1" },
-	{ key: "l2Status", label: "L2" },
-	{ key: "l2Og1", label: "L2 OG1" },
+	{ key: "dmStatus", label: "Delayed mode" },
+	{ key: "dmOg1", label: "Delayed mode OG1" },
+	{ key: "pubStatus", label: "Published" },
+	{ key: "pubOg1", label: "Published OG1" },
 ];
 
 const DATASET_COLUMNS: ColumnDef<DatasetRow>[] = [

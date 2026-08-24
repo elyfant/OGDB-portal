@@ -2,11 +2,14 @@
 
 import {
 	applyDatasetStages,
+	confirmErddapPush,
 	createProcessingPackage,
 	createProcessingPackageVersion,
 	updateExternalReferences,
 } from "@/lib/api-client";
+import { formatDate } from "@/lib/format";
 import EditIcon from "@mui/icons-material/Edit";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
@@ -17,6 +20,7 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Snackbar from "@mui/material/Snackbar";
@@ -27,69 +31,66 @@ import { alpha } from "@mui/material/styles";
 import type {
 	DatasetProcessingDetail,
 	DatasetProcessingStage,
+	ErddapLevel,
+	ErddapPushStatus,
 	OgdbUser,
 	ProcessingPackage,
 	RecordDatasetStageInput,
 } from "@ogdb/types";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const STAGE_ORDER: DatasetProcessingStage[] = ["raw", "L0", "L1", "L2"];
+const STAGE_ORDER: DatasetProcessingStage[] = ["raw", "L0", "DM", "PUB"];
 const STAGE_LABEL: Record<DatasetProcessingStage, string> = {
-	raw: "Raw data archived",
-	L0: "L0",
-	L1: "L1 (timeseries)",
-	L2: "L2 (gridded)",
+	raw: "Raw data archival",
+	L0: "L0 dataset",
+	DM: "Delayed mode dataset",
+	PUB: "Published dataset",
 };
 // Sequential-ish progression through the pipeline, all drawn from MUI's own
 // semantic palette so light/dark both work without hardcoded hex -- raw
-// (nothing processed yet) gets no colour at all, only L0/L1/L2 do.
+// (nothing processed yet) gets no colour at all, only L0/DM/PUB do.
 const STAGE_COLOR: Partial<
 	Record<DatasetProcessingStage, "info" | "secondary" | "success">
 > = {
 	L0: "info",
-	L1: "secondary",
-	L2: "success",
+	DM: "secondary",
+	PUB: "success",
 };
-const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["L1", "L2"];
+const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
+// L0 is a raw-format conversion, not an OG1-eligible product -- only the
+// delayed mode and published datasets can be OG1. See
+// xxxx_dataset_processing_og1_check.py for the matching DB constraint.
+const OG1_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
+const PROCESSING_NOTES_MAX = 5000;
 
 function today(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-interface QcFormState {
-	removingErroneousData: boolean;
-	offsetCorrection: boolean;
-	despikingFiltering: boolean;
-	qcWhoContactId: number | "";
-	qcOccurredAt: string;
-	qcPackageId: number | "";
-	qcVersionId: number | "";
-}
-
 interface StageFormState {
+	// The explicit "save this to the DB" signal -- a diff against the
+	// stored values isn't enough on its own, since sometimes the whole
+	// point is to log a fresh run with identical values (e.g. re-confirming
+	// QC on a rerun that produced the same result). See setRecording.
 	recording: boolean;
 	status: boolean;
 	whoContactId: number | "";
 	occurredAt: string;
 	packageId: number | "";
 	versionId: number | "";
-	isOg1: "" | "true" | "false";
-	qc: QcFormState;
+	isOg1: boolean;
+	// null = QC untouched for this run; true/false once the checkbox has
+	// been set. No separate QC package/version/who/date -- see
+	// DatasetProcessingStageDetail.qcDone.
+	qcDone: boolean | null;
+	processingNotes: string;
 }
 
-function emptyQc(): QcFormState {
-	return {
-		removingErroneousData: false,
-		offsetCorrection: false,
-		despikingFiltering: false,
-		qcWhoContactId: "",
-		qcOccurredAt: today(),
-		qcPackageId: "",
-		qcVersionId: "",
-	};
-}
-
+// Prefills every field from the stage's current row (not blanks/defaults),
+// so turning "Record a new run" on reads as "amend this entry" rather than
+// starting from blanks. Falls back to today/the current user only for a
+// stage that's never been recorded at all.
 function initialStageForm(
 	detail: DatasetProcessingDetail,
 	stage: DatasetProcessingStage,
@@ -99,28 +100,33 @@ function initialStageForm(
 	return {
 		recording: false,
 		status: current?.status ?? false,
-		whoContactId: defaultContactId,
-		occurredAt: today(),
+		whoContactId: current?.whoId ?? defaultContactId,
+		occurredAt: current?.occurredAt ?? today(),
 		packageId: current?.packageId ?? "",
 		versionId: current?.versionId ?? "",
-		isOg1:
-			current?.isOg1 === true
-				? "true"
-				: current?.isOg1 === false
-					? "false"
-					: "",
-		qc: current?.qc
-			? {
-					removingErroneousData: current.qc.removingErroneousData,
-					offsetCorrection: current.qc.offsetCorrection,
-					despikingFiltering: current.qc.despikingFiltering,
-					qcWhoContactId: defaultContactId,
-					qcOccurredAt: today(),
-					qcPackageId: current.qc.packageId ?? "",
-					qcVersionId: current.qc.versionId ?? "",
-				}
-			: emptyQc(),
+		isOg1: current?.isOg1 ?? false,
+		qcDone: current?.qcDone ?? null,
+		processingNotes: current?.processingNotes ?? "",
 	};
+}
+
+function stageSummary(
+	current: DatasetProcessingDetail["stages"][number] | undefined,
+	hasQc: boolean,
+): string {
+	if (!current?.occurredAt) return "Not recorded yet";
+	const who = current.who ?? "unknown";
+	const status = current.status ? "Done" : "Not done";
+	let text = `${formatDate(current.occurredAt)} · ${who} · ${status}`;
+	if (hasQc) {
+		text +=
+			current.qcDone === null
+				? " · No QC recorded"
+				: current.qcDone
+					? " · QC done"
+					: " · QC not done";
+	}
+	return text;
 }
 
 // Shared package -> version picker, used for both a stage's main
@@ -305,6 +311,73 @@ function PackageVersionFields({
 	);
 }
 
+// Confirms immediately on click (its own request), not batched into the
+// main Save button -- "confirm this has been pushed" is a standalone
+// action, not a draft field. Checked state is driven entirely by the
+// `status` prop (current_erddap_status from the server), so a successful
+// confirm + router.refresh() is what actually updates it -- no local
+// mirror to go stale. Since status is a single value, checking either
+// box always simply overwrites it -- checking "Published" can never
+// leave "Delayed mode" also true, and vice versa.
+function ErddapStatusControl({
+	level,
+	status,
+	missionId,
+	onError,
+}: {
+	level: ErddapLevel;
+	status: ErddapPushStatus;
+	missionId: number;
+	onError: (message: string) => void;
+}) {
+	const router = useRouter();
+	const [busy, setBusy] = useState(false);
+
+	async function confirm(next: ErddapPushStatus) {
+		setBusy(true);
+		try {
+			await confirmErddapPush(missionId, { level, status: next });
+			router.refresh();
+		} catch (err) {
+			onError(
+				err instanceof Error ? err.message : "Failed to confirm ERDDAP push.",
+			);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+			<FormControlLabel
+				sx={{ mr: 1 }}
+				control={
+					<Checkbox
+						size="small"
+						checked={status === "DM"}
+						disabled={busy}
+						onChange={(e) => confirm(e.target.checked ? "DM" : "none")}
+					/>
+				}
+				label={
+					<Typography variant="caption">Delayed mode pushed</Typography>
+				}
+			/>
+			<FormControlLabel
+				control={
+					<Checkbox
+						size="small"
+						checked={status === "PUB"}
+						disabled={busy}
+						onChange={(e) => confirm(e.target.checked ? "PUB" : "none")}
+					/>
+				}
+				label={<Typography variant="caption">Published pushed</Typography>}
+			/>
+		</Box>
+	);
+}
+
 export default function DatasetEditor({
 	missionId,
 	detail,
@@ -327,26 +400,57 @@ export default function DatasetEditor({
 
 	const defaultContactId = currentUser?.contactId ?? "";
 
-	const [stageForms, setStageForms] = useState<
-		Record<DatasetProcessingStage, StageFormState>
+	function buildStageForms(): Record<DatasetProcessingStage, StageFormState> {
+		return Object.fromEntries(
+			STAGE_ORDER.map((s) => [s, initialStageForm(detail, s, defaultContactId)]),
+		) as Record<DatasetProcessingStage, StageFormState>;
+	}
+
+	// Frozen snapshot of what's currently saved, used only to detect which
+	// stages actually changed at save time -- never written to directly by
+	// the user, only re-synced (see the effect below) when fresh server
+	// data arrives.
+	const [initialStageForms, setInitialStageForms] = useState(buildStageForms);
+	const [stageForms, setStageForms] =
+		useState<Record<DatasetProcessingStage, StageFormState>>(buildStageForms);
+	const [expandedStages, setExpandedStages] = useState<
+		Record<DatasetProcessingStage, boolean>
 	>(
 		() =>
-			Object.fromEntries(
-				STAGE_ORDER.map((s) => [
-					s,
-					initialStageForm(detail, s, defaultContactId),
-				]),
-			) as Record<DatasetProcessingStage, StageFormState>,
+			Object.fromEntries(STAGE_ORDER.map((s) => [s, false])) as Record<
+				DatasetProcessingStage,
+				boolean
+			>,
 	);
 
+	function toggleStage(stage: DatasetProcessingStage) {
+		setExpandedStages((prev) => ({ ...prev, [stage]: !prev[stage] }));
+	}
+
 	const [doi, setDoi] = useState(detail.doi ?? "");
-	const [externalDataArchiveUrl, setExternalDataArchiveUrl] = useState(
-		detail.externalDataArchiveUrl ?? "",
-	);
+	const [erddapL1Url, setErddapL1Url] = useState(detail.erddapL1Url ?? "");
+	const [erddapL2Url, setErddapL2Url] = useState(detail.erddapL2Url ?? "");
 	const [oceanOpsBoardUrl, setOceanOpsBoardUrl] = useState(
 		detail.oceanOpsBoardUrl ?? "",
 	);
 	const [coriolisUrl, setCoriolisUrl] = useState(detail.coriolisUrl ?? "");
+
+	// The dialog never unmounts (only `open` toggles), so the useState
+	// initializers above only ever run once, on first mount -- without
+	// this, saving would successfully write to the DB, dismissSuccessBanner
+	// would router.refresh() a fresh `detail` in, but `initialStageForms`
+	// would still hold the pre-save baseline, so the just-saved stage would
+	// permanently show as "unsaved" every time the modal is reopened.
+	useEffect(() => {
+		setStageForms(buildStageForms());
+		setInitialStageForms(buildStageForms());
+		setDoi(detail.doi ?? "");
+		setErddapL1Url(detail.erddapL1Url ?? "");
+		setErddapL2Url(detail.erddapL2Url ?? "");
+		setOceanOpsBoardUrl(detail.oceanOpsBoardUrl ?? "");
+		setCoriolisUrl(detail.coriolisUrl ?? "");
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [detail]);
 
 	function updateStage(
 		stage: DatasetProcessingStage,
@@ -358,13 +462,19 @@ export default function DatasetEditor({
 		}));
 	}
 
-	function updateQc(
-		stage: DatasetProcessingStage,
-		patch: Partial<QcFormState>,
-	) {
+	// Turning recording on keeps whatever's currently in the form (fields
+	// are always prefilled/editable regardless of this toggle -- see the
+	// expand/collapse chevron, which is independent of it), except
+	// occurred-at, which jumps to today: flipping this switch on is itself
+	// the "this is happening now" signal. Turning it back off discards
+	// whatever was typed and reverts to the stored baseline, so no
+	// half-edited state lingers invisibly if it's toggled on again later.
+	function setRecording(stage: DatasetProcessingStage, value: boolean) {
 		setStageForms((prev) => ({
 			...prev,
-			[stage]: { ...prev[stage], qc: { ...prev[stage].qc, ...patch } },
+			[stage]: value
+				? { ...prev[stage], recording: true, occurredAt: today() }
+				: { ...initialStageForms[stage], recording: false },
 		}));
 	}
 
@@ -392,9 +502,17 @@ export default function DatasetEditor({
 		const summaryLines: string[] = [];
 		for (const stage of STAGE_ORDER) {
 			const form = stageForms[stage];
+			const hasQc = QC_CAPABLE_STAGES.includes(stage);
+			const hasOg1 = OG1_CAPABLE_STAGES.includes(stage);
 			if (!form.recording) continue;
 			if (!form.occurredAt) {
 				setError(`${STAGE_LABEL[stage]}: pick an occurred-at date.`);
+				return;
+			}
+			if (form.processingNotes.length > PROCESSING_NOTES_MAX) {
+				setError(
+					`${STAGE_LABEL[stage]}: processing notes can't exceed ${PROCESSING_NOTES_MAX} characters.`,
+				);
 				return;
 			}
 			stagesToRecord.push({
@@ -404,18 +522,9 @@ export default function DatasetEditor({
 				occurredAt: form.occurredAt,
 				packageId: form.packageId || null,
 				versionId: form.versionId || null,
-				isOg1: form.isOg1 === "" ? null : form.isOg1 === "true",
-				qc: QC_CAPABLE_STAGES.includes(stage)
-					? {
-							removingErroneousData: form.qc.removingErroneousData,
-							offsetCorrection: form.qc.offsetCorrection,
-							despikingFiltering: form.qc.despikingFiltering,
-							qcWhoId: form.qc.qcWhoContactId || null,
-							qcOccurredAt: form.qc.qcOccurredAt || null,
-							qcPackageId: form.qc.qcPackageId || null,
-							qcVersionId: form.qc.qcVersionId || null,
-						}
-					: null,
+				isOg1: hasOg1 ? form.isOg1 : null,
+				qcDone: hasQc ? form.qcDone : null,
+				processingNotes: form.processingNotes || null,
 			});
 			summaryLines.push(
 				`${STAGE_LABEL[stage]}: recorded a new run (${form.status ? "done" : "not done"})`,
@@ -424,7 +533,8 @@ export default function DatasetEditor({
 
 		const referencesChanged =
 			doi !== (detail.doi ?? "") ||
-			externalDataArchiveUrl !== (detail.externalDataArchiveUrl ?? "") ||
+			erddapL1Url !== (detail.erddapL1Url ?? "") ||
+			erddapL2Url !== (detail.erddapL2Url ?? "") ||
 			oceanOpsBoardUrl !== (detail.oceanOpsBoardUrl ?? "") ||
 			coriolisUrl !== (detail.coriolisUrl ?? "");
 
@@ -441,7 +551,8 @@ export default function DatasetEditor({
 			if (referencesChanged) {
 				await updateExternalReferences(missionId, {
 					doi,
-					externalDataArchiveUrl,
+					erddapL1Url,
+					erddapL2Url,
 					oceanOpsBoardUrl,
 					coriolisUrl,
 				});
@@ -483,10 +594,17 @@ export default function DatasetEditor({
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 2 }}
 				>
+					<Typography variant="caption" color="text.secondary">
+						Data saved here will not overwrite previous entries in the
+						dataset processing log — it only appends information.
+					</Typography>
 					{STAGE_ORDER.map((stage) => {
 						const form = stageForms[stage];
 						const color = STAGE_COLOR[stage];
 						const hasQc = QC_CAPABLE_STAGES.includes(stage);
+						const hasOg1 = OG1_CAPABLE_STAGES.includes(stage);
+						const current = detail.stages.find((s) => s.stage === stage);
+						const isExpanded = expandedStages[stage];
 						return (
 							<Box
 								key={stage}
@@ -500,47 +618,86 @@ export default function DatasetEditor({
 										: "action.hover",
 									borderRadius: 1,
 									overflow: "hidden",
+									flexShrink: 0,
 								})}
 							>
 								<Box
+									onClick={() => toggleStage(stage)}
 									sx={{
 										display: "flex",
 										alignItems: "center",
 										justifyContent: "space-between",
 										px: 2,
 										py: 1,
+										cursor: "pointer",
+										gap: 2,
 									}}
 								>
-									<Typography
-										variant="subtitle2"
-										sx={{
-											fontWeight: 700,
-											color: color ? `${color}.main` : "text.primary",
-										}}
-									>
-										{STAGE_LABEL[stage]}
-									</Typography>
-									<FormControlLabel
-										sx={{ m: 0 }}
-										control={
-											<Switch
-												size="small"
-												checked={form.recording}
-												onChange={(e) =>
-													updateStage(stage, { recording: e.target.checked })
+									<Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+										<Typography
+											variant="subtitle2"
+											sx={{
+												fontWeight: 700,
+												color: color ? `${color}.main` : "text.primary",
+											}}
+										>
+											{STAGE_LABEL[stage]}
+											{form.recording && (
+												<Typography
+													component="span"
+													variant="caption"
+													color="warning.main"
+													sx={{ ml: 1, fontWeight: 700 }}
+												>
+													• recording new run
+												</Typography>
+											)}
+										</Typography>
+										<Typography variant="caption" color="text.secondary">
+											{stageSummary(current, hasQc)}
+										</Typography>
+									</Box>
+									<Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+										<Box
+											onClick={(e) => e.stopPropagation()}
+											sx={{ display: "flex", alignItems: "center" }}
+										>
+											<FormControlLabel
+												sx={{ m: 0 }}
+												control={
+													<Switch
+														size="small"
+														checked={form.recording}
+														onChange={(e) =>
+															setRecording(stage, e.target.checked)
+														}
+													/>
 												}
+												label={
+													<Typography variant="caption">
+														Record a new run
+													</Typography>
+												}
+												labelPlacement="start"
 											/>
-										}
-										label={
-											<Typography variant="caption">
-												Record a new run
-											</Typography>
-										}
-										labelPlacement="start"
-									/>
+										</Box>
+										<IconButton
+											size="small"
+											onClick={(e) => {
+												e.stopPropagation();
+												toggleStage(stage);
+											}}
+											sx={{
+												transform: isExpanded ? "rotate(180deg)" : "none",
+												transition: "transform 0.15s",
+											}}
+										>
+											<ExpandMoreIcon fontSize="small" />
+										</IconButton>
+									</Box>
 								</Box>
 
-								{form.recording && (
+								{isExpanded && (
 									<Box
 										sx={{
 											bgcolor: "background.paper",
@@ -562,17 +719,32 @@ export default function DatasetEditor({
 												gap: 2,
 											}}
 										>
-											<FormControlLabel
-												control={
-													<Switch
-														checked={form.status}
-														onChange={(e) =>
-															updateStage(stage, { status: e.target.checked })
-														}
-													/>
-												}
-												label={form.status ? "Done" : "Not done"}
-											/>
+											<Box
+												sx={{
+													display: "flex",
+													flexDirection: "column",
+													gap: 0.25,
+												}}
+											>
+												<FormControlLabel
+													sx={{ m: 0 }}
+													control={
+														<Switch
+															checked={form.status}
+															onChange={(e) =>
+																updateStage(stage, {
+																	status: e.target.checked,
+																})
+															}
+														/>
+													}
+													label={form.status ? "Done" : "Not done"}
+												/>
+												<Typography variant="caption" color="text.disabled">
+													Drives the {STAGE_LABEL[stage]} tick on the mission
+													list
+												</Typography>
+											</Box>
 											<Box
 												sx={{
 													display: "flex",
@@ -636,7 +808,7 @@ export default function DatasetEditor({
 													display: "grid",
 													gridTemplateColumns: {
 														xs: "1fr 1fr",
-														md: "repeat(3, 1fr)",
+														md: hasOg1 ? "repeat(3, 1fr)" : "repeat(2, 1fr)",
 													},
 													gap: 2,
 													alignItems: "start",
@@ -655,32 +827,49 @@ export default function DatasetEditor({
 													onPackageCreated={handlePackageCreated}
 													onVersionCreated={handleVersionCreated}
 												/>
-												<Box
-													sx={{
-														display: "flex",
-														flexDirection: "column",
-														gap: 0.5,
-													}}
-												>
-													<Typography variant="caption" color="text.secondary">
-														OG1
-													</Typography>
-													<Select
-														size="small"
-														fullWidth
-														value={form.isOg1}
-														onChange={(e) =>
-															updateStage(stage, {
-																isOg1: e.target
-																	.value as StageFormState["isOg1"],
-															})
-														}
+												{hasOg1 && (
+													<Box
+														sx={{
+															display: "flex",
+															flexDirection: "column",
+															gap: 0.5,
+															gridColumn: { xs: "1 / -1", md: "auto" },
+														}}
 													>
-														<MenuItem value="">Pending</MenuItem>
-														<MenuItem value="true">Yes</MenuItem>
-														<MenuItem value="false">No</MenuItem>
-													</Select>
-												</Box>
+														<Typography
+															variant="caption"
+															sx={{ visibility: "hidden" }}
+														>
+															Package
+														</Typography>
+														<Box
+															sx={{
+																display: "flex",
+																alignItems: "center",
+																height: 40,
+															}}
+														>
+															<FormControlLabel
+																sx={{ m: 0 }}
+																control={
+																	<Checkbox
+																		checked={form.isOg1}
+																		onChange={(e) =>
+																			updateStage(stage, {
+																				isOg1: e.target.checked,
+																			})
+																		}
+																	/>
+																}
+																label={
+																	<Typography variant="body2">
+																		OG1 format
+																	</Typography>
+																}
+															/>
+														</Box>
+													</Box>
+												)}
 											</Box>
 										)}
 
@@ -698,163 +887,55 @@ export default function DatasetEditor({
 										)}
 
 										{hasQc && (
+											<FormControlLabel
+												sx={{ m: 0 }}
+												control={
+													<Checkbox
+														checked={form.qcDone ?? false}
+														onChange={(e) =>
+															updateStage(stage, {
+																qcDone: e.target.checked,
+															})
+														}
+													/>
+												}
+												label={
+													<Typography variant="body2">Manual QC</Typography>
+												}
+											/>
+										)}
+
+										{hasQc && (
 											<Box
 												sx={{
-													border: "1px dashed",
-													borderColor: "divider",
-													borderRadius: 1,
-													p: 1.5,
 													display: "flex",
 													flexDirection: "column",
-													gap: 1.5,
+													gap: 0.5,
 												}}
 											>
-												<Typography
-													variant="caption"
-													sx={{ fontWeight: 700, textTransform: "uppercase" }}
-												>
-													Manual QC
+												<Typography variant="caption" color="text.secondary">
+													Processing notes
 												</Typography>
-												<Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-													<FormControlLabel
-														control={
-															<Checkbox
-																size="small"
-																checked={form.qc.removingErroneousData}
-																onChange={(e) =>
-																	updateQc(stage, {
-																		removingErroneousData: e.target.checked,
-																	})
-																}
-															/>
-														}
-														label={
-															<Typography variant="body2">
-																Removing erroneous data
-															</Typography>
-														}
-													/>
-													<FormControlLabel
-														control={
-															<Checkbox
-																size="small"
-																checked={form.qc.offsetCorrection}
-																onChange={(e) =>
-																	updateQc(stage, {
-																		offsetCorrection: e.target.checked,
-																	})
-																}
-															/>
-														}
-														label={
-															<Typography variant="body2">
-																Offset correction (ship CTD)
-															</Typography>
-														}
-													/>
-													<FormControlLabel
-														control={
-															<Checkbox
-																size="small"
-																checked={form.qc.despikingFiltering}
-																onChange={(e) =>
-																	updateQc(stage, {
-																		despikingFiltering: e.target.checked,
-																	})
-																}
-															/>
-														}
-														label={
-															<Typography variant="body2">
-																Despiking / filtering
-															</Typography>
-														}
-													/>
-												</Box>
-												<Box
-													sx={{
-														display: "grid",
-														gridTemplateColumns: {
-															xs: "1fr 1fr",
-															md: "repeat(4, 1fr)",
-														},
-														gap: 2,
+												<TextField
+													multiline
+													minRows={4}
+													maxRows={12}
+													fullWidth
+													placeholder="Bounds/offsets used, skipped dives, known caveats, links to further docs…"
+													value={form.processingNotes}
+													onChange={(e) =>
+														updateStage(stage, {
+															processingNotes: e.target.value,
+														})
+													}
+													error={
+														form.processingNotes.length > PROCESSING_NOTES_MAX
+													}
+													helperText={`${form.processingNotes.length} / ${PROCESSING_NOTES_MAX}`}
+													FormHelperTextProps={{
+														sx: { textAlign: "right", m: 0, mt: 0.25 },
 													}}
-												>
-													<PackageVersionFields
-														packages={packages}
-														packageId={form.qc.qcPackageId}
-														versionId={form.qc.qcVersionId}
-														onChangePackageId={(id) =>
-															updateQc(stage, { qcPackageId: id })
-														}
-														onChangeVersionId={(id) =>
-															updateQc(stage, { qcVersionId: id })
-														}
-														onPackageCreated={handlePackageCreated}
-														onVersionCreated={handleVersionCreated}
-													/>
-													<Box
-														sx={{
-															display: "flex",
-															flexDirection: "column",
-															gap: 0.5,
-														}}
-													>
-														<Typography
-															variant="caption"
-															color="text.secondary"
-														>
-															QC who
-														</Typography>
-														<Select
-															size="small"
-															fullWidth
-															displayEmpty
-															value={form.qc.qcWhoContactId}
-															onChange={(e) =>
-																updateQc(stage, {
-																	qcWhoContactId:
-																		e.target.value === ""
-																			? ""
-																			: Number(e.target.value),
-																})
-															}
-														>
-															<MenuItem value="">— unset —</MenuItem>
-															{users.map((u) => (
-																<MenuItem key={u.contactId} value={u.contactId}>
-																	{u.name}
-																</MenuItem>
-															))}
-														</Select>
-													</Box>
-													<Box
-														sx={{
-															display: "flex",
-															flexDirection: "column",
-															gap: 0.5,
-														}}
-													>
-														<Typography
-															variant="caption"
-															color="text.secondary"
-														>
-															QC occurred at
-														</Typography>
-														<TextField
-															size="small"
-															type="date"
-															fullWidth
-															value={form.qc.qcOccurredAt}
-															onChange={(e) =>
-																updateQc(stage, {
-																	qcOccurredAt: e.target.value,
-																})
-															}
-														/>
-													</Box>
-												</Box>
+												/>
 											</Box>
 										)}
 									</Box>
@@ -892,16 +973,38 @@ export default function DatasetEditor({
 							/>
 							<TextField
 								size="small"
-								label="External data archive URL"
-								value={externalDataArchiveUrl}
-								onChange={(e) => setExternalDataArchiveUrl(e.target.value)}
-							/>
-							<TextField
-								size="small"
 								label="Ocean Ops Board URL"
 								value={oceanOpsBoardUrl}
 								onChange={(e) => setOceanOpsBoardUrl(e.target.value)}
 							/>
+							<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+								<TextField
+									size="small"
+									label="NorGliders ERDDAP L1 (timeseries) URL"
+									value={erddapL1Url}
+									onChange={(e) => setErddapL1Url(e.target.value)}
+								/>
+								<ErddapStatusControl
+									level="L1"
+									status={detail.erddapL1Status}
+									missionId={missionId}
+									onError={setError}
+								/>
+							</Box>
+							<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+								<TextField
+									size="small"
+									label="NorGliders ERDDAP L2 (gridded) URL"
+									value={erddapL2Url}
+									onChange={(e) => setErddapL2Url(e.target.value)}
+								/>
+								<ErddapStatusControl
+									level="L2"
+									status={detail.erddapL2Status}
+									missionId={missionId}
+									onError={setError}
+								/>
+							</Box>
 							<TextField
 								size="small"
 								label="Coriolis URL"

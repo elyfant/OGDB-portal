@@ -5,6 +5,7 @@ import type {
 	ApplyDatasetStagesInput,
 	Asset,
 	AssetSearchResult,
+	ConfirmErddapPushInput,
 	CreateAssetInput,
 	CreateCruiseInput,
 	CreateGliderInput,
@@ -97,6 +98,24 @@ export async function updateExternalReferences(
 		const data = await res.json().catch(() => null);
 		throw new Error(
 			data?.message ?? `Failed to save external references: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function confirmErddapPush(
+	missionId: number,
+	input: ConfirmErddapPushInput,
+): Promise<DatasetProcessingDetail> {
+	const res = await fetch(`/api/datasets/${missionId}/erddap-status`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to confirm ERDDAP push: ${res.status}`,
 		);
 	}
 	return res.json();

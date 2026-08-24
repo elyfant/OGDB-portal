@@ -159,23 +159,13 @@ export interface CreateAssetInput {
 	purchaseValueUsd?: number | null;
 }
 
-export type DatasetProcessingStage = "raw" | "L0" | "L1" | "L2";
-
-export interface DatasetProcessingStageQc {
-	removingErroneousData: boolean;
-	offsetCorrection: boolean;
-	despikingFiltering: boolean;
-	// package/versionUrl are display strings (joined at read time); the
-	// *Id fields are the raw FKs, needed to pre-select the right option
-	// when editing rather than re-resolving name -> id.
-	package: string | null;
-	packageId: number | null;
-	versionUrl: string | null;
-	versionId: number | null;
-	occurredAt: string | null;
-	who: string | null;
-	whoId: number | null;
-}
+// "DM"/"PUB" replaced "L1"/"L2" (see xxxx_dataset_processing_dm_published.py
+// in OGDB) -- the stage taxonomy tracks processing maturity (delayed mode
+// vs. published) rather than output format, matching the NorGliders QC
+// processing pipeline (both platforms produce their timeseries and
+// gridded products together at each maturity step; format-specific
+// links live on the external-references URLs instead).
+export type DatasetProcessingStage = "raw" | "L0" | "DM" | "PUB";
 
 export interface DatasetProcessingStageDetail {
 	stage: DatasetProcessingStage;
@@ -189,9 +179,18 @@ export interface DatasetProcessingStageDetail {
 	package: string | null;
 	packageId: number | null;
 	versionUrl: string | null;
+	versionLabel: string | null;
 	versionId: number | null;
-	qc: DatasetProcessingStageQc | null;
+	// null = QC hasn't been touched for this run (raw/L0, or a DM/PUB run
+	// nobody's QC'd yet). No separate QC-specific package/version/who/date
+	// -- QC is treated as part of the same run described by the fields
+	// above; detail (what/by whom) goes in processingNotes instead.
+	qcDone: boolean | null;
 	isOg1: boolean | null;
+	// Free text, up to 5000 chars (enforced app-side, not in the DB) --
+	// e.g. a pasted-in reprocessing readme: bounds/offsets used, skipped
+	// dives, known caveats. See dataset_processing_stages.processing_notes.
+	processingNotes: string | null;
 	// Derived from whether a matching `documents` row exists (document_type
 	// "<stage>_output"/"<stage>_og1") — not a real file attachment yet, so
 	// these are read-only for now (no file storage decision made). See
@@ -203,6 +202,15 @@ export interface DatasetProcessingStageDetail {
 export interface DatasetHistoryEntry {
 	occurredAt: string;
 	description: string;
+	// Full snapshot captured by this run (dataset_processing_stages is
+	// append-only, so every row already carries its own complete values,
+	// not a diff) -- shown on demand (e.g. an expandable row) rather than
+	// in the one-line description, since processingNotes alone can run to
+	// 5000 chars.
+	versionLabel: string | null;
+	isOg1: boolean | null;
+	qcDone: boolean | null;
+	processingNotes: string | null;
 }
 
 export interface DatasetProcessingDetail {
@@ -215,21 +223,42 @@ export interface DatasetProcessingDetail {
 	launchDate: string | null;
 	recoveryDate: string | null;
 	doi: string | null;
-	externalDataArchiveUrl: string | null;
 	oceanOpsBoardUrl: string | null;
+	// NorGliders' own published ERDDAP endpoints -- distinct from
+	// oceanOpsBoardUrl/coriolisUrl, which are the real-time feeds. The URL
+	// is a stable address; *Status tracks what's currently live there --
+	// "none" (nothing confirmed pushed yet), "DM" (delayed mode), or "PUB"
+	// (published, which supersedes DM at the same URL). Backed by the
+	// append-only erddap_pushes table, not dataset_processing directly.
+	erddapL1Url: string | null;
+	erddapL1Status: ErddapPushStatus;
+	erddapL2Url: string | null;
+	erddapL2Status: ErddapPushStatus;
 	coriolisUrl: string | null;
 	stages: DatasetProcessingStageDetail[];
 	history: DatasetHistoryEntry[];
+}
+
+export type ErddapPushStatus = "none" | "DM" | "PUB";
+export type ErddapLevel = "L1" | "L2";
+
+// One row in erddap_pushes -- confirming a status always inserts a new
+// row (append-only, same reasoning as RecordDatasetStageInput), so
+// there's a record of who confirmed what and when, not just the latest
+// value.
+export interface ConfirmErddapPushInput {
+	level: ErddapLevel;
+	status: ErddapPushStatus;
 }
 
 export interface DatasetProcessingStatus {
 	missionId: number;
 	missionName: string;
 	l0Status: boolean;
-	l1Status: boolean;
-	l1Og1: boolean;
-	l2Status: boolean;
-	l2Og1: boolean;
+	dmStatus: boolean;
+	dmOg1: boolean;
+	pubStatus: boolean;
+	pubOg1: boolean;
 }
 
 // A person who can be picked for "who"/"QC who" -- an OGDB app user with a
@@ -279,18 +308,13 @@ export interface RecordDatasetStageInput {
 	occurredAt: string;
 	packageId?: number | null;
 	versionId?: number | null;
-	// null clears any previously-recorded QC for this run (not applicable);
-	// omit only when the stage doesn't support QC at all (raw/L0).
-	qc?: {
-		removingErroneousData: boolean;
-		offsetCorrection: boolean;
-		despikingFiltering: boolean;
-		qcWhoId?: number | null;
-		qcOccurredAt?: string | null;
-		qcPackageId?: number | null;
-		qcVersionId?: number | null;
-	} | null;
+	// null clears any previously-recorded QC for this run; omit only when
+	// the stage doesn't support QC at all (raw/L0).
+	qcDone?: boolean | null;
 	isOg1?: boolean | null;
+	// Max 5000 chars, enforced by the gateway (see DatasetsService.
+	// insertStageRecord), not the DB.
+	processingNotes?: string | null;
 }
 
 // Batched so recording new runs for several stages at once is one
@@ -304,8 +328,9 @@ export interface ApplyDatasetStagesInput {
 // missions, not dataset_processing, but is edited from the same form.
 export interface UpdateExternalReferencesInput {
 	doi?: string | null;
-	externalDataArchiveUrl?: string | null;
 	oceanOpsBoardUrl?: string | null;
+	erddapL1Url?: string | null;
+	erddapL2Url?: string | null;
 	coriolisUrl?: string | null;
 }
 

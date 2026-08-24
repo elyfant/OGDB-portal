@@ -63,6 +63,34 @@ export function formatDateTime(value: string | null): string {
 	});
 }
 
+const SHORT_MONTHS = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec",
+];
+
+// dd-mmm-yyyy hh:mm, e.g. "24-Aug-2026 14:32" -- built manually rather
+// than via toLocaleString since no locale produces this exact dash-
+// separated shape. Local time zone, same as formatDate/formatDateTime.
+export function formatHistoryTimestamp(value: string | null): string {
+	if (!value) return "—";
+	const d = new Date(value);
+	const day = String(d.getDate()).padStart(2, "0");
+	const month = SHORT_MONTHS[d.getMonth()];
+	const hours = String(d.getHours()).padStart(2, "0");
+	const minutes = String(d.getMinutes()).padStart(2, "0");
+	return `${day}-${month}-${d.getFullYear()} ${hours}:${minutes}`;
+}
+
 export function formatCount(value: number | null): string {
 	return value === null ? "—" : value.toLocaleString("en-GB");
 }

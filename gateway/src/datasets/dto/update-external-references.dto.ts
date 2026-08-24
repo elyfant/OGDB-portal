@@ -7,11 +7,15 @@ export class UpdateExternalReferencesDto {
 
 	@IsOptional()
 	@IsString()
-	externalDataArchiveUrl?: string | null;
+	oceanOpsBoardUrl?: string | null;
 
 	@IsOptional()
 	@IsString()
-	oceanOpsBoardUrl?: string | null;
+	erddapL1Url?: string | null;
+
+	@IsOptional()
+	@IsString()
+	erddapL2Url?: string | null;
 
 	@IsOptional()
 	@IsString()

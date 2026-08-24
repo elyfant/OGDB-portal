@@ -15,17 +15,21 @@ import type {
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../db/db.constants";
 import type { ApplyDatasetStagesDto } from "./dto/apply-dataset-stages.dto";
+import type { ConfirmErddapPushDto } from "./dto/confirm-erddap-push.dto";
 import type { UpdateExternalReferencesDto } from "./dto/update-external-references.dto";
 
-const VALID_STAGES: DatasetProcessingStage[] = ["raw", "L0", "L1", "L2"];
-// Matches xxxx_dataset_processing_status.py's acceptance criteria -- QC is
-// only a concept for L1/L2, same as the "applicable" flag already used for
-// package/version/OG1/downloads.
-const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["L1", "L2"];
+const VALID_STAGES: DatasetProcessingStage[] = ["raw", "L0", "DM", "PUB"];
+// Matches xxxx_dataset_processing_dm_published.py's acceptance criteria --
+// QC is only a concept for DM/PUB.
+const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
+// L0 is a raw-format conversion, not an OG1-eligible product -- only
+// DM/PUB can be OG1. Matches the DB check constraint added in
+// xxxx_dataset_processing_og1_check.py.
+const OG1_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
 
 // One row per mission, pivoting current_dataset_processing_stage (latest
-// run per stage — see xxxx_dataset_processing_status.py) into the fixed
-// L0/L1/L2 columns the catalogue table shows. A mission with no
+// run per stage — see xxxx_dataset_processing_dm_published.py) into the
+// fixed L0/DM/PUB columns the catalogue table shows. A mission with no
 // dataset_processing row at all (nothing started yet) comes back false
 // across the board via the COALESCE, not null.
 const SELECT_DATASETS = `
@@ -33,10 +37,10 @@ const SELECT_DATASETS = `
     nm.id AS "missionId",
     COALESCE(nm.std_mission_name, nm.mission_name, 'Mission ' || nm.mission_number) AS "missionName",
     COALESCE(bool_or(CASE WHEN cps.stage = 'L0' THEN cps.status END), false) AS "l0Status",
-    COALESCE(bool_or(CASE WHEN cps.stage = 'L1' THEN cps.status END), false) AS "l1Status",
-    COALESCE(bool_or(CASE WHEN cps.stage = 'L1' THEN cps.is_og1 END), false) AS "l1Og1",
-    COALESCE(bool_or(CASE WHEN cps.stage = 'L2' THEN cps.status END), false) AS "l2Status",
-    COALESCE(bool_or(CASE WHEN cps.stage = 'L2' THEN cps.is_og1 END), false) AS "l2Og1"
+    COALESCE(bool_or(CASE WHEN cps.stage = 'DM' THEN cps.status END), false) AS "dmStatus",
+    COALESCE(bool_or(CASE WHEN cps.stage = 'DM' THEN cps.is_og1 END), false) AS "dmOg1",
+    COALESCE(bool_or(CASE WHEN cps.stage = 'PUB' THEN cps.status END), false) AS "pubStatus",
+    COALESCE(bool_or(CASE WHEN cps.stage = 'PUB' THEN cps.is_og1 END), false) AS "pubOg1"
   FROM norglider_missions nm
   LEFT JOIN dataset_processing dp ON dp.mission_id = nm.id
   LEFT JOIN current_dataset_processing_stage cps ON cps.dataset_processing_id = dp.id
@@ -60,21 +64,32 @@ const SELECT_MISSION_HEADER = `
   WHERE nm.id = $1
 `;
 
+// current_erddap_status (see xxxx_erddap_pushes.py) holds the latest
+// confirmed push per (dataset_processing_id, level) -- joined in twice,
+// once per level, and defaulted to "none" for a mission with no
+// confirmations yet.
 const SELECT_DATASET_PROCESSING = `
   SELECT
-    id,
-    external_data_archive_url AS "externalDataArchiveUrl",
-    ocean_ops_board_url AS "oceanOpsBoardUrl",
-    coriolis_url AS "coriolisUrl"
-  FROM dataset_processing
-  WHERE mission_id = $1
+    dp.id,
+    dp.erddap_l1_url AS "erddapL1Url",
+    COALESCE(l1.status, 'none') AS "erddapL1Status",
+    dp.erddap_l2_url AS "erddapL2Url",
+    COALESCE(l2.status, 'none') AS "erddapL2Status",
+    dp.ocean_ops_board_url AS "oceanOpsBoardUrl",
+    dp.coriolis_url AS "coriolisUrl"
+  FROM dataset_processing dp
+  LEFT JOIN current_erddap_status l1
+    ON l1.dataset_processing_id = dp.id AND l1.level = 'L1'
+  LEFT JOIN current_erddap_status l2
+    ON l2.dataset_processing_id = dp.id AND l2.level = 'L2'
+  WHERE dp.mission_id = $1
 `;
 
 // "raw" has no package/version/QC/OG1/download concept at all — flagged
 // via "applicable" so the dashboard can render "n/a" instead of a dash.
 const SELECT_STAGES = `
   WITH stage_labels(stage, applicable, ord) AS (
-    VALUES ('raw', false, 1), ('L0', true, 2), ('L1', true, 3), ('L2', true, 4)
+    VALUES ('raw', false, 1), ('L0', true, 2), ('DM', true, 3), ('PUB', true, 4)
   )
   SELECT
     sl.stage,
@@ -86,17 +101,10 @@ const SELECT_STAGES = `
     pkg.name AS package,
     cps.package_id AS "packageId",
     ver.version_url AS "versionUrl",
+    ver.version_label AS "versionLabel",
     cps.version_id AS "versionId",
-    cps.qc_removing_erroneous_data AS "qcRemoving",
-    cps.qc_offset_correction AS "qcOffset",
-    cps.qc_despiking_filtering AS "qcDespiking",
-    qc_pkg.name AS "qcPackage",
-    cps.qc_package_id AS "qcPackageId",
-    qc_ver.version_url AS "qcVersionUrl",
-    cps.qc_version_id AS "qcVersionId",
-    cps.qc_occurred_at AS "qcOccurredAt",
-    TRIM(qc_who.first_name || ' ' || qc_who.last_name) AS "qcWho",
-    cps.qc_who_id AS "qcWhoId",
+    cps.processing_notes AS "processingNotes",
+    cps.qc_done AS "qcDone",
     cps.is_og1 AS "isOg1"
   FROM stage_labels sl
   LEFT JOIN dataset_processing dp ON dp.mission_id = $1
@@ -105,12 +113,13 @@ const SELECT_STAGES = `
   LEFT JOIN contacts who ON who.id = cps.who_id
   LEFT JOIN processing_packages pkg ON pkg.id = cps.package_id
   LEFT JOIN processing_package_versions ver ON ver.id = cps.version_id
-  LEFT JOIN contacts qc_who ON qc_who.id = cps.qc_who_id
-  LEFT JOIN processing_packages qc_pkg ON qc_pkg.id = cps.qc_package_id
-  LEFT JOIN processing_package_versions qc_ver ON qc_ver.id = cps.qc_version_id
   ORDER BY sl.ord
 `;
 
+// dataset_processing_stages is append-only, so each row is a full
+// snapshot at that point, not a diff -- version/OG1/QC/processing_notes
+// are pulled here too so the dashboard can show them on demand per
+// history entry, not just the one-line description.
 const SELECT_HISTORY = `
   SELECT
     s.stage,
@@ -118,9 +127,14 @@ const SELECT_HISTORY = `
     s.occurred_at AS "occurredAt",
     s.created_at AS "createdAt",
     pkg.name AS package,
-    TRIM(who.first_name || ' ' || who.last_name) AS who
+    TRIM(who.first_name || ' ' || who.last_name) AS who,
+    ver.version_label AS "versionLabel",
+    s.is_og1 AS "isOg1",
+    s.qc_done AS "qcDone",
+    s.processing_notes AS "processingNotes"
   FROM dataset_processing_stages s
   LEFT JOIN processing_packages pkg ON pkg.id = s.package_id
+  LEFT JOIN processing_package_versions ver ON ver.id = s.version_id
   LEFT JOIN contacts who ON who.id = s.who_id
   WHERE s.dataset_processing_id = (SELECT id FROM dataset_processing WHERE mission_id = $1)
   ORDER BY s.created_at DESC
@@ -171,17 +185,18 @@ export class DatasetsService {
 		return {
 			...header.rows[0],
 			...(processing.rows[0] ?? {
-				externalDataArchiveUrl: null,
+				erddapL1Url: null,
+				erddapL1Status: "none",
+				erddapL2Url: null,
+				erddapL2Status: "none",
 				oceanOpsBoardUrl: null,
 				coriolisUrl: null,
 			}),
 			stages: stages.rows.map((row) => {
 				const stage = row.stage as DatasetProcessingStage;
+				// document_type convention: "<stage lowercased>_output" /
+				// "_og1" -- "dm_output"/"pub_output" etc. under the new codes.
 				const key = stage.toLowerCase();
-				const hasQc =
-					row.qcRemoving !== null ||
-					row.qcOffset !== null ||
-					row.qcDespiking !== null;
 				return {
 					stage,
 					applicable: row.applicable,
@@ -192,22 +207,11 @@ export class DatasetsService {
 					package: row.package,
 					packageId: row.packageId,
 					versionUrl: row.versionUrl,
+					versionLabel: row.versionLabel,
 					versionId: row.versionId,
-					qc: hasQc
-						? {
-								removingErroneousData: row.qcRemoving,
-								offsetCorrection: row.qcOffset,
-								despikingFiltering: row.qcDespiking,
-								package: row.qcPackage,
-								packageId: row.qcPackageId,
-								versionUrl: row.qcVersionUrl,
-								versionId: row.qcVersionId,
-								occurredAt: row.qcOccurredAt,
-								who: row.qcWho,
-								whoId: row.qcWhoId,
-							}
-						: null,
-					isOg1: row.applicable ? row.isOg1 : null,
+					processingNotes: row.processingNotes,
+					qcDone: row.qcDone,
+					isOg1: OG1_CAPABLE_STAGES.includes(stage) ? row.isOg1 : null,
 					hasInternalDownload:
 						row.applicable && documentTypes.has(`${key}_output`),
 					hasInternalDownloadOg1:
@@ -218,6 +222,10 @@ export class DatasetsService {
 				(row): DatasetHistoryEntry => ({
 					occurredAt: row.createdAt,
 					description: describeHistoryEntry(row),
+					versionLabel: row.versionLabel,
+					isOg1: row.isOg1,
+					qcDone: row.qcDone,
+					processingNotes: row.processingNotes,
 				}),
 			),
 		};
@@ -284,29 +292,70 @@ export class DatasetsService {
 			}
 
 			const touchesDatasetProcessing =
-				dto.externalDataArchiveUrl !== undefined ||
+				dto.erddapL1Url !== undefined ||
+				dto.erddapL2Url !== undefined ||
 				dto.oceanOpsBoardUrl !== undefined ||
 				dto.coriolisUrl !== undefined;
 			if (touchesDatasetProcessing) {
 				await client.query(
 					`INSERT INTO dataset_processing
-             (mission_id, external_data_archive_url, ocean_ops_board_url, coriolis_url, changed_by)
-           VALUES ($1, $2, $3, $4, $5)
+           (mission_id, erddap_l1_url, erddap_l2_url, ocean_ops_board_url, coriolis_url, changed_by)
+           VALUES ($1, $2, $3, $4, $5, $6)
            ON CONFLICT (mission_id) DO UPDATE SET
-             external_data_archive_url = COALESCE($2, dataset_processing.external_data_archive_url),
-             ocean_ops_board_url = COALESCE($3, dataset_processing.ocean_ops_board_url),
-             coriolis_url = COALESCE($4, dataset_processing.coriolis_url),
-             changed_by = $5,
+             erddap_l1_url = COALESCE($2, dataset_processing.erddap_l1_url),
+             erddap_l2_url = COALESCE($3, dataset_processing.erddap_l2_url),
+             ocean_ops_board_url = COALESCE($4, dataset_processing.ocean_ops_board_url),
+             coriolis_url = COALESCE($5, dataset_processing.coriolis_url),
+             changed_by = $6,
              updated_at = now()`,
 					[
 						missionId,
-						dto.externalDataArchiveUrl ?? null,
+						dto.erddapL1Url ?? null,
+						dto.erddapL2Url ?? null,
 						dto.oceanOpsBoardUrl ?? null,
 						dto.coriolisUrl ?? null,
 						userId,
 					],
 				);
 			}
+
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+
+		return this.findDetail(missionId);
+	}
+
+	// erddap_pushes is append-only (see xxxx_erddap_pushes.py) -- confirming
+	// a status is always an INSERT. Confirming "PUB" for a level
+	// automatically supersedes a prior "DM" confirmation for that same
+	// level, just by virtue of current_erddap_status picking the latest
+	// row -- no separate "clear the other flag" step needed.
+	async confirmErddapPush(
+		missionId: number,
+		dto: ConfirmErddapPushDto,
+		userId: number,
+	): Promise<DatasetProcessingDetail> {
+		await this.assertMissionExists(missionId);
+
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+
+			const datasetProcessingId = await this.findOrCreateDatasetProcessing(
+				client,
+				missionId,
+				userId,
+			);
+			await client.query(
+				`INSERT INTO erddap_pushes (dataset_processing_id, level, status, changed_by)
+         VALUES ($1, $2, $3, $4)`,
+				[datasetProcessingId, dto.level, dto.status, userId],
+			);
 
 			await client.query("COMMIT");
 		} catch (err) {
@@ -356,8 +405,27 @@ export class DatasetsService {
 		if (!stage.occurredAt) {
 			throw new BadRequestException(`${stage.stage}: occurredAt is required.`);
 		}
-		if (stage.qc && !QC_CAPABLE_STAGES.includes(stage.stage)) {
+		if (
+			stage.qcDone != null &&
+			!QC_CAPABLE_STAGES.includes(stage.stage)
+		) {
 			throw new BadRequestException(`${stage.stage} has no manual QC step.`);
+		}
+		if (stage.processingNotes && !QC_CAPABLE_STAGES.includes(stage.stage)) {
+			throw new BadRequestException(
+				`${stage.stage} has no processing notes field.`,
+			);
+		}
+		if (
+			stage.isOg1 != null &&
+			!OG1_CAPABLE_STAGES.includes(stage.stage)
+		) {
+			throw new BadRequestException(`${stage.stage} has no OG1 concept.`);
+		}
+		if ((stage.processingNotes?.length ?? 0) > 5000) {
+			throw new BadRequestException(
+				`${stage.stage}: processing notes can't exceed 5000 characters.`,
+			);
 		}
 
 		await this.assertVersionMatchesPackage(
@@ -365,19 +433,12 @@ export class DatasetsService {
 			stage.versionId,
 			stage.packageId,
 		);
-		await this.assertVersionMatchesPackage(
-			client,
-			stage.qc?.qcVersionId,
-			stage.qc?.qcPackageId,
-		);
 
 		await client.query(
 			`INSERT INTO dataset_processing_stages
          (dataset_processing_id, stage, status, who_id, occurred_at,
-          package_id, version_id, qc_removing_erroneous_data,
-          qc_offset_correction, qc_despiking_filtering, qc_package_id,
-          qc_version_id, qc_occurred_at, qc_who_id, is_og1, changed_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          package_id, version_id, processing_notes, qc_done, is_og1, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 			[
 				datasetProcessingId,
 				stage.stage,
@@ -386,13 +447,8 @@ export class DatasetsService {
 				stage.occurredAt,
 				stage.packageId ?? null,
 				stage.versionId ?? null,
-				stage.qc?.removingErroneousData ?? null,
-				stage.qc?.offsetCorrection ?? null,
-				stage.qc?.despikingFiltering ?? null,
-				stage.qc?.qcPackageId ?? null,
-				stage.qc?.qcVersionId ?? null,
-				stage.qc?.qcOccurredAt ?? null,
-				stage.qc?.qcWhoId ?? null,
+				stage.processingNotes ?? null,
+				stage.qcDone ?? null,
 				stage.isOg1 ?? null,
 				userId,
 			],
