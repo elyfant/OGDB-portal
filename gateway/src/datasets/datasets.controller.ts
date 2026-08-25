@@ -13,6 +13,7 @@ import { Roles } from "../auth/roles.decorator";
 import { DatasetsService } from "./datasets.service";
 import { ApplyDatasetStagesDto } from "./dto/apply-dataset-stages.dto";
 import { ConfirmErddapPushDto } from "./dto/confirm-erddap-push.dto";
+import { RegisterDatasetDocumentDto } from "./dto/register-dataset-document.dto";
 import { UpdateExternalReferencesDto } from "./dto/update-external-references.dto";
 
 @Controller("datasets")
@@ -57,5 +58,15 @@ export class DatasetsController {
 		@CurrentUser() user: JwtPayload,
 	) {
 		return this.datasets.confirmErddapPush(missionId, dto, user.sub);
+	}
+
+	@Roles("editor", "admin")
+	@Post(":missionId/documents")
+	registerDocument(
+		@Param("missionId", ParseIntPipe) missionId: number,
+		@Body() dto: RegisterDatasetDocumentDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.datasets.registerDocument(missionId, dto, user.sub);
 	}
 }

@@ -254,11 +254,18 @@ export interface ConfirmErddapPushInput {
 export interface DatasetProcessingStatus {
 	missionId: number;
 	missionName: string;
-	l0Status: boolean;
+	doi: string | null;
+	rawStatus: boolean;
 	dmStatus: boolean;
-	dmOg1: boolean;
 	pubStatus: boolean;
-	pubOg1: boolean;
+	// Folds dmOg1/pubOg1 into one flag -- whichever stage reached OG1
+	// first still counts, since the catalogue is an at-a-glance view (the
+	// dataset detail page still breaks OG1 out per stage).
+	og1: boolean;
+	// e.g. "L1 DM · L2 PUB", or "" if nothing's been pushed for either
+	// level -- named explicitly per level since L1/L2 can be at different
+	// maturities (see DatasetsService.formatErddapColumn).
+	erddap: string;
 }
 
 // A person who can be picked for "who"/"QC who" -- an OGDB app user with a
@@ -321,6 +328,38 @@ export interface RecordDatasetStageInput {
 // transaction, same reasoning as the glider build editor's BuildChange[].
 export interface ApplyDatasetStagesInput {
 	stages: RecordDatasetStageInput[];
+}
+
+// L1 (timeseries)/L2 (gridded) here is the output FORMAT, distinct from
+// DatasetProcessingStage's DM/PUB (maturity) -- a single DM run can
+// produce both an L1 and an L2 file, disambiguated inside netcdfMetadata
+// rather than by a separate document_type per level (see
+// xxxx_documents_netcdf_metadata.py and DatasetsService.registerDocument
+// for the full reasoning).
+export type NetcdfLevel = "L1" | "L2";
+
+// Raw structural facts read off the file itself by the ingest pipeline
+// (ogdp.erddap.inspect_netcdf) -- a read-optimized mirror of file
+// content, not a duplicate of the process-tracking fields already on
+// DatasetProcessingStage (package/QC/OG1/who/when).
+export interface NetcdfMetadata {
+	level: NetcdfLevel;
+	convention: string;
+	dimensions: Record<string, number>;
+	globalAttrs: Record<string, unknown>;
+	variables: Record<string, { dims: string[]; dtype: string }>;
+}
+
+// One new row in `documents` (document_type = "<stage>_output", e.g.
+// "dm_output"/"pub_output" -- matches DatasetsService.findDetail's
+// existing hasInternalDownload lookup convention, so this plugs into
+// the dashboard's current display with no UI changes needed).
+export interface RegisterDatasetDocumentInput {
+	stage: DatasetProcessingStage;
+	fileReference: string;
+	fileHash: string;
+	fileSizeBytes: number;
+	netcdfMetadata: NetcdfMetadata;
 }
 
 // dataset_processing is current-state (unique per mission), not an event
