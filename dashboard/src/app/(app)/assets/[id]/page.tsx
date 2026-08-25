@@ -1,7 +1,20 @@
+import AssetFormDialog from "@/components/AssetFormDialog";
+import { servicingEventToTimelineEvent } from "@/components/AssetTimelineChart";
+import type { TimelineEvent } from "@/components/AssetTimelineChart";
+import AssetTimelineSection from "@/components/AssetTimelineSection";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
-import { getAsset } from "@/lib/api";
-import { formatDate, formatUsd } from "@/lib/format";
+import ServicingEventControls from "@/components/ServicingEventControls";
+import {
+	getAsset,
+	getAssetCalibrations,
+	getAssetTypes,
+	getContacts,
+	getServicingEventTypes,
+	getServicingEvents,
+} from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
+import { formatAssetType, formatDate, formatUsd } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
@@ -19,6 +32,23 @@ const PLACEHOLDER_SECTIONS = [
 	"Editing history",
 ];
 
+function calibrationToTimelineEvent(row: {
+	id: number;
+	assetType: string;
+	facility: string | null;
+	calDate: string;
+}): TimelineEvent {
+	return {
+		id: `cal-${row.id}`,
+		kind: "calibration",
+		label: `${formatAssetType(row.assetType)} calibration`,
+		detail: row.facility ?? "",
+		startDate: row.calDate,
+		endDate: null,
+		instant: true,
+	};
+}
+
 export default async function AssetDetailPage({
 	params,
 }: {
@@ -35,11 +65,41 @@ export default async function AssetDetailPage({
 		redirect(`/gliders/${asset.id}`);
 	}
 
+	const [
+		calibrations,
+		servicingEvents,
+		eventTypes,
+		contacts,
+		assetTypes,
+		user,
+	] = await Promise.all([
+		getAssetCalibrations(asset.id),
+		getServicingEvents(asset.id),
+		getServicingEventTypes(),
+		getContacts(),
+		getAssetTypes(),
+		getCurrentUser(),
+	]);
+	const canEdit = user?.role === "editor" || user?.role === "admin";
+
+	// No asset-scoped "which missions was this on" query exists yet for
+	// non-glider assets (see the schema audit) -- the Missions chip/kind
+	// stays in the timeline for consistency with the glider version, it
+	// just always reads 0 until that's built.
+	const events: TimelineEvent[] = [
+		...calibrations.map(calibrationToTimelineEvent),
+		...servicingEvents.map(servicingEventToTimelineEvent),
+	];
+
 	const name = asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`;
 
 	return (
 		<Box>
-			<PageBreadcrumb catalogue="Assets" catalogueHref="/assets" current={name} />
+			<PageBreadcrumb
+				catalogue="Assets"
+				catalogueHref="/assets"
+				current={name}
+			/>
 
 			<Box
 				sx={{
@@ -61,10 +121,20 @@ export default async function AssetDetailPage({
 				)}
 			</Box>
 
-			<Typography variant="h6" sx={{ mb: 1.5 }}>
-				About asset
-			</Typography>
-			<Paper variant="outlined" sx={{ p: 3, mb: 2.5 }}>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 1.5,
+				}}
+			>
+				<Typography variant="h6">About asset</Typography>
+				{canEdit && (
+					<AssetFormDialog mode="edit" asset={asset} assetTypes={assetTypes} />
+				)}
+			</Box>
+			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 				<Box
 					sx={{
 						display: "grid",
@@ -92,6 +162,22 @@ export default async function AssetDetailPage({
 				</Box>
 			</Paper>
 
+			<Typography variant="h6" sx={{ mb: 1.5 }}>
+				Timeline
+			</Typography>
+			<ServicingEventControls
+				assetId={asset.id}
+				servicingEvents={servicingEvents}
+				eventTypes={eventTypes}
+				contacts={contacts}
+				canEdit={canEdit}
+			/>
+
+			<AssetTimelineSection events={events} />
+
+			<Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
+				History
+			</Typography>
 			<Box>
 				{PLACEHOLDER_SECTIONS.map((title) => (
 					<Accordion key={title} disableGutters>

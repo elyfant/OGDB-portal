@@ -3,6 +3,7 @@
 import { formatDate } from "@/lib/format";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import type { ServicingEvent } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
@@ -35,11 +36,33 @@ const KIND_META: Record<
 	mission: { label: "Mission", color: "#2e7d32", fill: "rgba(46,125,50,0.10)" },
 	calibration: { label: "Calibration", color: "#f9a825", fill: "#fff8e1" },
 	servicing: { label: "In-house servicing", color: "#1976d2", fill: "#e3f2fd" },
-	factory_repair: { label: "Factory servicing", color: "#c62828", fill: "#ffebee" },
+	factory_repair: {
+		label: "Factory servicing",
+		color: "#c62828",
+		fill: "#ffebee",
+	},
 	transit: { label: "Transit", color: "#607d8b", fill: "#eceff1" },
 };
 
 export { KIND_META };
+
+// Shared by every caller that has a raw ServicingEvent[] to fold into a
+// timeline (the glider Timeline tab and the asset detail page both do)
+// -- servicing events are already asset-scoped, so nothing here is
+// glider- or asset-specific.
+export function servicingEventToTimelineEvent(
+	e: ServicingEvent,
+): TimelineEvent {
+	return {
+		id: `servicing-${e.id}`,
+		kind: e.eventType,
+		label: e.title ?? KIND_META[e.eventType].label,
+		detail: e.performedByName ?? "",
+		startDate: e.startDate,
+		endDate: e.endDate,
+		instant: false,
+	};
+}
 
 const PX_PER_DAY = 0.6;
 const MIN_SPAN_HEIGHT = 56;
@@ -60,7 +83,11 @@ function endOrToday(e: TimelineEvent, todayIso: string): string {
 function layout(events: TimelineEvent[]) {
 	const todayIso = new Date().toISOString().slice(0, 10);
 	if (events.length === 0) {
-		return { rows: [], years: [] as { year: number; top: number }[], height: 0 };
+		return {
+			rows: [],
+			years: [] as { year: number; top: number }[],
+			height: 0,
+		};
 	}
 
 	const starts = events.map((e) => new Date(e.startDate).getTime());
@@ -153,6 +180,7 @@ export default function AssetTimelineChart({
 						}`;
 
 				if (!event.instant) {
+					const href = event.href;
 					return (
 						<Box
 							key={event.id}
@@ -172,9 +200,9 @@ export default function AssetTimelineChart({
 								flexDirection: "column",
 								justifyContent: "center",
 								gap: 0.25,
-								cursor: event.href ? "pointer" : "default",
+								cursor: href ? "pointer" : "default",
 							}}
-							onClick={event.href ? () => router.push(event.href!) : undefined}
+							onClick={href ? () => router.push(href) : undefined}
 						>
 							<Typography
 								variant="caption"
@@ -232,7 +260,13 @@ export default function AssetTimelineChart({
 								py: 0.75,
 							}}
 						>
-							<Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+							<Box
+								sx={{
+									display: "flex",
+									justifyContent: "space-between",
+									gap: 1,
+								}}
+							>
 								<Typography variant="body2" sx={{ fontWeight: 700 }}>
 									{event.label}
 								</Typography>

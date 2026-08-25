@@ -1,23 +1,18 @@
 "use client";
 
-import AddServicingEventDialog from "@/components/AddServicingEventDialog";
-import AssetTimelineChart, {
-	KIND_META,
-	type TimelineEvent,
-	type TimelineEventKind,
-} from "@/components/AssetTimelineChart";
+import { KIND_META, type TimelineEvent } from "@/components/AssetTimelineChart";
+import AssetTimelineSection from "@/components/AssetTimelineSection";
 import GliderDeploymentHistory from "@/components/GliderDeploymentHistory";
 import GliderEditHistory from "@/components/GliderEditHistory";
+import ServicingEventControls, {
+	type ServicingEventControlsHandle,
+} from "@/components/ServicingEventControls";
 import { formatAssetType, formatDate } from "@/lib/format";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import LockClockIcon from "@mui/icons-material/LockClock";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
-import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -35,15 +30,7 @@ import type {
 	ServicingEvent,
 	ServicingEventTypeOption,
 } from "@ogdb/types";
-import { useMemo, useState } from "react";
-
-const CHIP_KINDS: TimelineEventKind[] = [
-	"mission",
-	"calibration",
-	"factory_repair",
-	"servicing",
-	"transit",
-];
+import { useMemo, useRef } from "react";
 
 function buildTimelineEvents(
 	deployments: GliderDeployment[],
@@ -127,40 +114,19 @@ export default function GliderTimelineTab({
 }) {
 	const allEvents = useMemo(
 		() =>
-			buildTimelineEvents(deployments, components, componentDetails, servicingEvents),
+			buildTimelineEvents(
+				deployments,
+				components,
+				componentDetails,
+				servicingEvents,
+			),
 		[deployments, components, componentDetails, servicingEvents],
 	);
 
-	const [activeKinds, setActiveKinds] = useState<Set<TimelineEventKind>>(
-		new Set(CHIP_KINDS),
-	);
-	function toggleKind(kind: TimelineEventKind) {
-		setActiveKinds((prev) => {
-			const next = new Set(prev);
-			if (next.has(kind)) next.delete(kind);
-			else next.add(kind);
-			return next;
-		});
-	}
-
-	const visibleEvents = allEvents.filter((e) => activeKinds.has(e.kind));
-
-	const openEvent = servicingEvents.find((e) => e.endDate === null) ?? null;
 	const servicingOnly = servicingEvents.filter(
 		(e) => e.eventType === "servicing" || e.eventType === "factory_repair",
 	);
-
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const [editingEvent, setEditingEvent] = useState<ServicingEvent | null>(null);
-
-	function openAddOrClose() {
-		setEditingEvent(openEvent);
-		setDialogOpen(true);
-	}
-	function openEdit(event: ServicingEvent) {
-		setEditingEvent(event);
-		setDialogOpen(true);
-	}
+	const controlsRef = useRef<ServicingEventControlsHandle>(null);
 
 	// All events, newest first -- same convention as every other history
 	// table in this app (GliderEditHistory, the calibration catalogue),
@@ -171,57 +137,16 @@ export default function GliderTimelineTab({
 
 	return (
 		<Box>
-			{canEdit && (
-				<Box
-					sx={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "flex-end",
-						gap: 2,
-						mb: 2,
-					}}
-				>
-					{openEvent && (
-						<Alert severity="warning" sx={{ py: 0, fontSize: 12.5, flex: 1 }}>
-							Open event ({openEvent.title ?? KIND_META[openEvent.eventType].label},
-							started {formatDate(openEvent.startDate)}) — close it before adding
-							another.
-						</Alert>
-					)}
-					<Button
-						variant="contained"
-						size="small"
-						startIcon={openEvent ? <LockClockIcon /> : <AddCircleOutlineIcon />}
-						onClick={openAddOrClose}
-						sx={{ whiteSpace: "nowrap" }}
-					>
-						{openEvent ? "Close open event" : "Add servicing event"}
-					</Button>
-				</Box>
-			)}
+			<ServicingEventControls
+				ref={controlsRef}
+				assetId={assetId}
+				servicingEvents={servicingEvents}
+				eventTypes={eventTypes}
+				contacts={contacts}
+				canEdit={canEdit}
+			/>
 
-			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
-				{CHIP_KINDS.map((kind) => {
-					const meta = KIND_META[kind];
-					const count = allEvents.filter((e) => e.kind === kind).length;
-					const active = activeKinds.has(kind);
-					return (
-						<Chip
-							key={kind}
-							label={`${meta.label} · ${count}`}
-							onClick={() => toggleKind(kind)}
-							variant={active ? "filled" : "outlined"}
-							sx={{
-								borderColor: meta.color,
-								...(active && { backgroundColor: meta.fill, color: meta.color }),
-								fontWeight: 600,
-							}}
-						/>
-					);
-				})}
-			</Box>
-
-			<AssetTimelineChart events={visibleEvents} />
+			<AssetTimelineSection events={allEvents} />
 
 			<Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
 				History
@@ -327,7 +252,11 @@ export default function GliderTimelineTab({
 											<TableRow
 												key={e.id}
 												hover
-												onClick={canEdit ? () => openEdit(e) : undefined}
+												onClick={
+													canEdit
+														? () => controlsRef.current?.openForEdit(e)
+														: undefined
+												}
 												sx={canEdit ? { cursor: "pointer" } : undefined}
 											>
 												<TableCell>
@@ -380,15 +309,6 @@ export default function GliderTimelineTab({
 					<GliderEditHistory editHistory={editHistory} />
 				</AccordionDetails>
 			</Accordion>
-
-			<AddServicingEventDialog
-				assetId={assetId}
-				open={dialogOpen}
-				onClose={() => setDialogOpen(false)}
-				eventTypes={eventTypes}
-				contacts={contacts}
-				initialEvent={editingEvent}
-			/>
 		</Box>
 	);
 }

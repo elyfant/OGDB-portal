@@ -17,13 +17,14 @@ import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { CalibrationsService } from "../calibrations/calibrations.service";
+import { RecordServicingEventDto } from "../servicing/dto/record-servicing-event.dto";
 import { ServicingService } from "../servicing/servicing.service";
 import { AssetsService } from "./assets.service";
 import { CertificateParserService } from "./certificate-parser.service";
 import { CreateAssetDto } from "./dto/create-asset.dto";
 import { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
-import { RecordServicingEventDto } from "../servicing/dto/record-servicing-event.dto";
 import { SetAssetStatusDto } from "./dto/set-asset-status.dto";
+import { UpdateAssetDto } from "./dto/update-asset.dto";
 
 // Calibration certificates only -- one PDF per calibration entry (any
 // bundling of multiple sub-certs into one file happens before upload,
@@ -57,7 +58,10 @@ const ATTACHMENT_INTERCEPTOR = FileInterceptor("attachment", {
 	limits: { fileSize: MAX_ATTACHMENT_BYTES },
 	fileFilter: (_req, file, callback) => {
 		if (file.mimetype !== "application/pdf") {
-			callback(new BadRequestException("Attachments must be a PDF file."), false);
+			callback(
+				new BadRequestException("Attachments must be a PDF file."),
+				false,
+			);
 			return;
 		}
 		callback(null, true);
@@ -100,6 +104,16 @@ export class AssetsController {
 	@Post()
 	create(@Body() dto: CreateAssetDto, @CurrentUser() user: JwtPayload) {
 		return this.assets.create(dto, user.sub);
+	}
+
+	@Roles("editor", "admin")
+	@Patch(":id")
+	update(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: UpdateAssetDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.assets.update(id, dto, user.sub);
 	}
 
 	@Roles("editor", "admin")

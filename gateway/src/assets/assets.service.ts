@@ -17,6 +17,7 @@ import { DocumentsService } from "../documents/documents.service";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
+import type { UpdateAssetDto } from "./dto/update-asset.dto";
 
 // The one calibration-related asset_service_event_types row -- used to
 // give every calibration insert a matching service event, so a
@@ -235,6 +236,46 @@ export class AssetsService {
 		);
 
 		return this.findOne(assetId);
+	}
+
+	// COALESCE-based partial update -- same convention as
+	// GlidersService.update: an omitted field keeps its current value
+	// rather than getting cleared, so there's no way to blank out
+	// serialNumber/notes/etc through this form (matches the create
+	// form's own "generic fields only" scope -- assetTypeId is
+	// deliberately never referenced here, see UpdateAssetDto).
+	async update(
+		id: number,
+		dto: UpdateAssetDto,
+		userId: number,
+	): Promise<Asset> {
+		await this.findOne(id);
+		if (
+			dto.serialNumber !== undefined ||
+			dto.notes !== undefined ||
+			dto.purchaseDate !== undefined ||
+			dto.purchaseValueUsd !== undefined
+		) {
+			await this.pool.query(
+				`UPDATE assets SET
+           serial_number = COALESCE($1, serial_number),
+           notes = COALESCE($2, notes),
+           purchase_date = COALESCE($3, purchase_date),
+           purchase_value_usd = COALESCE($4, purchase_value_usd),
+           updated_at = now(),
+           changed_by = $6
+         WHERE id = $5`,
+				[
+					dto.serialNumber ?? null,
+					dto.notes ?? null,
+					dto.purchaseDate ?? null,
+					dto.purchaseValueUsd ?? null,
+					id,
+					userId,
+				],
+			);
+		}
+		return this.findOne(id);
 	}
 
 	// Always an INSERT -- the cal tables are append-only (same "current =

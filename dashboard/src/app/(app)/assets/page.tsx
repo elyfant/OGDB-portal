@@ -25,7 +25,7 @@ export default async function AssetsPage() {
 				}}
 			>
 				<Typography variant="h5">Assets</Typography>
-				{canEdit && <AssetFormDialog assetTypes={assetTypes} />}
+				{canEdit && <AssetFormDialog mode="create" assetTypes={assetTypes} />}
 			</Box>
 			<Typography variant="subtitle1" color="text.secondary">
 				Every asset in the pool, grouped by type and model. Click on an asset to

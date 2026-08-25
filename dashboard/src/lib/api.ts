@@ -2,6 +2,7 @@ import "server-only";
 import type {
 	Asset,
 	AssetStatusOption,
+	CalibrationCatalogueRow,
 	CalibrationCatalogueTypeGroup,
 	Cruise,
 	DatasetProcessingDetail,
@@ -10,9 +11,9 @@ import type {
 	GliderBuild,
 	LookupOption,
 	Mission,
+	MissionTrackPoint,
 	MissionsLeaderboard,
 	MissionsSummary,
-	MissionTrackPoint,
 	OgdbUser,
 	ProcessingPackage,
 	ScienceSensorRecord,
@@ -271,7 +272,21 @@ export async function getMissionsLeaderboard(): Promise<MissionsLeaderboard> {
 	return res.json();
 }
 
-export async function getServicingEvents(assetId: number): Promise<ServicingEvent[]> {
+export async function getAssetCalibrations(
+	assetId: number,
+): Promise<CalibrationCatalogueRow[]> {
+	const res = await apiFetch(`/assets/${assetId}/calibrations`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch calibrations for asset ${assetId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getServicingEvents(
+	assetId: number,
+): Promise<ServicingEvent[]> {
 	const res = await apiFetch(`/assets/${assetId}/servicing`);
 	if (!res.ok) {
 		throw new Error(
@@ -281,7 +296,9 @@ export async function getServicingEvents(assetId: number): Promise<ServicingEven
 	return res.json();
 }
 
-export async function getServicingEventTypes(): Promise<ServicingEventTypeOption[]> {
+export async function getServicingEventTypes(): Promise<
+	ServicingEventTypeOption[]
+> {
 	const res = await apiFetch("/assets/servicing-event-types");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch servicing event types: ${res.status}`);

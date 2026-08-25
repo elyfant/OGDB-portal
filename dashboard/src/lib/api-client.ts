@@ -23,6 +23,7 @@ import type {
 	ProcessingPackageVersion,
 	RecordSensorCalibrationInput,
 	RecordServicingEventInput,
+	UpdateAssetInput,
 	UpdateExternalReferencesInput,
 	UpdateGliderInput,
 	UpdateMissionFolderPathInput,
@@ -323,6 +324,22 @@ export async function createAsset(input: CreateAssetInput): Promise<Asset> {
 	if (!res.ok) {
 		const data = await res.json().catch(() => null);
 		throw new Error(data?.message ?? `Failed to create asset: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function updateAsset(
+	id: number,
+	input: UpdateAssetInput,
+): Promise<Asset> {
+	const res = await fetch(`/api/assets/${id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to update asset: ${res.status}`);
 	}
 	return res.json();
 }

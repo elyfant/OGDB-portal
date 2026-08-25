@@ -1,7 +1,8 @@
 "use client";
 
-import { createAsset } from "@/lib/api-client";
+import { createAsset, updateAsset } from "@/lib/api-client";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -13,7 +14,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import type { LookupOption } from "@ogdb/types";
+import type { Asset, LookupOption } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useState } from "react";
 
@@ -35,11 +36,25 @@ function emptyForm(): FormState {
 	};
 }
 
-export default function AssetFormDialog({
-	assetTypes,
-}: {
-	assetTypes: LookupOption[];
-}) {
+// notes isn't part of the Asset read model (assets.service.ts's
+// SELECT_ASSETS never selects it -- it's write-only through this form
+// today), so edit mode necessarily starts it blank rather than seeded.
+function formFromAsset(asset: Asset): FormState {
+	return {
+		assetTypeId: "",
+		serialNumber: asset.serialNumber ?? "",
+		notes: "",
+		purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
+		purchaseValueUsd: asset.purchaseValueUsd?.toString() ?? "",
+	};
+}
+
+type Props =
+	| { mode: "create"; assetTypes: LookupOption[] }
+	| { mode: "edit"; asset: Asset; assetTypes: LookupOption[] };
+
+export default function AssetFormDialog(props: Props) {
+	const { mode, assetTypes } = props;
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(emptyForm);
@@ -58,7 +73,7 @@ export default function AssetFormDialog({
 	);
 
 	function handleOpen() {
-		setForm(emptyForm());
+		setForm(mode === "edit" ? formFromAsset(props.asset) : emptyForm());
 		setError(null);
 		setOpen(true);
 	}
@@ -74,7 +89,7 @@ export default function AssetFormDialog({
 
 	async function handleSave() {
 		setError(null);
-		if (!form.assetTypeId) {
+		if (mode === "create" && !form.assetTypeId) {
 			setError("Asset type is required.");
 			return;
 		}
@@ -89,22 +104,36 @@ export default function AssetFormDialog({
 
 		setSaving(true);
 		try {
-			const asset = await createAsset({
-				assetTypeId: form.assetTypeId,
-				serialNumber: form.serialNumber.trim() || null,
-				notes: form.notes.trim() || null,
-				purchaseDate: form.purchaseDate || null,
-				purchaseValueUsd,
-			});
+			const asset =
+				mode === "edit"
+					? await updateAsset(props.asset.id, {
+							serialNumber: form.serialNumber.trim() || null,
+							notes: form.notes.trim() || null,
+							purchaseDate: form.purchaseDate || null,
+							purchaseValueUsd,
+						})
+					: await createAsset({
+							assetTypeId: form.assetTypeId as number,
+							serialNumber: form.serialNumber.trim() || null,
+							notes: form.notes.trim() || null,
+							purchaseDate: form.purchaseDate || null,
+							purchaseValueUsd,
+						});
 			closeDialog();
 			setBanner({
 				severity: "success",
-				message: `${asset.assetType} asset successfully created!`,
+				message:
+					mode === "edit"
+						? "Asset details updated!"
+						: `${asset.assetType} asset successfully created!`,
 			});
 		} catch (err) {
 			setBanner({
 				severity: "error",
-				message: err instanceof Error ? err.message : "Failed to create asset.",
+				message:
+					err instanceof Error
+						? err.message
+						: `Failed to ${mode === "edit" ? "update" : "create"} asset.`,
 			});
 		} finally {
 			setSaving(false);
@@ -115,40 +144,60 @@ export default function AssetFormDialog({
 		<>
 			<Button
 				variant="contained"
-				startIcon={<AddCircleOutlineIcon />}
+				size={mode === "edit" ? "small" : undefined}
+				startIcon={
+					mode === "edit" ? (
+						<EditIcon fontSize="small" />
+					) : (
+						<AddCircleOutlineIcon />
+					)
+				}
 				onClick={handleOpen}
 			>
-				Add new asset
+				{mode === "edit" ? "Edit asset details" : "Add new asset"}
 			</Button>
 
 			<Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
-				<DialogTitle>Add new asset</DialogTitle>
+				<DialogTitle>
+					{mode === "edit" ? "Edit asset details" : "Add new asset"}
+				</DialogTitle>
 				<DialogContent
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 3 }}
 				>
 					<Section label="Details">
 						<Grid>
-							<Field label="Asset type" required span={2}>
-								<TextField
-									select
-									size="small"
-									fullWidth
-									value={form.assetTypeId}
-									onChange={(e) =>
-										setForm((s) => ({
-											...s,
-											assetTypeId: e.target.value ? Number(e.target.value) : "",
-										}))
-									}
-								>
-									<MenuItem value="">— choose a type —</MenuItem>
-									{creatableAssetTypes.map((t) => (
-										<MenuItem key={t.id} value={t.id}>
-											{t.name}
-										</MenuItem>
-									))}
-								</TextField>
+							<Field label="Asset type" required={mode === "create"} span={2}>
+								{mode === "edit" ? (
+									<TextField
+										size="small"
+										fullWidth
+										disabled
+										value={props.asset.assetType}
+									/>
+								) : (
+									<TextField
+										select
+										size="small"
+										fullWidth
+										value={form.assetTypeId}
+										onChange={(e) =>
+											setForm((s) => ({
+												...s,
+												assetTypeId: e.target.value
+													? Number(e.target.value)
+													: "",
+											}))
+										}
+									>
+										<MenuItem value="">— choose a type —</MenuItem>
+										{creatableAssetTypes.map((t) => (
+											<MenuItem key={t.id} value={t.id}>
+												{t.name}
+											</MenuItem>
+										))}
+									</TextField>
+								)}
 							</Field>
 							<Field label="Serial number">
 								<TextField
@@ -184,12 +233,20 @@ export default function AssetFormDialog({
 									}
 								/>
 							</Field>
-							<Field label="Notes" span={2}>
+							<Field
+								label={mode === "edit" ? "Notes (replaces existing)" : "Notes"}
+								span={2}
+							>
 								<TextField
 									size="small"
 									fullWidth
 									multiline
 									minRows={2}
+									placeholder={
+										mode === "edit"
+											? "Leave blank to keep the current notes unchanged"
+											: undefined
+									}
 									value={form.notes}
 									onChange={(e) =>
 										setForm((s) => ({ ...s, notes: e.target.value }))
@@ -200,9 +257,9 @@ export default function AssetFormDialog({
 					</Section>
 
 					<Typography variant="caption" color="text.secondary">
-						Generic fields only — manufacturer and any type-specific details
-						(battery manufacture date, hull details, sensor model, etc.) aren't
-						captured here yet. New assets start with status "Lab".
+						{mode === "edit"
+							? "Generic fields only — manufacturer and any type-specific details aren't editable here yet. Blank fields keep their current value, except Notes, which replaces whatever's there."
+							: 'Generic fields only — manufacturer and any type-specific details (battery manufacture date, hull details, sensor model, etc.) aren\'t captured here yet. New assets start with status "Lab".'}
 					</Typography>
 
 					{error && (

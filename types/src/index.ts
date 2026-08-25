@@ -159,6 +159,17 @@ export interface CreateAssetInput {
 	purchaseValueUsd?: number | null;
 }
 
+// assetTypeId deliberately absent -- changing what type an asset is
+// after creation isn't supported through this form (see UpdateAssetDto
+// on the gateway side). An omitted field keeps its current value rather
+// than clearing it (COALESCE-based update, same as UpdateGliderInput).
+export interface UpdateAssetInput {
+	serialNumber?: string | null;
+	notes?: string | null;
+	purchaseDate?: string | null;
+	purchaseValueUsd?: number | null;
+}
+
 // "DM"/"PUB" replaced "L1"/"L2" (see xxxx_dataset_processing_dm_published.py
 // in OGDB) -- the stage taxonomy tracks processing maturity (delayed mode
 // vs. published) rather than output format, matching the NorGliders QC
