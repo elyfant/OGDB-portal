@@ -44,4 +44,9 @@ export class LookupsController {
 	getPlatforms() {
 		return this.lookups.getPlatforms();
 	}
+
+	@Get("sensor-models")
+	getSensorModels() {
+		return this.lookups.getSensorModels();
+	}
 }

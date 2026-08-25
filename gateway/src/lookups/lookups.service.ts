@@ -84,4 +84,17 @@ export class LookupsService {
 		);
 		return result.rows;
 	}
+
+	// The controlled list for a science sensor's asset_sensor_details.
+	// l22_model_id -- the NVS "L22" device-catalogue collection.
+	// `collection` isn't FK-enforced (see nvs_terms' own definition), so
+	// this is the one place that convention has to be trusted directly.
+	async getSensorModels(): Promise<LookupOption[]> {
+		const result = await this.pool.query(
+			`SELECT id, pref_label AS name FROM nvs_terms
+       WHERE collection = 'L22' AND NOT deprecated
+       ORDER BY name`,
+		);
+		return result.rows;
+	}
 }

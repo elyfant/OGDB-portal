@@ -10,6 +10,7 @@ import {
 	getAssetCalibrations,
 	getAssetTypes,
 	getContacts,
+	getSensorModels,
 	getServicingEventTypes,
 	getServicingEvents,
 } from "@/lib/api";
@@ -71,6 +72,7 @@ export default async function AssetDetailPage({
 		eventTypes,
 		contacts,
 		assetTypes,
+		sensorModels,
 		user,
 	] = await Promise.all([
 		getAssetCalibrations(asset.id),
@@ -78,6 +80,7 @@ export default async function AssetDetailPage({
 		getServicingEventTypes(),
 		getContacts(),
 		getAssetTypes(),
+		getSensorModels(),
 		getCurrentUser(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
@@ -131,7 +134,12 @@ export default async function AssetDetailPage({
 			>
 				<Typography variant="h6">About asset</Typography>
 				{canEdit && (
-					<AssetFormDialog mode="edit" asset={asset} assetTypes={assetTypes} />
+					<AssetFormDialog
+						mode="edit"
+						asset={asset}
+						assetTypes={assetTypes}
+						sensorModels={sensorModels}
+					/>
 				)}
 			</Box>
 			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>

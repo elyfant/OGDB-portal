@@ -35,13 +35,15 @@ const SENSOR_TYPES = new Set([
 	"mr_sensor",
 ]);
 
-// Name and model only resolve for gliders right now (via
-// asset_glider_details -> platforms). Every other asset type (battery,
-// ct_sensor, slocum_hull, ...) has no name/model source yet — those
-// columns come back null until that type gets its own detail-table
-// join added here (sensors: asset_sensor_details.l22_model_id/
-// l05_family_id -> nvs_terms, now backfilled with real device models,
-// just not surfaced through this API yet).
+// Name only resolves for gliders right now (via asset_glider_details ->
+// platforms). assetModel resolves for gliders (platforms.model) and
+// science sensors (asset_sensor_details.l22_model_id's NVS label) --
+// every other asset type (battery, slocum_hull, ...) has no model
+// source yet, those columns come back null until it gets its own
+// detail-table join added here. l22ModelId (the raw FK, not the
+// resolved label already folded into assetModel) is exposed alongside
+// it so the asset-edit form can pre-select the current model in its
+// dropdown -- l05_family_id still isn't surfaced anywhere.
 const SELECT_ASSETS = `
   SELECT
     a.id,
@@ -49,9 +51,10 @@ const SELECT_ASSETS = `
     a.serial_number AS "serialNumber",
     at.name AS "assetType",
     atg.name AS "assetTypeGroup",
-    TRIM(p.model) AS "assetModel",
+    COALESCE(TRIM(p.model), l22.pref_label) AS "assetModel",
     pm.pref_label AS "platformModelFull",
     pc.pref_label AS "platformCategory",
+    asd.l22_model_id AS "l22ModelId",
     a.purchase_date AS "purchaseDate",
     a.purchase_value_usd::float8 AS "purchaseValueUsd",
     aso.id AS "statusId",
@@ -64,6 +67,8 @@ const SELECT_ASSETS = `
   LEFT JOIN platforms p ON p.id = agd.platform_id
   LEFT JOIN nvs_terms pm ON pm.id = p.b76_model_id
   LEFT JOIN nvs_terms pc ON pc.id = p.l06_category_id
+  LEFT JOIN nvs_terms l22 ON l22.id = asd.l22_model_id
+  LEFT JOIN asset_sensor_details asd ON asd.asset_id = a.id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
 `;
@@ -275,6 +280,24 @@ export class AssetsService {
 				],
 			);
 		}
+
+		// Unlike the fields above, l22ModelId is a genuine set, not a
+		// COALESCE -- the edit form shows the sensor's current model (see
+		// SELECT_ASSETS), so an explicit null here means "clear it", not
+		// "field wasn't touched" (that case is dto.l22ModelId === undefined,
+		// which skips this block entirely). asset_sensor_details has no
+		// row at all for a sensor asset created through this app's own
+		// "Add new asset" flow (only the historical backfill populated it),
+		// so this has to be an upsert, not a plain UPDATE.
+		if (dto.l22ModelId !== undefined) {
+			await this.pool.query(
+				`INSERT INTO asset_sensor_details (asset_id, l22_model_id)
+         VALUES ($1, $2)
+         ON CONFLICT (asset_id) DO UPDATE SET l22_model_id = EXCLUDED.l22_model_id`,
+				[id, dto.l22ModelId],
+			);
+		}
+
 		return this.findOne(id);
 	}
 

@@ -144,6 +144,14 @@ export async function getPlatforms(): Promise<LookupOption[]> {
 	return res.json();
 }
 
+export async function getSensorModels(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/sensor-models");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch sensor models: ${res.status}`);
+	}
+	return res.json();
+}
+
 export async function getAssetTypes(): Promise<LookupOption[]> {
 	const res = await apiFetch("/lookups/asset-types");
 	if (!res.ok) {

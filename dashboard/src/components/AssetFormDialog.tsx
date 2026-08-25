@@ -24,6 +24,7 @@ interface FormState {
 	notes: string;
 	purchaseDate: string;
 	purchaseValueUsd: string;
+	l22ModelId: number | "";
 }
 
 function emptyForm(): FormState {
@@ -33,12 +34,15 @@ function emptyForm(): FormState {
 		notes: "",
 		purchaseDate: "",
 		purchaseValueUsd: "",
+		l22ModelId: "",
 	};
 }
 
 // notes isn't part of the Asset read model (assets.service.ts's
 // SELECT_ASSETS never selects it -- it's write-only through this form
 // today), so edit mode necessarily starts it blank rather than seeded.
+// l22ModelId is the exception -- SELECT_ASSETS does expose the sensor's
+// current model, so this one field genuinely reflects what's saved.
 function formFromAsset(asset: Asset): FormState {
 	return {
 		assetTypeId: "",
@@ -46,15 +50,24 @@ function formFromAsset(asset: Asset): FormState {
 		notes: "",
 		purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
 		purchaseValueUsd: asset.purchaseValueUsd?.toString() ?? "",
+		l22ModelId: asset.l22ModelId ?? "",
 	};
 }
 
 type Props =
 	| { mode: "create"; assetTypes: LookupOption[] }
-	| { mode: "edit"; asset: Asset; assetTypes: LookupOption[] };
+	| {
+			mode: "edit";
+			asset: Asset;
+			assetTypes: LookupOption[];
+			sensorModels: LookupOption[];
+	  };
 
 export default function AssetFormDialog(props: Props) {
 	const { mode, assetTypes } = props;
+	// "science sensor" == the ct/do/eco/mr_sensor group -- only these
+	// have an asset_sensor_details row an L22 model can attach to.
+	const isSensor = mode === "edit" && props.asset.assetTypeGroup === "sensor";
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(emptyForm);
@@ -111,6 +124,9 @@ export default function AssetFormDialog(props: Props) {
 							notes: form.notes.trim() || null,
 							purchaseDate: form.purchaseDate || null,
 							purchaseValueUsd,
+							...(isSensor && {
+								l22ModelId: form.l22ModelId === "" ? null : form.l22ModelId,
+							}),
 						})
 					: await createAsset({
 							assetTypeId: form.assetTypeId as number,
@@ -199,6 +215,31 @@ export default function AssetFormDialog(props: Props) {
 									</TextField>
 								)}
 							</Field>
+							{isSensor && mode === "edit" && (
+								<Field label="Asset model" span={2}>
+									<TextField
+										select
+										size="small"
+										fullWidth
+										value={form.l22ModelId}
+										onChange={(e) =>
+											setForm((s) => ({
+												...s,
+												l22ModelId: e.target.value
+													? Number(e.target.value)
+													: "",
+											}))
+										}
+									>
+										<MenuItem value="">— none —</MenuItem>
+										{props.sensorModels.map((m) => (
+											<MenuItem key={m.id} value={m.id}>
+												{m.name}
+											</MenuItem>
+										))}
+									</TextField>
+								</Field>
+							)}
 							<Field label="Serial number">
 								<TextField
 									size="small"
@@ -273,7 +314,11 @@ export default function AssetFormDialog(props: Props) {
 						Cancel
 					</Button>
 					<Button variant="contained" onClick={handleSave} disabled={saving}>
-						{saving ? "Saving…" : "Create asset"}
+						{saving
+							? "Saving…"
+							: mode === "edit"
+								? "Save changes"
+								: "Create asset"}
 					</Button>
 				</DialogActions>
 			</Dialog>

@@ -141,6 +141,10 @@ export interface Asset {
 	// caveat as assetModel/name.
 	platformModelFull: string | null;
 	platformCategory: string | null;
+	// asset_sensor_details.l22_model_id -- science sensors only (the raw
+	// FK, not a resolved label, so the asset-edit form can pre-select the
+	// current model in its L22 dropdown). Null for every other asset type.
+	l22ModelId: number | null;
 	purchaseDate: string | null;
 	purchaseValueUsd: number | null;
 	statusId: number | null;
@@ -168,6 +172,8 @@ export interface UpdateAssetInput {
 	notes?: string | null;
 	purchaseDate?: string | null;
 	purchaseValueUsd?: number | null;
+	// Science sensors only. Omit to leave unchanged; null clears it.
+	l22ModelId?: number | null;
 }
 
 // "DM"/"PUB" replaced "L1"/"L2" (see xxxx_dataset_processing_dm_published.py
