@@ -35,11 +35,10 @@ const STAGE_COLUMNS: {
 	key: keyof DatasetRow;
 	label: string;
 }[] = [
-	{ key: "l0Status", label: "L0" },
-	{ key: "dmStatus", label: "Delayed mode" },
-	{ key: "dmOg1", label: "Delayed mode OG1" },
-	{ key: "pubStatus", label: "Published" },
-	{ key: "pubOg1", label: "Published OG1" },
+	{ key: "rawStatus", label: "Raw archived" },
+	{ key: "dmStatus", label: "Delayed mode status" },
+	{ key: "pubStatus", label: "Production status" },
+	{ key: "og1", label: "OG1" },
 ];
 
 const DATASET_COLUMNS: ColumnDef<DatasetRow>[] = [
@@ -65,6 +64,18 @@ const DATASET_COLUMNS: ColumnDef<DatasetRow>[] = [
 			renderCell: (row) => <StatusIcon done={Boolean(row[key])} />,
 		}),
 	),
+	{
+		key: "erddap",
+		label: "ERDDAP",
+		kind: "string",
+		defaultVisible: true,
+	},
+	{
+		key: "doi",
+		label: "DOI",
+		kind: "string",
+		defaultVisible: true,
+	},
 ];
 
 export default function DatasetsTable({
