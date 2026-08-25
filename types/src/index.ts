@@ -611,6 +611,47 @@ export interface CalibrationCatalogueTypeGroup {
 	models: CalibrationCatalogueModelGroup[];
 }
 
+// The controlled list for RecordServicingEventDto.eventType --
+// deliberately a subset of asset_service_event_types: calibration has
+// its own dedicated flow (CalibrationCatalogueRow above), and the rest
+// (pressure_test, inspection, refurb, deployment_config) aren't
+// exposed through this feature.
+export interface ServicingEventTypeOption {
+	id: number;
+	name: "servicing" | "factory_repair" | "transit";
+	description: string | null;
+}
+
+// One servicing event for one asset -- factory servicing, transit, or
+// in-house/lab servicing (the "servicing" type name covers in-house;
+// there's no separate DB value for it). `endDate: null` means the event
+// is still open/in-progress; an asset can have at most one open event
+// at a time (enforced by ServicingService, not the DB).
+export interface ServicingEvent {
+	id: number;
+	assetId: number;
+	eventType: "servicing" | "factory_repair" | "transit";
+	title: string | null;
+	startDate: string;
+	endDate: string | null;
+	details: string | null;
+	performedByContactId: number | null;
+	performedByName: string | null;
+	documentId: number | null;
+}
+
+// Everything the Add/Edit Servicing Event dialog submits. endDate absent
+// means "still open" -- ServicingService rejects a new event for an
+// asset that already has one open.
+export interface RecordServicingEventInput {
+	eventType: "servicing" | "factory_repair" | "transit";
+	title: string;
+	startDate: string;
+	endDate?: string;
+	performedByContactId?: number;
+	details?: string;
+}
+
 export interface GliderStatusHistoryItem {
 	id: number;
 	assetId: number;

@@ -5,5 +5,6 @@ import { CalibrationsService } from "./calibrations.service";
 @Module({
 	controllers: [CalibrationsController],
 	providers: [CalibrationsService],
+	exports: [CalibrationsService],
 })
 export class CalibrationsModule {}

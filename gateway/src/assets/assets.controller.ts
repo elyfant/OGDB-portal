@@ -16,10 +16,13 @@ import { memoryStorage } from "multer";
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
+import { CalibrationsService } from "../calibrations/calibrations.service";
+import { ServicingService } from "../servicing/servicing.service";
 import { AssetsService } from "./assets.service";
 import { CertificateParserService } from "./certificate-parser.service";
 import { CreateAssetDto } from "./dto/create-asset.dto";
 import { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
+import { RecordServicingEventDto } from "../servicing/dto/record-servicing-event.dto";
 import { SetAssetStatusDto } from "./dto/set-asset-status.dto";
 
 // Calibration certificates only -- one PDF per calibration entry (any
@@ -45,11 +48,29 @@ const CERTIFICATE_INTERCEPTOR = FileInterceptor("certificate", {
 	},
 });
 
+// Servicing events attach an optional PDF the same way a calibration
+// certificate does, just under its own field name ("attachment") since
+// it isn't a certificate.
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+const ATTACHMENT_INTERCEPTOR = FileInterceptor("attachment", {
+	storage: memoryStorage(),
+	limits: { fileSize: MAX_ATTACHMENT_BYTES },
+	fileFilter: (_req, file, callback) => {
+		if (file.mimetype !== "application/pdf") {
+			callback(new BadRequestException("Attachments must be a PDF file."), false);
+			return;
+		}
+		callback(null, true);
+	},
+});
+
 @Controller("assets")
 export class AssetsController {
 	constructor(
 		private readonly assets: AssetsService,
 		private readonly certificateParser: CertificateParserService,
+		private readonly calibrations: CalibrationsService,
+		private readonly servicing: ServicingService,
 	) {}
 
 	@Get()
@@ -62,6 +83,12 @@ export class AssetsController {
 	@Get("search")
 	search(@Query("type") type: string, @Query("q") q = "") {
 		return this.assets.search(type, q);
+	}
+
+	// Same reason: must come before :id.
+	@Get("servicing-event-types")
+	getServicingEventTypes() {
+		return this.servicing.getEventTypes();
 	}
 
 	@Get(":id")
@@ -83,6 +110,11 @@ export class AssetsController {
 		@CurrentUser() user: JwtPayload,
 	) {
 		return this.assets.setStatus(id, dto, user.sub);
+	}
+
+	@Get(":id/calibrations")
+	getCalibrations(@Param("id", ParseIntPipe) id: number) {
+		return this.calibrations.getForAsset(id);
 	}
 
 	@Roles("editor", "admin")
@@ -108,6 +140,38 @@ export class AssetsController {
 		@UploadedFile() certificate?: Express.Multer.File,
 	) {
 		return this.assets.updateCalibration(id, calId, dto, user.sub, certificate);
+	}
+
+	@Get(":id/servicing")
+	getServicingEvents(@Param("id", ParseIntPipe) id: number) {
+		return this.servicing.getForAsset(id);
+	}
+
+	@Roles("editor", "admin")
+	@Post(":id/servicing")
+	@UseInterceptors(ATTACHMENT_INTERCEPTOR)
+	recordServicingEvent(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: RecordServicingEventDto,
+		@CurrentUser() user: JwtPayload,
+		@UploadedFile() attachment?: Express.Multer.File,
+	) {
+		return this.servicing.recordEvent(id, dto, user.sub, attachment);
+	}
+
+	// Also how the UI closes an open event -- edit it, fill in End date,
+	// save (see ServicingService.updateEvent).
+	@Roles("editor", "admin")
+	@Patch(":id/servicing/:eventId")
+	@UseInterceptors(ATTACHMENT_INTERCEPTOR)
+	updateServicingEvent(
+		@Param("id", ParseIntPipe) id: number,
+		@Param("eventId", ParseIntPipe) eventId: number,
+		@Body() dto: RecordServicingEventDto,
+		@CurrentUser() user: JwtPayload,
+		@UploadedFile() attachment?: Express.Multer.File,
+	) {
+		return this.servicing.updateEvent(id, eventId, dto, user.sub, attachment);
 	}
 
 	// Read-only preview: extracts coefficients/facility/date from an

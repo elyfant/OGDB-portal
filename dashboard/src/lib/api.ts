@@ -16,6 +16,8 @@ import type {
 	OgdbUser,
 	ProcessingPackage,
 	ScienceSensorRecord,
+	ServicingEvent,
+	ServicingEventTypeOption,
 } from "@ogdb/types";
 import { redirect } from "next/navigation";
 import { getSessionToken } from "./auth";
@@ -265,6 +267,24 @@ export async function getMissionsLeaderboard(): Promise<MissionsLeaderboard> {
 	const res = await apiFetch("/missions/leaderboard");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch missions leaderboard: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getServicingEvents(assetId: number): Promise<ServicingEvent[]> {
+	const res = await apiFetch(`/assets/${assetId}/servicing`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch servicing events for asset ${assetId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getServicingEventTypes(): Promise<ServicingEventTypeOption[]> {
+	const res = await apiFetch("/assets/servicing-event-types");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch servicing event types: ${res.status}`);
 	}
 	return res.json();
 }

@@ -22,6 +22,7 @@ import type {
 	ProcessingPackage,
 	ProcessingPackageVersion,
 	RecordSensorCalibrationInput,
+	RecordServicingEventInput,
 	UpdateExternalReferencesInput,
 	UpdateGliderInput,
 	UpdateMissionFolderPathInput,
@@ -224,6 +225,64 @@ export async function parseCertificate(
 		);
 	}
 	return res.json();
+}
+
+// Same multipart-always convention as recordCalibration -- an optional
+// attachment can ride along, so the proxy route and gateway endpoint
+// only ever handle one request shape. Fields not present in the DTO
+// (endDate/performedByContactId when unset) are simply omitted rather
+// than appended as empty strings, since RecordServicingEventDto treats
+// "" and "not sent" the same way but omitting is clearer at the call site.
+function servicingFormData(
+	input: RecordServicingEventInput,
+	attachment?: File,
+): FormData {
+	const formData = new FormData();
+	formData.append("eventType", input.eventType);
+	formData.append("title", input.title);
+	formData.append("startDate", input.startDate);
+	if (input.endDate) formData.append("endDate", input.endDate);
+	if (input.performedByContactId != null) {
+		formData.append("performedByContactId", String(input.performedByContactId));
+	}
+	if (input.details) formData.append("details", input.details);
+	if (attachment) formData.append("attachment", attachment);
+	return formData;
+}
+
+export async function recordServicingEvent(
+	assetId: number,
+	input: RecordServicingEventInput,
+	attachment?: File,
+): Promise<void> {
+	const res = await fetch(`/api/assets/${assetId}/servicing`, {
+		method: "POST",
+		body: servicingFormData(input, attachment),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to record servicing event: ${res.status}`,
+		);
+	}
+}
+
+export async function updateServicingEvent(
+	assetId: number,
+	eventId: number,
+	input: RecordServicingEventInput,
+	attachment?: File,
+): Promise<void> {
+	const res = await fetch(`/api/assets/${assetId}/servicing/${eventId}`, {
+		method: "PATCH",
+		body: servicingFormData(input, attachment),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to update servicing event: ${res.status}`,
+		);
+	}
 }
 
 export async function createGlider(input: CreateGliderInput): Promise<Glider> {

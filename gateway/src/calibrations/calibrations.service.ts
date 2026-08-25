@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type {
 	CalibrationCatalogueModelGroup,
 	CalibrationCatalogueRow,
@@ -118,5 +118,85 @@ export class CalibrationsService {
 		}
 
 		return groups;
+	}
+
+	// One asset's full calibration history, newest first -- the per-asset
+	// counterpart to getCatalogue's cross-asset view above, and the first
+	// of the asset-timeline event feeds (missions, servicing, pilot logs
+	// follow the same shape: 404 if the asset itself doesn't exist, empty
+	// array if the asset's type just doesn't have this kind of event, no
+	// row-level error either way). Same document-join treatment as
+	// getCatalogue for the reasons noted there.
+	async getForAsset(assetId: number): Promise<CalibrationCatalogueRow[]> {
+		const asset = await this.pool.query(
+			`SELECT at.name AS "assetType" FROM assets a
+       JOIN asset_types at ON at.id = a.asset_type_id
+       WHERE a.id = $1`,
+			[assetId],
+		);
+		if (asset.rows.length === 0) {
+			throw new NotFoundException(`Asset ${assetId} not found`);
+		}
+		const assetType = asset.rows[0].assetType as string;
+
+		const calInfo = CAL_TABLES[assetType];
+		if (!calInfo) {
+			return [];
+		}
+		const [table, dateColumn] = calInfo;
+
+		const documentJoin =
+			table === "asset_ct_sensor_cal"
+				? `LEFT JOIN LATERAL (
+					SELECT id FROM documents
+					WHERE service_event_id = c.service_event_id
+					AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
+					ORDER BY created_at DESC LIMIT 1
+				 ) doc ON true`
+				: "";
+		const documentSelect =
+			table === "asset_ct_sensor_cal"
+				? `, doc.id AS "certificateDocumentId"`
+				: `, NULL AS "certificateDocumentId"`;
+
+		const result = await this.pool.query(
+			`SELECT c.*, a.serial_number AS "serialNumber"
+              ${documentSelect}
+         FROM ${table} c
+         JOIN assets a ON a.id = c.asset_id
+         ${documentJoin}
+        WHERE c.asset_id = $1
+        ORDER BY c.${dateColumn} DESC`,
+			[assetId],
+		);
+
+		return result.rows.map((row) => {
+			const {
+				id,
+				asset_id,
+				changed_by,
+				created_at,
+				calibration_facility,
+				note,
+				service_event_id,
+				serialNumber,
+				certificateDocumentId,
+				[dateColumn]: calDate,
+				...coefficients
+			} = row;
+
+			const calibrationRow: CalibrationCatalogueRow = {
+				id,
+				assetId: asset_id,
+				assetType,
+				serialNumber,
+				calDate,
+				facility: calibration_facility ?? null,
+				notes: note ?? null,
+				coefficients,
+				certificateDocumentId: certificateDocumentId ?? null,
+			};
+			return calibrationRow;
+		});
 	}
 }
