@@ -305,8 +305,33 @@ async function fetchComponentDetails(
 			let calibrations: GliderComponentDetail["calibrations"] = null;
 			if (calInfo) {
 				const [table, dateColumn] = calInfo;
+				// Only ct_sensor's cal table has service_event_id -- same
+				// certificate join as CalibrationsService.getCatalogue, just
+				// scoped to one asset instead of every asset of that type.
+				// coefficients is left untouched (still includes
+				// calibration_facility/note/service_event_id for ct_sensor,
+				// same as before this change) so CalibrationHistory's generic
+				// coefficient dump doesn't lose rows -- documentId rides
+				// alongside as its own field instead.
+				const documentJoin =
+					table === "asset_ct_sensor_cal"
+						? `LEFT JOIN LATERAL (
+							SELECT id FROM documents
+							WHERE service_event_id = c.service_event_id
+							AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
+							ORDER BY created_at DESC LIMIT 1
+						 ) doc ON true`
+						: "";
+				const documentSelect =
+					table === "asset_ct_sensor_cal"
+						? `, doc.id AS "documentId"`
+						: `, NULL::int AS "documentId"`;
 				const result = await pool.query(
-					`SELECT * FROM ${table} WHERE asset_id = $1 ORDER BY ${dateColumn} DESC`,
+					`SELECT c.*${documentSelect}
+             FROM ${table} c
+             ${documentJoin}
+            WHERE c.asset_id = $1
+            ORDER BY c.${dateColumn} DESC`,
 					[c.assetId],
 				);
 				calibrations = result.rows.map((row) => {
@@ -315,10 +340,11 @@ async function fetchComponentDetails(
 						asset_id,
 						changed_by,
 						created_at,
+						documentId,
 						[dateColumn]: date,
 						...coefficients
 					} = row;
-					return { date, coefficients };
+					return { date, coefficients, documentId: documentId ?? null };
 				});
 			}
 

@@ -526,6 +526,10 @@ export interface SensorCalRecord {
 	// typing out every column, same reasoning as the DB's own per-type
 	// cal tables.
 	coefficients: Record<string, number | string | null>;
+	// Only ever set for ct_sensor (the one cal table with a
+	// service_event_id link to hang a certificate off) -- null means no
+	// certificate uploaded, not that certificates aren't supported.
+	documentId?: number | null;
 }
 
 // A P01 term an asset_sensor_parameters row points at -- "readable

@@ -33,9 +33,12 @@ export interface TimelineEvent {
 	href?: string;
 	// documents.id for whatever's attached via documents.service_event_id
 	// -- open with GET /documents/:id/file (already serves inline, not
-	// as a download; see DocumentsController). Only ever set for
-	// servicing/factory_repair/transit events today.
+	// as a download; see DocumentsController).
 	documentId?: number | null;
+	// Long free text (servicing details, a calibration's notes) -- shown
+	// only when a card is expanded, unlike `detail` above which is the
+	// always-visible one-line subtitle.
+	notes?: string | null;
 }
 
 export const KIND_META: Record<
@@ -69,5 +72,20 @@ export function servicingEventToTimelineEvent(
 		endDate: e.endDate,
 		instant: false,
 		documentId: e.documentId,
+		notes: e.details,
 	};
+}
+
+// "2 Jun 2026" for a single day (instant events, or a span whose start
+// and end fall on the same calendar day); "2 Jun 2026 – 5 Jun 2026" for
+// a real range; "2 Jun 2026 – ongoing" while a span is still open
+// (end date not set yet).
+export function timelineDateLabel(
+	event: Pick<TimelineEvent, "instant" | "startDate" | "endDate">,
+	formatDate: (value: string | null) => string,
+): string {
+	if (event.instant) return formatDate(event.startDate);
+	if (!event.endDate) return `${formatDate(event.startDate)} – ongoing`;
+	if (event.endDate === event.startDate) return formatDate(event.startDate);
+	return `${formatDate(event.startDate)} – ${formatDate(event.endDate)}`;
 }

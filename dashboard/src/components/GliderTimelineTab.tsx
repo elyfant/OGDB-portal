@@ -64,6 +64,11 @@ function buildTimelineEvents(
 		const component = componentsById.get(detail.assetId);
 		for (const [i, cal] of detail.calibrations.entries()) {
 			if (!cal.date) continue;
+			// Only ct_sensor's coefficients bag ever has `note` -- left in
+			// there deliberately (see build.helpers.ts) rather than pulled
+			// into its own field, so CalibrationHistory's generic
+			// coefficient dump elsewhere doesn't lose a row.
+			const note = cal.coefficients.note;
 			events.push({
 				id: `cal-${detail.assetId}-${i}`,
 				kind: "calibration",
@@ -71,6 +76,8 @@ function buildTimelineEvents(
 					? `${formatAssetType(component.assetType)} calibration`
 					: "Calibration",
 				detail: component?.serialNumber ? `SN ${component.serialNumber}` : "",
+				notes: typeof note === "string" ? note : undefined,
+				documentId: cal.documentId,
 				startDate: cal.date,
 				endDate: null,
 				instant: true,

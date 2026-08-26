@@ -39,6 +39,8 @@ function calibrationToTimelineEvent(row: {
 	id: number;
 	assetType: string;
 	facility: string | null;
+	notes: string | null;
+	certificateDocumentId: number | null;
 	calDate: string;
 }): TimelineEvent {
 	return {
@@ -46,6 +48,8 @@ function calibrationToTimelineEvent(row: {
 		kind: "calibration",
 		label: `${formatAssetType(row.assetType)} calibration`,
 		detail: row.facility ?? "",
+		notes: row.notes,
+		documentId: row.certificateDocumentId,
 		startDate: row.calDate,
 		endDate: null,
 		instant: true,
