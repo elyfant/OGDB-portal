@@ -67,8 +67,8 @@ const SELECT_ASSETS = `
   LEFT JOIN platforms p ON p.id = agd.platform_id
   LEFT JOIN nvs_terms pm ON pm.id = p.b76_model_id
   LEFT JOIN nvs_terms pc ON pc.id = p.l06_category_id
-  LEFT JOIN nvs_terms l22 ON l22.id = asd.l22_model_id
   LEFT JOIN asset_sensor_details asd ON asd.asset_id = a.id
+  LEFT JOIN nvs_terms l22 ON l22.id = asd.l22_model_id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
 `;
