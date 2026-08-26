@@ -68,8 +68,8 @@ export const KIND_META: Record<
 	servicing: {
 		label: "In-house servicing",
 		color: "#1976d2",
-		fill: "#e3f2fd",
-		cardStyle: "span",
+		fill: "rgba(25,118,210,0.12)",
+		cardStyle: "marker",
 	},
 	factory_repair: {
 		label: "Factory servicing",
@@ -80,8 +80,8 @@ export const KIND_META: Record<
 	transit: {
 		label: "Transit",
 		color: "#607d8b",
-		fill: "#eceff1",
-		cardStyle: "span",
+		fill: "rgba(96,125,139,0.12)",
+		cardStyle: "marker",
 	},
 };
 
