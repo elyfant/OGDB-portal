@@ -2,7 +2,9 @@
 
 import { formatDate } from "@/lib/format";
 import { KIND_META, type TimelineEvent } from "@/lib/timeline";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Box from "@mui/material/Box";
+import MuiLink from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -160,6 +162,24 @@ export default function AssetTimelineChart({
 								<Typography variant="caption" color="text.secondary">
 									{event.detail}
 								</Typography>
+							)}
+							{event.documentId && (
+								<MuiLink
+									href={`/api/documents/${event.documentId}/file`}
+									target="_blank"
+									rel="noreferrer"
+									onClick={(e) => e.stopPropagation()}
+									sx={{
+										display: "inline-flex",
+										alignItems: "center",
+										gap: 0.5,
+										fontSize: 12.5,
+										width: "fit-content",
+									}}
+								>
+									<OpenInNewIcon sx={{ fontSize: 14 }} />
+									Attached document
+								</MuiLink>
 							)}
 						</Box>
 					);

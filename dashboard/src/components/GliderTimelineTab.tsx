@@ -9,11 +9,13 @@ import ServicingEventControls, {
 import { formatAssetType, formatDate } from "@/lib/format";
 import { KIND_META, type TimelineEvent } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import MuiLink from "@mui/material/Link";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -243,6 +245,7 @@ export default function GliderTimelineTab({
 										<TableCell>Person</TableCell>
 										<TableCell>Start</TableCell>
 										<TableCell>End</TableCell>
+										<TableCell>Document</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -278,6 +281,27 @@ export default function GliderTimelineTab({
 														formatDate(e.endDate)
 													) : (
 														<Chip size="small" label="Open" color="warning" />
+													)}
+												</TableCell>
+												<TableCell>
+													{e.documentId ? (
+														<MuiLink
+															href={`/api/documents/${e.documentId}/file`}
+															target="_blank"
+															rel="noreferrer"
+															onClick={(evt) => evt.stopPropagation()}
+															sx={{
+																display: "inline-flex",
+																alignItems: "center",
+																gap: 0.5,
+																fontSize: 12.5,
+															}}
+														>
+															<OpenInNewIcon sx={{ fontSize: 14 }} />
+															PDF
+														</MuiLink>
+													) : (
+														"—"
 													)}
 												</TableCell>
 											</TableRow>

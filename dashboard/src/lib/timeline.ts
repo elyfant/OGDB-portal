@@ -31,6 +31,11 @@ export interface TimelineEvent {
 	// that duration is "started, not finished yet".
 	instant: boolean;
 	href?: string;
+	// documents.id for whatever's attached via documents.service_event_id
+	// -- open with GET /documents/:id/file (already serves inline, not
+	// as a download; see DocumentsController). Only ever set for
+	// servicing/factory_repair/transit events today.
+	documentId?: number | null;
 }
 
 export const KIND_META: Record<
@@ -63,5 +68,6 @@ export function servicingEventToTimelineEvent(
 		startDate: e.startDate,
 		endDate: e.endDate,
 		instant: false,
+		documentId: e.documentId,
 	};
 }
