@@ -18,12 +18,25 @@ import type { Asset, LookupOption } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useState } from "react";
 
+// Matches the gateway's own SENSOR_TYPES set (assets.service.ts) --
+// only these asset types have an asset_sensor_details row an L22 model
+// can attach to. Duplicated by name rather than by a group id because
+// the plain asset-type lookup (LookupOption: {id, name}) doesn't carry
+// asset_type_group -- same tradeoff SENSOR_TYPES itself already makes.
+const SENSOR_ASSET_TYPE_NAMES = new Set([
+	"ct_sensor",
+	"do_sensor",
+	"eco_sensor",
+	"mr_sensor",
+]);
+
 interface FormState {
 	assetTypeId: number | "";
 	serialNumber: string;
 	notes: string;
 	purchaseDate: string;
 	purchaseValueUsd: string;
+	instituteId: number | "";
 	l22ModelId: number | "";
 }
 
@@ -34,6 +47,7 @@ function emptyForm(): FormState {
 		notes: "",
 		purchaseDate: "",
 		purchaseValueUsd: "",
+		instituteId: "",
 		l22ModelId: "",
 	};
 }
@@ -50,12 +64,18 @@ function formFromAsset(asset: Asset): FormState {
 		notes: "",
 		purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
 		purchaseValueUsd: asset.purchaseValueUsd?.toString() ?? "",
+		instituteId: "",
 		l22ModelId: asset.l22ModelId ?? "",
 	};
 }
 
 type Props =
-	| { mode: "create"; assetTypes: LookupOption[] }
+	| {
+			mode: "create";
+			assetTypes: LookupOption[];
+			institutes: LookupOption[];
+			sensorModels: LookupOption[];
+	  }
 	| {
 			mode: "edit";
 			asset: Asset;
@@ -64,13 +84,20 @@ type Props =
 	  };
 
 export default function AssetFormDialog(props: Props) {
-	const { mode, assetTypes } = props;
-	// "science sensor" == the ct/do/eco/mr_sensor group -- only these
-	// have an asset_sensor_details row an L22 model can attach to.
-	const isSensor = mode === "edit" && props.asset.assetTypeGroup === "sensor";
+	const { mode, assetTypes, sensorModels } = props;
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(emptyForm);
+	// "science sensor" == the ct/do/eco/mr_sensor group -- only these
+	// have an asset_sensor_details row an L22 model can attach to. In
+	// edit mode the asset's own group is already known; in create mode
+	// it depends on whichever type is currently selected in the form.
+	const isSensor =
+		mode === "edit"
+			? props.asset.assetTypeGroup === "sensor"
+			: SENSOR_ASSET_TYPE_NAMES.has(
+					assetTypes.find((t) => t.id === form.assetTypeId)?.name ?? "",
+				);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [banner, setBanner] = useState<{
@@ -134,6 +161,10 @@ export default function AssetFormDialog(props: Props) {
 							notes: form.notes.trim() || null,
 							purchaseDate: form.purchaseDate || null,
 							purchaseValueUsd,
+							instituteId: form.instituteId === "" ? null : form.instituteId,
+							...(isSensor && {
+								l22ModelId: form.l22ModelId === "" ? null : form.l22ModelId,
+							}),
 						});
 			closeDialog();
 			setBanner({
@@ -215,7 +246,7 @@ export default function AssetFormDialog(props: Props) {
 									</TextField>
 								)}
 							</Field>
-							{isSensor && mode === "edit" && (
+							{isSensor && (
 								<Field label="Asset model" span={2}>
 									<TextField
 										select
@@ -232,9 +263,34 @@ export default function AssetFormDialog(props: Props) {
 										}
 									>
 										<MenuItem value="">— none —</MenuItem>
-										{props.sensorModels.map((m) => (
+										{sensorModels.map((m) => (
 											<MenuItem key={m.id} value={m.id}>
 												{m.name}
+											</MenuItem>
+										))}
+									</TextField>
+								</Field>
+							)}
+							{mode === "create" && (
+								<Field label="Institute">
+									<TextField
+										select
+										size="small"
+										fullWidth
+										value={form.instituteId}
+										onChange={(e) =>
+											setForm((s) => ({
+												...s,
+												instituteId: e.target.value
+													? Number(e.target.value)
+													: "",
+											}))
+										}
+									>
+										<MenuItem value="">— none —</MenuItem>
+										{props.institutes.map((i) => (
+											<MenuItem key={i.id} value={i.id}>
+												{i.name}
 											</MenuItem>
 										))}
 									</TextField>
@@ -299,8 +355,8 @@ export default function AssetFormDialog(props: Props) {
 
 					<Typography variant="caption" color="text.secondary">
 						{mode === "edit"
-							? "Generic fields only — manufacturer and any type-specific details aren't editable here yet. Blank fields keep their current value, except Notes, which replaces whatever's there."
-							: 'Generic fields only — manufacturer and any type-specific details (battery manufacture date, hull details, sensor model, etc.) aren\'t captured here yet. New assets start with status "Lab".'}
+							? "Manufacturer and most other type-specific details aren't editable here yet. Blank fields keep their current value, except Notes, which replaces whatever's there."
+							: 'Manufacturer and most other type-specific details (battery manufacture date, hull details, etc.) aren\'t captured here yet. New assets start with status "Lab".'}
 					</Typography>
 
 					{error && (

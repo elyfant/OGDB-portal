@@ -1,17 +1,26 @@
 import AssetFormDialog from "@/components/AssetFormDialog";
 import AssetsTable from "@/components/AssetsTable";
-import { getAssetTypes, getAssets, getStatusOptions } from "@/lib/api";
+import {
+	getAssetTypes,
+	getAssets,
+	getInstitutes,
+	getSensorModels,
+	getStatusOptions,
+} from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export default async function AssetsPage() {
-	const [assets, statusOptions, assetTypes, user] = await Promise.all([
-		getAssets(),
-		getStatusOptions(),
-		getAssetTypes(),
-		getCurrentUser(),
-	]);
+	const [assets, statusOptions, assetTypes, institutes, sensorModels, user] =
+		await Promise.all([
+			getAssets(),
+			getStatusOptions(),
+			getAssetTypes(),
+			getInstitutes(),
+			getSensorModels(),
+			getCurrentUser(),
+		]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
 	return (
@@ -25,7 +34,14 @@ export default async function AssetsPage() {
 				}}
 			>
 				<Typography variant="h5">Assets</Typography>
-				{canEdit && <AssetFormDialog mode="create" assetTypes={assetTypes} />}
+				{canEdit && (
+					<AssetFormDialog
+						mode="create"
+						assetTypes={assetTypes}
+						institutes={institutes}
+						sensorModels={sensorModels}
+					/>
+				)}
 			</Box>
 			<Typography variant="subtitle1" color="text.secondary">
 				Every asset in the pool, grouped by type and model. Click on an asset to

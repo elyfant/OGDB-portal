@@ -161,6 +161,9 @@ export interface CreateAssetInput {
 	notes?: string | null;
 	purchaseDate?: string | null;
 	purchaseValueUsd?: number | null;
+	instituteId?: number | null;
+	// Science sensors only -- ignored server-side for any other asset type.
+	l22ModelId?: number | null;
 }
 
 // assetTypeId deliberately absent -- changing what type an asset is

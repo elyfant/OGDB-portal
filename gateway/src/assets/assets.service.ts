@@ -217,8 +217,8 @@ export class AssetsService {
 		}
 
 		const result = await this.pool.query(
-			`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value_usd, changed_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
+			`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value_usd, institute_id, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
 			[
 				dto.assetTypeId,
@@ -226,6 +226,7 @@ export class AssetsService {
 				dto.notes ?? null,
 				dto.purchaseDate ?? null,
 				dto.purchaseValueUsd ?? null,
+				dto.instituteId ?? null,
 				userId,
 			],
 		);
@@ -239,6 +240,18 @@ export class AssetsService {
        SELECT $1, id, $2 FROM asset_status_options WHERE name = 'lab'`,
 			[assetId, userId],
 		);
+
+		// Science sensors only -- ignored for every other type, even if
+		// somehow sent (the create form only shows/sends this field once
+		// a sensor asset type is selected).
+		if (dto.l22ModelId != null && SENSOR_TYPES.has(typeResult.rows[0].name)) {
+			await this.pool.query(
+				`INSERT INTO asset_sensor_details (asset_id, l22_model_id)
+         VALUES ($1, $2)
+         ON CONFLICT (asset_id) DO UPDATE SET l22_model_id = EXCLUDED.l22_model_id`,
+				[assetId, dto.l22ModelId],
+			);
+		}
 
 		return this.findOne(assetId);
 	}

@@ -27,4 +27,15 @@ export class CreateAssetDto {
 	@IsOptional()
 	@IsNumber()
 	purchaseValueUsd?: number;
+
+	@IsOptional()
+	@IsInt()
+	instituteId?: number;
+
+	// Science sensors only (ct/do/eco/mr_sensor) -- asset_sensor_details.
+	// l22_model_id. AssetsService.create ignores this for any other
+	// asset type, same guard SENSOR_TYPES already provides elsewhere.
+	@IsOptional()
+	@IsInt()
+	l22ModelId?: number;
 }
