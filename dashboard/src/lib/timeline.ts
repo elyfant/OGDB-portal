@@ -41,19 +41,48 @@ export interface TimelineEvent {
 	notes?: string | null;
 }
 
+// "span" is the solid-fill bar (date upper-left) -- appropriate for an
+// event whose duration is the point. "marker" is the calibration
+// treatment (circle + a card with a clear/transparent fill and just a
+// colored left edge, date upper-right) -- appropriate for an event
+// that reads more like a single record than a block of time, even
+// when (like factory_repair) it technically has a start/end span;
+// `instant` on the event itself is untouched by this and still drives
+// the actual date-range text (see timelineDateLabel) and layout math.
 export const KIND_META: Record<
 	TimelineEventKind,
-	{ label: string; color: string; fill: string }
+	{ label: string; color: string; fill: string; cardStyle: "span" | "marker" }
 > = {
-	mission: { label: "Mission", color: "#2e7d32", fill: "rgba(46,125,50,0.10)" },
-	calibration: { label: "Calibration", color: "#f9a825", fill: "#fff8e1" },
-	servicing: { label: "In-house servicing", color: "#1976d2", fill: "#e3f2fd" },
+	mission: {
+		label: "Mission",
+		color: "#2e7d32",
+		fill: "rgba(46,125,50,0.10)",
+		cardStyle: "span",
+	},
+	calibration: {
+		label: "Calibration",
+		color: "#f9a825",
+		fill: "#fff8e1",
+		cardStyle: "marker",
+	},
+	servicing: {
+		label: "In-house servicing",
+		color: "#1976d2",
+		fill: "#e3f2fd",
+		cardStyle: "span",
+	},
 	factory_repair: {
 		label: "Factory servicing",
 		color: "#c62828",
-		fill: "#ffebee",
+		fill: "rgba(198,40,40,0.12)",
+		cardStyle: "marker",
 	},
-	transit: { label: "Transit", color: "#607d8b", fill: "#eceff1" },
+	transit: {
+		label: "Transit",
+		color: "#607d8b",
+		fill: "#eceff1",
+		cardStyle: "span",
+	},
 };
 
 // Shared by every caller that has a raw ServicingEvent[] to fold into a

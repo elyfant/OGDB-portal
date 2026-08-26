@@ -72,12 +72,18 @@ function layout(events: TimelineEvent[], expandedIds: Set<string>) {
 	let cursor = 0;
 	const rows = sorted.map((e) => {
 		const rawTop = toY(new Date(e.startDate).getTime());
-		let rawHeight = e.instant
-			? MIN_MARKER_HEIGHT
-			: Math.max(
-					MIN_SPAN_HEIGHT,
-					toY(new Date(endOrToday(e, todayIso)).getTime()) - rawTop,
-				);
+		// Sized off cardStyle, not `instant` -- a "marker"-style event
+		// (calibration, or factory_repair matching it) always gets the
+		// compact fixed height, even when it technically has a real
+		// start/end span (its date range still shows correctly in the
+		// header text; it just doesn't grow a tall bar for it).
+		let rawHeight =
+			KIND_META[e.kind].cardStyle === "marker"
+				? MIN_MARKER_HEIGHT
+				: Math.max(
+						MIN_SPAN_HEIGHT,
+						toY(new Date(endOrToday(e, todayIso)).getTime()) - rawTop,
+					);
 		if (expandedIds.has(e.id) && e.notes?.trim()) {
 			rawHeight += EXPANDED_EXTRA_HEIGHT;
 		}
@@ -249,7 +255,7 @@ export default function AssetTimelineChart({
 					if (hasNotes) toggleExpanded(event.id);
 				}
 
-				if (event.instant) {
+				if (meta.cardStyle === "marker") {
 					return (
 						<Box
 							key={event.id}
