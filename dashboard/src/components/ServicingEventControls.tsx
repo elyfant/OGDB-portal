@@ -1,8 +1,8 @@
 "use client";
 
 import AddServicingEventDialog from "@/components/AddServicingEventDialog";
-import { KIND_META } from "@/components/AssetTimelineChart";
 import { formatDate } from "@/lib/format";
+import { KIND_META } from "@/lib/timeline";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import LockClockIcon from "@mui/icons-material/LockClock";
 import Alert from "@mui/material/Alert";

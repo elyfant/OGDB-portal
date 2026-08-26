@@ -1,6 +1,5 @@
 "use client";
 
-import { KIND_META, type TimelineEvent } from "@/components/AssetTimelineChart";
 import AssetTimelineSection from "@/components/AssetTimelineSection";
 import GliderDeploymentHistory from "@/components/GliderDeploymentHistory";
 import GliderEditHistory from "@/components/GliderEditHistory";
@@ -8,6 +7,7 @@ import ServicingEventControls, {
 	type ServicingEventControlsHandle,
 } from "@/components/ServicingEventControls";
 import { formatAssetType, formatDate } from "@/lib/format";
+import { KIND_META, type TimelineEvent } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";

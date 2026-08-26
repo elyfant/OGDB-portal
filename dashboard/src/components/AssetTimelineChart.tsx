@@ -1,68 +1,11 @@
 "use client";
 
 import { formatDate } from "@/lib/format";
+import { KIND_META, type TimelineEvent } from "@/lib/timeline";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import type { ServicingEvent } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-
-export type TimelineEventKind =
-	| "mission"
-	| "calibration"
-	| "servicing"
-	| "factory_repair"
-	| "transit";
-
-export interface TimelineEvent {
-	id: string;
-	kind: TimelineEventKind;
-	label: string;
-	detail: string;
-	startDate: string;
-	// Irrelevant when `instant`. null means "still open" for a span.
-	endDate: string | null;
-	// Calibrations render as a single point in time; everything else
-	// (missions, servicing/factory/transit) has a real duration, even if
-	// that duration is "started, not finished yet".
-	instant: boolean;
-	href?: string;
-}
-
-const KIND_META: Record<
-	TimelineEventKind,
-	{ label: string; color: string; fill: string }
-> = {
-	mission: { label: "Mission", color: "#2e7d32", fill: "rgba(46,125,50,0.10)" },
-	calibration: { label: "Calibration", color: "#f9a825", fill: "#fff8e1" },
-	servicing: { label: "In-house servicing", color: "#1976d2", fill: "#e3f2fd" },
-	factory_repair: {
-		label: "Factory servicing",
-		color: "#c62828",
-		fill: "#ffebee",
-	},
-	transit: { label: "Transit", color: "#607d8b", fill: "#eceff1" },
-};
-
-export { KIND_META };
-
-// Shared by every caller that has a raw ServicingEvent[] to fold into a
-// timeline (the glider Timeline tab and the asset detail page both do)
-// -- servicing events are already asset-scoped, so nothing here is
-// glider- or asset-specific.
-export function servicingEventToTimelineEvent(
-	e: ServicingEvent,
-): TimelineEvent {
-	return {
-		id: `servicing-${e.id}`,
-		kind: e.eventType,
-		label: e.title ?? KIND_META[e.eventType].label,
-		detail: e.performedByName ?? "",
-		startDate: e.startDate,
-		endDate: e.endDate,
-		instant: false,
-	};
-}
 
 const PX_PER_DAY = 0.6;
 const MIN_SPAN_HEIGHT = 56;

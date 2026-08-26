@@ -1,6 +1,4 @@
 import AssetFormDialog from "@/components/AssetFormDialog";
-import { servicingEventToTimelineEvent } from "@/components/AssetTimelineChart";
-import type { TimelineEvent } from "@/components/AssetTimelineChart";
 import AssetTimelineSection from "@/components/AssetTimelineSection";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
@@ -17,6 +15,10 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { formatAssetType, formatDate, formatUsd } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import {
+	type TimelineEvent,
+	servicingEventToTimelineEvent,
+} from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";

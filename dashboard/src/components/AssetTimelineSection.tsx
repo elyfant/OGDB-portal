@@ -1,10 +1,11 @@
 "use client";
 
-import AssetTimelineChart, {
+import AssetTimelineChart from "@/components/AssetTimelineChart";
+import {
 	KIND_META,
 	type TimelineEvent,
 	type TimelineEventKind,
-} from "@/components/AssetTimelineChart";
+} from "@/lib/timeline";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import { useState } from "react";
