@@ -1,5 +1,6 @@
 import AssetFormDialog from "@/components/AssetFormDialog";
 import AssetServicingTimeline from "@/components/AssetServicingTimeline";
+import CalibrationHistorySection from "@/components/CalibrationHistorySection";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import {
@@ -184,6 +185,10 @@ export default async function AssetDetailPage({
 				servicingEvents={servicingEvents}
 				eventTypes={eventTypes}
 				contacts={contacts}
+				canEdit={canEdit}
+			/>
+			<CalibrationHistorySection
+				calibrations={calibrations}
 				canEdit={canEdit}
 			/>
 
