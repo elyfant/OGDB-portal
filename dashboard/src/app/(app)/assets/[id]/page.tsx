@@ -1,8 +1,7 @@
 import AssetFormDialog from "@/components/AssetFormDialog";
-import AssetTimelineSection from "@/components/AssetTimelineSection";
+import AssetServicingTimeline from "@/components/AssetServicingTimeline";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
-import ServicingEventControls from "@/components/ServicingEventControls";
 import {
 	getAsset,
 	getAssetCalibrations,
@@ -179,15 +178,14 @@ export default async function AssetDetailPage({
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				Timeline
 			</Typography>
-			<ServicingEventControls
+			<AssetServicingTimeline
 				assetId={asset.id}
+				events={events}
 				servicingEvents={servicingEvents}
 				eventTypes={eventTypes}
 				contacts={contacts}
 				canEdit={canEdit}
 			/>
-
-			<AssetTimelineSection events={events} />
 
 			<Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
 				History

@@ -6,16 +6,15 @@ import GliderEditHistory from "@/components/GliderEditHistory";
 import ServicingEventControls, {
 	type ServicingEventControlsHandle,
 } from "@/components/ServicingEventControls";
+import ServicingHistoryTable from "@/components/ServicingHistoryTable";
 import { formatAssetType, formatDate } from "@/lib/format";
 import { KIND_META, type TimelineEvent } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
-import MuiLink from "@mui/material/Link";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -238,86 +237,11 @@ export default function GliderTimelineTab({
 					<Typography color="text.secondary">Servicing</Typography>
 				</AccordionSummary>
 				<AccordionDetails>
-					{servicingOnly.length === 0 ? (
-						<Typography color="text.disabled">
-							No factory or in-house servicing recorded.
-						</Typography>
-					) : (
-						<TableContainer>
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										<TableCell>Type</TableCell>
-										<TableCell>Title</TableCell>
-										<TableCell>Person</TableCell>
-										<TableCell>Start</TableCell>
-										<TableCell>End</TableCell>
-										<TableCell>Document</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{servicingOnly.map((e) => {
-										const meta = KIND_META[e.eventType];
-										return (
-											<TableRow
-												key={e.id}
-												hover
-												onClick={
-													canEdit
-														? () => controlsRef.current?.openForEdit(e)
-														: undefined
-												}
-												sx={canEdit ? { cursor: "pointer" } : undefined}
-											>
-												<TableCell>
-													<Chip
-														size="small"
-														label={meta.label}
-														sx={{
-															backgroundColor: meta.fill,
-															color: meta.color,
-															fontWeight: 600,
-														}}
-													/>
-												</TableCell>
-												<TableCell>{e.title ?? "—"}</TableCell>
-												<TableCell>{e.performedByName ?? "—"}</TableCell>
-												<TableCell>{formatDate(e.startDate)}</TableCell>
-												<TableCell>
-													{e.endDate ? (
-														formatDate(e.endDate)
-													) : (
-														<Chip size="small" label="Open" color="warning" />
-													)}
-												</TableCell>
-												<TableCell>
-													{e.documentId ? (
-														<MuiLink
-															href={`/api/documents/${e.documentId}/file`}
-															target="_blank"
-															rel="noreferrer"
-															onClick={(evt) => evt.stopPropagation()}
-															sx={{
-																display: "inline-flex",
-																alignItems: "center",
-																gap: 0.5,
-																fontSize: 12.5,
-															}}
-														>
-															<OpenInNewIcon sx={{ fontSize: 14 }} />
-															PDF
-														</MuiLink>
-													) : (
-														"—"
-													)}
-												</TableCell>
-											</TableRow>
-										);
-									})}
-								</TableBody>
-							</Table>
-						</TableContainer>
-					)}
+					<ServicingHistoryTable
+						events={servicingOnly}
+						canEdit={canEdit}
+						onEditEvent={(e) => controlsRef.current?.openForEdit(e)}
+					/>
 				</AccordionDetails>
 			</Accordion>
 
