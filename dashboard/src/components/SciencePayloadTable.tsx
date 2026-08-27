@@ -1,9 +1,9 @@
 "use client";
 
 import { formatDate, formatFieldValue } from "@/lib/format";
+import DescriptionIcon from "@mui/icons-material/Description";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
@@ -158,7 +158,7 @@ export default function SciencePayloadTable({
 															color: "text.secondary",
 														}}
 													>
-														<OpenInNewIcon sx={{ fontSize: 15 }} />
+														<DescriptionIcon sx={{ fontSize: 15 }} />
 													</MuiLink>
 												</Tooltip>
 											)}
