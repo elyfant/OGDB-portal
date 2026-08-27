@@ -605,9 +605,10 @@ export interface SensorCalRecord {
 	// typing out every column, same reasoning as the DB's own per-type
 	// cal tables.
 	coefficients: Record<string, number | string | null>;
-	// Only ever set for ct_sensor (the one cal table with a
-	// service_event_id link to hang a certificate off) -- null means no
-	// certificate uploaded, not that certificates aren't supported.
+	// Only set for asset types whose cal table has a service_event_id
+	// link to hang a certificate off (ct_sensor, do_sensor, eco_sensor --
+	// see CAL_TABLES_WITH_SERVICE_EVENT) -- null means no certificate
+	// uploaded, not that certificates aren't supported.
 	documentId?: number | null;
 }
 

@@ -221,11 +221,30 @@ async function fetchCalibrationAsOf(
 		const calInfo = CAL_TABLES[assetType];
 		if (!calInfo) continue;
 		const [table, dateColumn] = calInfo;
+
+		// Same certificate join as fetchComponentDetails/CalibrationsService
+		// -- only cal tables with a service_event_id column (see
+		// CAL_TABLES_WITH_SERVICE_EVENT) can link to an attached
+		// certificate document at all.
+		const hasServiceEvent = CAL_TABLES_WITH_SERVICE_EVENT.has(table);
+		const documentJoin = hasServiceEvent
+			? `LEFT JOIN LATERAL (
+					SELECT id FROM documents
+					WHERE service_event_id = c.service_event_id
+					AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
+					ORDER BY created_at DESC LIMIT 1
+				 ) doc ON true`
+			: "";
+		const documentSelect = hasServiceEvent
+			? `, doc.id AS "documentId"`
+			: `, NULL::int AS "documentId"`;
+
 		const result = await pool.query(
-			`SELECT DISTINCT ON (asset_id) *
-       FROM ${table}
-       WHERE asset_id = ANY($1) AND ${dateColumn} <= $2
-       ORDER BY asset_id, ${dateColumn} DESC, id DESC`,
+			`SELECT DISTINCT ON (c.asset_id) c.*${documentSelect}
+       FROM ${table} c
+       ${documentJoin}
+       WHERE c.asset_id = ANY($1) AND c.${dateColumn} <= $2
+       ORDER BY c.asset_id, c.${dateColumn} DESC, c.id DESC`,
 			[ids, asOfDate],
 		);
 		for (const row of result.rows) {
@@ -234,10 +253,16 @@ async function fetchCalibrationAsOf(
 				asset_id,
 				changed_by,
 				created_at,
+				service_event_id,
+				documentId,
 				[dateColumn]: date,
 				...coefficients
 			} = row;
-			byAsset.set(asset_id, { date, coefficients });
+			byAsset.set(asset_id, {
+				date,
+				coefficients,
+				documentId: documentId ?? null,
+			});
 		}
 	}
 

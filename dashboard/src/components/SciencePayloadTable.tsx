@@ -3,6 +3,7 @@
 import { formatDate, formatFieldValue } from "@/lib/format";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
@@ -145,6 +146,22 @@ export default function SciencePayloadTable({
 													? s.measuredParameters.map((p) => p.label).join(", ")
 													: "—"}
 											</Box>
+											{s.calibration?.documentId != null && (
+												<Tooltip title="View calibration certificate">
+													<MuiLink
+														href={`/api/documents/${s.calibration.documentId}/file`}
+														target="_blank"
+														rel="noreferrer"
+														onClick={(e) => e.stopPropagation()}
+														sx={{
+															display: "inline-flex",
+															color: "text.secondary",
+														}}
+													>
+														<OpenInNewIcon sx={{ fontSize: 15 }} />
+													</MuiLink>
+												</Tooltip>
+											)}
 											<IconButton size="small" sx={{ p: 0.25 }}>
 												<ExpandMoreIcon
 													fontSize="small"
