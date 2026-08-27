@@ -1,3 +1,4 @@
+import EditMissionButton from "@/components/EditMissionButton";
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import KeyFiles from "@/components/KeyFiles";
@@ -9,13 +10,20 @@ import RegionIcon from "@/components/RegionIcon";
 import SciencePayloadTable from "@/components/SciencePayloadTable";
 import StatTile from "@/components/StatTile";
 import {
+	getContacts,
+	getCruises,
 	getGlider,
 	getGliderBuild,
+	getGliders,
+	getInstitutes,
 	getMission,
 	getMissionFiles,
 	getMissionSciencePayload,
+	getMissionStatuses,
 	getMissionStructuralComponents,
 	getMissionTracks,
+	getProjects,
+	getSites,
 	getStatusOptions,
 } from "@/lib/api";
 import {
@@ -87,6 +95,13 @@ export default async function MissionDetailPage({
 		structuralComponents,
 		tracks,
 		missionFiles,
+		gliders,
+		missionStatuses,
+		projects,
+		sites,
+		contacts,
+		institutes,
+		cruises,
 	] = await Promise.all([
 		// Kept live (not date-scoped) -- GliderBuildEditor's replace/remove
 		// actions operate on whichever assignment is currently open, not
@@ -98,6 +113,15 @@ export default async function MissionDetailPage({
 		getMissionStructuralComponents(mission.id),
 		getMissionTracks(mission.id),
 		getMissionFiles(mission.id),
+		// For EditMissionButton's MissionFormDialog -- same lookups the
+		// missions catalogue's own edit dialog uses.
+		getGliders(),
+		getMissionStatuses(),
+		getProjects(),
+		getSites(),
+		getContacts(),
+		getInstitutes(),
+		getCruises(),
 	]);
 
 	const name =
@@ -208,9 +232,26 @@ export default async function MissionDetailPage({
 				/>
 			</Box>
 
-			<Typography variant="h6" sx={{ mb: 1.5 }}>
-				About mission
-			</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 1.5,
+				}}
+			>
+				<Typography variant="h6">About mission</Typography>
+				<EditMissionButton
+					mission={mission}
+					gliders={gliders}
+					missionStatuses={missionStatuses}
+					projects={projects}
+					sites={sites}
+					contacts={contacts}
+					institutes={institutes}
+					cruises={cruises}
+				/>
+			</Box>
 			<Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
 				<Box
 					sx={{
