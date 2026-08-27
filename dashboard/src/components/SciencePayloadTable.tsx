@@ -1,7 +1,7 @@
 "use client";
 
 import { renderSgCalibConstants } from "@/lib/calibration-paste";
-import { formatAssetType, formatDate, formatFieldValue } from "@/lib/format";
+import { formatDate, formatFieldValue } from "@/lib/format";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Box from "@mui/material/Box";
@@ -156,11 +156,9 @@ export default function SciencePayloadTable({
 				<Table size="small">
 					<TableHead>
 						<TableRow>
-							<TableCell>Sensor</TableCell>
-							<TableCell>Model</TableCell>
-							<TableCell>Measured variables</TableCell>
+							<TableCell>L22 Model</TableCell>
 							<TableCell>Serial number</TableCell>
-							<TableCell>Calibration date</TableCell>
+							<TableCell>Parameters</TableCell>
 						</TableRow>
 					</TableHead>
 					<TableBody>
@@ -173,7 +171,6 @@ export default function SciencePayloadTable({
 										onClick={() => toggle(s.assetId)}
 										sx={{ cursor: "pointer" }}
 									>
-										<TableCell>{formatAssetType(s.assetType)}</TableCell>
 										<TableCell>
 											<Box
 												sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
@@ -197,11 +194,6 @@ export default function SciencePayloadTable({
 												)}
 											</Box>
 										</TableCell>
-										<TableCell>
-											{s.measuredParameters.length > 0
-												? s.measuredParameters.map((p) => p.label).join(", ")
-												: "—"}
-										</TableCell>
 										<TableCell sx={{ fontFamily: "monospace" }}>
 											{s.serialNumber ?? "—"}
 										</TableCell>
@@ -209,7 +201,13 @@ export default function SciencePayloadTable({
 											<Box
 												sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
 											>
-												{formatDate(s.calibration?.date ?? null)}
+												<Box component="span" sx={{ flex: 1 }}>
+													{s.measuredParameters.length > 0
+														? s.measuredParameters
+																.map((p) => p.label)
+																.join(", ")
+														: "—"}
+												</Box>
 												<IconButton size="small" sx={{ p: 0.25 }}>
 													<ExpandMoreIcon
 														fontSize="small"
@@ -225,7 +223,7 @@ export default function SciencePayloadTable({
 									{isOpen && (
 										<TableRow>
 											<TableCell
-												colSpan={5}
+												colSpan={3}
 												sx={{ bgcolor: "action.hover", py: 2 }}
 											>
 												<Typography
@@ -243,6 +241,14 @@ export default function SciencePayloadTable({
 													As of {formatDate(asOfDate)} — the calibration in
 													effect on this mission, not necessarily this sensor's
 													latest
+												</Typography>
+												<Typography
+													variant="caption"
+													color="text.secondary"
+													sx={{ display: "block", mb: 1 }}
+												>
+													Calibration date:{" "}
+													{formatDate(s.calibration?.date ?? null)}
 												</Typography>
 												{s.calibration ? (
 													<>

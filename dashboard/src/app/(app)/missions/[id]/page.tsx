@@ -12,6 +12,7 @@ import {
 	getGliderBuild,
 	getMission,
 	getMissionSciencePayload,
+	getMissionStructuralComponents,
 	getMissionTracks,
 	getStatusOptions,
 } from "@/lib/api";
@@ -76,21 +77,24 @@ export default async function MissionDetailPage({
 	const mission = await getMission(Number(id));
 	if (!mission) notFound();
 
-	const [gliderBuild, statusOptions, glider, sciencePayload, tracks] =
-		await Promise.all([
-			mission.gliderAssetId ? getGliderBuild(mission.gliderAssetId) : null,
-			getStatusOptions(),
-			mission.gliderAssetId ? getGlider(mission.gliderAssetId) : null,
-			getMissionSciencePayload(mission.id),
-			getMissionTracks(mission.id),
-		]);
-
-	// Science Payload owns the sensor rows now -- Glider Build shows
-	// everything else (structural/power/tracking), same build tree, just
-	// filtered.
-	const structuralComponents = (gliderBuild?.components ?? []).filter(
-		(c) => c.assetTypeGroup !== "sensor",
-	);
+	const [
+		gliderBuild,
+		statusOptions,
+		glider,
+		sciencePayload,
+		structuralComponents,
+		tracks,
+	] = await Promise.all([
+		// Kept live (not date-scoped) -- GliderBuildEditor's replace/remove
+		// actions operate on whichever assignment is currently open, not
+		// whatever was open as of this mission's date.
+		mission.gliderAssetId ? getGliderBuild(mission.gliderAssetId) : null,
+		getStatusOptions(),
+		mission.gliderAssetId ? getGlider(mission.gliderAssetId) : null,
+		getMissionSciencePayload(mission.id),
+		getMissionStructuralComponents(mission.id),
+		getMissionTracks(mission.id),
+	]);
 
 	const name =
 		mission.stdMissionName ?? mission.missionName ?? `Mission ${mission.id}`;
@@ -242,33 +246,150 @@ export default async function MissionDetailPage({
 				</Box>
 			</Paper>
 
-			<Box sx={{ mb: 4 }}>
-				<Typography variant="h6" sx={{ mb: 0.5 }}>
-					Science payload
-				</Typography>
-				<Typography
-					variant="caption"
-					color="text.secondary"
-					sx={{ mb: 1.5, display: "block" }}
-				>
-					{mission.launchDate
-						? `Calibration shown as of this mission's launch date, ${formatDate(mission.launchDate)}`
-						: "Calibration shown as of today — no launch date recorded for this mission yet"}
-				</Typography>
-				<SciencePayloadTable
-					sensors={sciencePayload}
-					asOfDate={mission.launchDate ?? new Date().toISOString()}
-				/>
-			</Box>
-
 			<Box
 				sx={{
 					display: "grid",
-					gridTemplateColumns: { xs: "1fr", md: "1.1fr 1fr" },
+					gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
 					gap: 3,
 					mb: 4,
+					alignItems: "start",
 				}}
 			>
+				<Box>
+					<Typography variant="h6" sx={{ mb: 1.5 }}>
+						Deployment
+					</Typography>
+					<Paper variant="outlined" sx={{ p: 3 }}>
+						<Box sx={{ mb: 3 }}>
+							<Typography
+								variant="caption"
+								color="text.secondary"
+								display="block"
+								sx={{ mb: 0.5 }}
+							>
+								Status
+							</Typography>
+							{mission.status ? (
+								<Chip
+									label={mission.status}
+									color={statusColor(mission.status)}
+									size="small"
+								/>
+							) : (
+								<Typography color="text.disabled">—</Typography>
+							)}
+						</Box>
+						<Box
+							sx={{
+								display: "grid",
+								gridTemplateColumns: "1fr 1fr",
+								gap: 3,
+							}}
+						>
+							<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+								<Typography
+									variant="overline"
+									color="text.secondary"
+									sx={{ letterSpacing: 1 }}
+								>
+									Deployment
+								</Typography>
+								<Field label="Date" value={formatDate(mission.launchDate)} />
+								<Field
+									label="Position"
+									value={formatPosition(
+										mission.launchLatitude,
+										mission.launchLongitude,
+									)}
+								/>
+								<Field
+									label="Cruise"
+									value={
+										mission.launchCruiseId
+											? `Cruise #${mission.launchCruiseId}`
+											: null
+									}
+								/>
+								<Field label="Vessel" value={null} />
+							</Box>
+							<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+								<Typography
+									variant="overline"
+									color="text.secondary"
+									sx={{ letterSpacing: 1 }}
+								>
+									Recovery
+								</Typography>
+								<Field label="Date" value={formatDate(mission.recoveryDate)} />
+								<Field
+									label="Position"
+									value={formatPosition(
+										mission.recoveryLatitude,
+										mission.recoveryLongitude,
+									)}
+								/>
+								<Field
+									label="Cruise"
+									value={
+										mission.recoveryCruiseId
+											? `Cruise #${mission.recoveryCruiseId}`
+											: null
+									}
+								/>
+								<Field label="Vessel" value={null} />
+							</Box>
+						</Box>
+					</Paper>
+				</Box>
+
+				<Box>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							mb: 0.5,
+						}}
+					>
+						<Typography variant="h6">Science payload</Typography>
+						{mission.gliderAssetId && (
+							<GliderBuildEditor
+								variant="science"
+								gliderId={mission.gliderAssetId}
+								components={gliderBuild?.components ?? []}
+								statusOptions={statusOptions}
+								missionId={mission.id}
+								defaultDate={mission.launchDate?.slice(0, 10)}
+							/>
+						)}
+					</Box>
+					<Typography
+						variant="caption"
+						color="text.secondary"
+						sx={{ mb: 1.5, display: "block" }}
+					>
+						{mission.launchDate
+							? `Calibration shown as of this mission's launch date, ${formatDate(mission.launchDate)}`
+							: "Calibration shown as of today — no launch date recorded for this mission yet"}
+					</Typography>
+					<SciencePayloadTable
+						sensors={sciencePayload}
+						asOfDate={mission.launchDate ?? new Date().toISOString()}
+					/>
+				</Box>
+
+				<Box>
+					<Typography variant="h6" sx={{ mb: 1.5 }}>
+						Key files
+					</Typography>
+					<Paper variant="outlined" sx={{ p: 2.5 }}>
+						<KeyFiles
+							missionId={mission.id}
+							missionFolderPath={mission.missionFolderPath}
+						/>
+					</Paper>
+				</Box>
+
 				<Box>
 					<Box
 						sx={{
@@ -316,110 +437,6 @@ export default async function MissionDetailPage({
 							</TableBody>
 						</Table>
 					</TableContainer>
-				</Box>
-
-				<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-					<Box>
-						<Typography variant="h6" sx={{ mb: 1.5 }}>
-							Key files
-						</Typography>
-						<Paper variant="outlined" sx={{ p: 2.5 }}>
-							<KeyFiles
-								missionId={mission.id}
-								missionFolderPath={mission.missionFolderPath}
-							/>
-						</Paper>
-					</Box>
-
-					<Box>
-						<Typography variant="h6" sx={{ mb: 1.5 }}>
-							Deployment
-						</Typography>
-						<Paper variant="outlined" sx={{ p: 3 }}>
-							<Box sx={{ mb: 3 }}>
-								<Typography
-									variant="caption"
-									color="text.secondary"
-									display="block"
-									sx={{ mb: 0.5 }}
-								>
-									Status
-								</Typography>
-								{mission.status ? (
-									<Chip
-										label={mission.status}
-										color={statusColor(mission.status)}
-										size="small"
-									/>
-								) : (
-									<Typography color="text.disabled">—</Typography>
-								)}
-							</Box>
-							<Box
-								sx={{
-									display: "grid",
-									gridTemplateColumns: "1fr 1fr",
-									gap: 3,
-								}}
-							>
-								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-									<Typography
-										variant="overline"
-										color="text.secondary"
-										sx={{ letterSpacing: 1 }}
-									>
-										Deployment
-									</Typography>
-									<Field label="Date" value={formatDate(mission.launchDate)} />
-									<Field
-										label="Position"
-										value={formatPosition(
-											mission.launchLatitude,
-											mission.launchLongitude,
-										)}
-									/>
-									<Field
-										label="Cruise"
-										value={
-											mission.launchCruiseId
-												? `Cruise #${mission.launchCruiseId}`
-												: null
-										}
-									/>
-									<Field label="Vessel" value={null} />
-								</Box>
-								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-									<Typography
-										variant="overline"
-										color="text.secondary"
-										sx={{ letterSpacing: 1 }}
-									>
-										Recovery
-									</Typography>
-									<Field
-										label="Date"
-										value={formatDate(mission.recoveryDate)}
-									/>
-									<Field
-										label="Position"
-										value={formatPosition(
-											mission.recoveryLatitude,
-											mission.recoveryLongitude,
-										)}
-									/>
-									<Field
-										label="Cruise"
-										value={
-											mission.recoveryCruiseId
-												? `Cruise #${mission.recoveryCruiseId}`
-												: null
-										}
-									/>
-									<Field label="Vessel" value={null} />
-								</Box>
-							</Box>
-						</Paper>
-					</Box>
 				</Box>
 			</Box>
 

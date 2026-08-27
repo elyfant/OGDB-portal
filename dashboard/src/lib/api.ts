@@ -11,6 +11,7 @@ import type {
 	DatasetProcessingStatus,
 	Glider,
 	GliderBuild,
+	GliderBuildComponent,
 	LookupOption,
 	Mission,
 	MissionTrackPoint,
@@ -267,6 +268,18 @@ export async function getMissionSciencePayload(
 	if (!res.ok) {
 		throw new Error(
 			`Failed to fetch science payload for mission ${id}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getMissionStructuralComponents(
+	id: number,
+): Promise<GliderBuildComponent[]> {
+	const res = await apiFetch(`/missions/${id}/structural-components`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch structural components for mission ${id}: ${res.status}`,
 		);
 	}
 	return res.json();

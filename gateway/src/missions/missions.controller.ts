@@ -55,6 +55,11 @@ export class MissionsController {
 		return this.missions.getSciencePayload(id);
 	}
 
+	@Get(":id/structural-components")
+	getStructuralComponents(@Param("id", ParseIntPipe) id: number) {
+		return this.missions.getStructuralComponents(id);
+	}
+
 	@Get(":id/tracks")
 	getTracks(@Param("id", ParseIntPipe) id: number) {
 		return this.missions.getTracks(id);

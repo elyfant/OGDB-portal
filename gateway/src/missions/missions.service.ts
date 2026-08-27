@@ -1,10 +1,11 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type {
 	CreatedMission,
+	GliderBuildComponent,
 	Mission,
+	MissionTrackPoint,
 	MissionsLeaderboard,
 	MissionsSummary,
-	MissionTrackPoint,
 	ScienceSensorRecord,
 } from "@ogdb/types";
 import type { Pool } from "pg";
@@ -12,6 +13,7 @@ import { PG_POOL } from "../db/db.constants";
 import {
 	applyBuildChangesTx,
 	getMissionSciencePayload,
+	getMissionStructuralComponents,
 } from "../gliders/build.helpers";
 import type { CreateMissionDto } from "./dto/create-mission.dto";
 import type { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
@@ -98,6 +100,18 @@ export class MissionsService {
 		const mission = await this.findOne(id);
 		if (!mission.gliderAssetId || !mission.launchDate) return [];
 		return getMissionSciencePayload(
+			this.pool,
+			mission.gliderAssetId,
+			mission.launchDate,
+		);
+	}
+
+	// Same "as of this mission's launch date" reasoning as
+	// getSciencePayload above, just for the non-sensor build components.
+	async getStructuralComponents(id: number): Promise<GliderBuildComponent[]> {
+		const mission = await this.findOne(id);
+		if (!mission.gliderAssetId || !mission.launchDate) return [];
+		return getMissionStructuralComponents(
 			this.pool,
 			mission.gliderAssetId,
 			mission.launchDate,

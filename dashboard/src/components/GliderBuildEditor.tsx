@@ -37,7 +37,15 @@ const GROUP_LABEL: Record<string, string> = {
 	tracking: "Tracking",
 };
 
-const ASSET_TYPES = [
+// Science-sensor asset types -- the "sensor" asset_type_group.
+const SCIENCE_ASSET_TYPES = new Set([
+	"ct_sensor",
+	"do_sensor",
+	"eco_sensor",
+	"mr_sensor",
+]);
+
+const ALL_ASSET_TYPES = [
 	"slocum_aft_section",
 	"slocum_forward_section",
 	"slocum_end_cap",
@@ -54,6 +62,16 @@ const ASSET_TYPES = [
 	"argos_tag",
 	"nose_cone",
 ];
+
+// Two disjoint "add a component" dropdowns off one canonical list: the
+// glider-build editor manages everything except science sensors, the
+// science-payload editor manages only science sensors.
+const BUILD_ASSET_TYPES = ALL_ASSET_TYPES.filter(
+	(t) => !SCIENCE_ASSET_TYPES.has(t),
+);
+const SCIENCE_SENSOR_TYPES = ALL_ASSET_TYPES.filter((t) =>
+	SCIENCE_ASSET_TYPES.has(t),
+);
 
 type RowAction = "keep" | "replace" | "remove";
 
@@ -267,15 +285,34 @@ export default function GliderBuildEditor({
 	statusOptions,
 	missionId,
 	defaultDate,
-	triggerLabel = "Edit glider build",
+	variant = "build",
+	triggerLabel,
 }: {
 	gliderId: number;
 	components: GliderBuildComponent[];
 	statusOptions: AssetStatusOption[];
 	missionId?: number;
 	defaultDate?: string;
+	// "build" -> everything except science sensors; "science" -> only the
+	// science sensors. Same dialog, disjoint asset-type scope.
+	variant?: "build" | "science";
 	triggerLabel?: string;
 }) {
+	const isScience = variant === "science";
+	const addableTypes = isScience ? SCIENCE_SENSOR_TYPES : BUILD_ASSET_TYPES;
+	const dialogTitle = isScience ? "Edit science payload" : "Edit build";
+	const resolvedTriggerLabel =
+		triggerLabel ?? (isScience ? "Edit science payload" : "Edit glider build");
+	const addRowLabel = isScience
+		? "+ Add a science sensor"
+		: "+ Add a component that isn't replacing anything";
+	// The dialog only ever touches assignments it renders -- scope the
+	// component list so the science editor can't reach structural/power rows
+	// (and vice versa).
+	const scopedComponents = isScience
+		? components.filter((c) => SCIENCE_ASSET_TYPES.has(c.assetType))
+		: components.filter((c) => !SCIENCE_ASSET_TYPES.has(c.assetType));
+
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [effectiveDate, setEffectiveDate] = useState(defaultDate ?? "");
@@ -321,7 +358,7 @@ export default function GliderBuildEditor({
 			...a,
 			{
 				id: nextAdditionId,
-				assetType: ASSET_TYPES[0],
+				assetType: addableTypes[0],
 				parentAssetId: gliderId,
 				position: "",
 				picker: emptyPicker(),
@@ -342,7 +379,7 @@ export default function GliderBuildEditor({
 
 	const groups = GROUP_ORDER.map((group) => ({
 		group,
-		items: components.filter((c) => c.assetTypeGroup === group),
+		items: scopedComponents.filter((c) => c.assetTypeGroup === group),
 	})).filter((g) => g.items.length > 0);
 
 	const changedCount = Object.values(rows).filter(
@@ -358,7 +395,7 @@ export default function GliderBuildEditor({
 
 		const changes: BuildChange[] = [];
 		const summaryLines: string[] = [];
-		for (const c of components) {
+		for (const c of scopedComponents) {
 			const row = rowFor(c.assignmentId);
 			const label = `${formatAssetType(c.assetType)}${c.position ? ` (${c.position})` : ""}`;
 			if (row.action === "replace") {
@@ -475,7 +512,7 @@ export default function GliderBuildEditor({
 				startIcon={<EditIcon fontSize="small" />}
 				onClick={() => setOpen(true)}
 			>
-				{triggerLabel}
+				{resolvedTriggerLabel}
 			</Button>
 
 			<Dialog
@@ -484,7 +521,7 @@ export default function GliderBuildEditor({
 				maxWidth="sm"
 				fullWidth
 			>
-				<DialogTitle>Edit build</DialogTitle>
+				<DialogTitle>{dialogTitle}</DialogTitle>
 				<DialogContent dividers>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 3 }}>
 						<TextField
@@ -679,7 +716,7 @@ export default function GliderBuildEditor({
 									}
 									sx={{ flex: 1 }}
 								>
-									{ASSET_TYPES.map((t) => (
+									{addableTypes.map((t) => (
 										<MenuItem key={t} value={t}>
 											{formatAssetType(t)}
 										</MenuItem>
@@ -710,7 +747,7 @@ export default function GliderBuildEditor({
 					))}
 
 					<Button size="small" onClick={addAddition} sx={{ mb: 2 }}>
-						+ Add a component that isn't replacing anything
+						{addRowLabel}
 					</Button>
 
 					<TextField

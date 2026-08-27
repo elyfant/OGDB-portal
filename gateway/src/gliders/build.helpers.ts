@@ -278,6 +278,27 @@ export async function getMissionSciencePayload(
 	});
 }
 
+// Non-sensor build components (structural/power/tracking) for the
+// mission page's "Glider build" table, as of that mission's own launch
+// date — the counterpart to getMissionSciencePayload above. Without
+// this, that table fell back to today's live build tree regardless of
+// which mission you were viewing, which is fine for the glider's most
+// recent mission but wrong for any older one once its own history has
+// actually been backfilled.
+export async function getMissionStructuralComponents(
+	pool: Pool,
+	gliderAssetId: number,
+	asOfDate: string,
+): Promise<GliderBuildComponent[]> {
+	const buildTree = await fetchBuildTree(pool, gliderAssetId, asOfDate);
+	const structural = buildTree.filter((c) => c.assetTypeGroup !== "sensor");
+	const models = await fetchModels(pool, structural);
+	return structural.map((c) => {
+		const info = models.get(c.assetId);
+		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
+	});
+}
+
 // Full detail-table row + full cal history per component, for the
 // Current Build table's row expansion — this is the generic version of
 // fetchModels/fetchSciencePayload above (which only pull curated fields
@@ -314,19 +335,17 @@ async function fetchComponentDetails(
 				// same as before this change) so CalibrationHistory's generic
 				// coefficient dump doesn't lose rows -- documentId rides
 				// alongside as its own field instead.
-				const documentJoin =
-					CAL_TABLES_WITH_SERVICE_EVENT.has(table)
-						? `LEFT JOIN LATERAL (
+				const documentJoin = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
+					? `LEFT JOIN LATERAL (
 							SELECT id FROM documents
 							WHERE service_event_id = c.service_event_id
 							AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
 							ORDER BY created_at DESC LIMIT 1
 						 ) doc ON true`
-						: "";
-				const documentSelect =
-					CAL_TABLES_WITH_SERVICE_EVENT.has(table)
-						? `, doc.id AS "documentId"`
-						: `, NULL::int AS "documentId"`;
+					: "";
+				const documentSelect = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
+					? `, doc.id AS "documentId"`
+					: `, NULL::int AS "documentId"`;
 				const result = await pool.query(
 					`SELECT c.*${documentSelect}
              FROM ${table} c
