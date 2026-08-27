@@ -5,7 +5,7 @@ import type {
 	CalibrationCatalogueTypeGroup,
 } from "@ogdb/types";
 import type { Pool } from "pg";
-import { CAL_TABLES } from "../common/asset-tables";
+import { CAL_TABLES, CAL_TABLES_WITH_SERVICE_EVENT } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
 
 // The "sensor" asset_type_group, in catalogue display order. Not every
@@ -49,7 +49,7 @@ export class CalibrationsService {
 			// here and can't be served. Those are excluded rather than
 			// surfacing a link that 404s; Fiona will re-upload them by hand.
 			const documentJoin =
-				table === "asset_ct_sensor_cal"
+				CAL_TABLES_WITH_SERVICE_EVENT.has(table)
 					? `LEFT JOIN LATERAL (
 					SELECT id FROM documents
 					WHERE service_event_id = c.service_event_id
@@ -58,7 +58,7 @@ export class CalibrationsService {
 				 ) doc ON true`
 					: "";
 			const documentSelect =
-				table === "asset_ct_sensor_cal"
+				CAL_TABLES_WITH_SERVICE_EVENT.has(table)
 					? `, doc.id AS "certificateDocumentId"`
 					: `, NULL AS "certificateDocumentId"`;
 

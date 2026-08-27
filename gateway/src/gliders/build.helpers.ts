@@ -20,6 +20,7 @@ import type {
 import type { Pool, PoolClient } from "pg";
 import {
 	CAL_TABLES,
+	CAL_TABLES_WITH_SERVICE_EVENT,
 	DETAIL_TABLES,
 	FLAT_MODEL_TABLES,
 	VALID_PARENT_TYPES,
@@ -314,7 +315,7 @@ async function fetchComponentDetails(
 				// coefficient dump doesn't lose rows -- documentId rides
 				// alongside as its own field instead.
 				const documentJoin =
-					table === "asset_ct_sensor_cal"
+					CAL_TABLES_WITH_SERVICE_EVENT.has(table)
 						? `LEFT JOIN LATERAL (
 							SELECT id FROM documents
 							WHERE service_event_id = c.service_event_id
@@ -323,7 +324,7 @@ async function fetchComponentDetails(
 						 ) doc ON true`
 						: "";
 				const documentSelect =
-					table === "asset_ct_sensor_cal"
+					CAL_TABLES_WITH_SERVICE_EVENT.has(table)
 						? `, doc.id AS "documentId"`
 						: `, NULL::int AS "documentId"`;
 				const result = await pool.query(

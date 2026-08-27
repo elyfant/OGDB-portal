@@ -10,6 +10,7 @@ import type { Pool } from "pg";
 import {
 	CAL_COLUMNS,
 	CAL_TABLES,
+	CAL_TABLES_WITH_SERVICE_EVENT,
 	FLAT_MODEL_TABLES,
 } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
@@ -357,7 +358,7 @@ export class AssetsService {
 			);
 		}
 
-		if (certificate && table !== "asset_ct_sensor_cal") {
+		if (certificate && !CAL_TABLES_WITH_SERVICE_EVENT.has(table)) {
 			throw new BadRequestException(
 				`Certificates aren't supported for ${assetType} yet.`,
 			);
@@ -374,7 +375,7 @@ export class AssetsService {
 					[CALIBRATION_EVENT_TYPE],
 				);
 				const eventInsert = await client.query(
-					`INSERT INTO asset_service_events (asset_id, event_type_id, event_date, changed_by)
+					`INSERT INTO asset_service_events (asset_id, event_type_id, start_date, changed_by)
            VALUES ($1, $2, $3, $4) RETURNING id`,
 					[id, eventType.rows[0].id, dto.calDate, userId],
 				);
@@ -468,7 +469,7 @@ export class AssetsService {
 			);
 		}
 
-		const hasServiceEventColumn = table === "asset_ct_sensor_cal";
+		const hasServiceEventColumn = CAL_TABLES_WITH_SERVICE_EVENT.has(table);
 		if (certificate && !hasServiceEventColumn) {
 			throw new BadRequestException(
 				`Certificates aren't supported for ${assetType} yet.`,
@@ -502,7 +503,7 @@ export class AssetsService {
 						[CALIBRATION_EVENT_TYPE],
 					);
 					const eventInsert = await client.query(
-						`INSERT INTO asset_service_events (asset_id, event_type_id, event_date, changed_by)
+						`INSERT INTO asset_service_events (asset_id, event_type_id, start_date, changed_by)
              VALUES ($1, $2, $3, $4) RETURNING id`,
 						[assetId, eventType.rows[0].id, dto.calDate, userId],
 					);

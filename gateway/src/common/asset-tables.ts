@@ -48,6 +48,21 @@ export const CAL_TABLES: Record<string, [table: string, dateColumn: string]> = {
 	slocum_forward_section: ["asset_slocum_forward_section_cal", "service_date"],
 };
 
+// Cal tables with a service_event_id column, letting a calibration row
+// link to an asset_service_events row and, through that, to an attached
+// certificate document (documents.service_event_id) -- what actually
+// gates whether a "Add calibration" upload can carry a certificate file.
+// Originally ct_sensor-only (xxxx_ct_cal_service_event_link); do_sensor
+// and eco_sensor got the same column once PDF certificate scraping was
+// wired up for them too (xxxx_sensor_cal_service_event_links).
+// mr_sensor/slocum_forward_section don't have it yet -- no certificate
+// scraping built for those.
+export const CAL_TABLES_WITH_SERVICE_EVENT = new Set<string>([
+	"asset_ct_sensor_cal",
+	"asset_do_sensor_cal",
+	"asset_eco_sensor_cal",
+]);
+
 // asset_types.name -> writable coefficient columns on its cal table --
 // every real column except id/asset_id/the date column/changed_by/
 // created_at. Whitelisted here rather than trusting client-submitted
