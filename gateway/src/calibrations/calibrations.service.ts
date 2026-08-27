@@ -146,7 +146,7 @@ export class CalibrationsService {
 		const [table, dateColumn] = calInfo;
 
 		const documentJoin =
-			table === "asset_ct_sensor_cal"
+			CAL_TABLES_WITH_SERVICE_EVENT.has(table)
 				? `LEFT JOIN LATERAL (
 					SELECT id FROM documents
 					WHERE service_event_id = c.service_event_id
@@ -155,7 +155,7 @@ export class CalibrationsService {
 				 ) doc ON true`
 				: "";
 		const documentSelect =
-			table === "asset_ct_sensor_cal"
+			CAL_TABLES_WITH_SERVICE_EVENT.has(table)
 				? `, doc.id AS "certificateDocumentId"`
 				: `, NULL AS "certificateDocumentId"`;
 
