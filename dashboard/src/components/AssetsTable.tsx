@@ -29,7 +29,7 @@ function detailHref(asset: { id: number; assetType: string }) {
 }
 
 export default function AssetsTable({
-	assets,
+	assets: allAssets,
 	statusOptions,
 	canEdit,
 }: {
@@ -39,6 +39,15 @@ export default function AssetsTable({
 }) {
 	const [showDecommissioned, setShowDecommissioned] = useState(false);
 	const [filterState, setFilterState] = useState<FilterState>({});
+
+	// Batteries have their own catalogue (/batteries) with battery-specific
+	// columns -- they're still assets (still in the DB, still have a detail
+	// page), just not listed in this generic table. Filtered here rather
+	// than server-side so /assets stays a plain "all assets" fetch.
+	const assets = useMemo(
+		() => allAssets.filter((a) => a.assetType !== "battery"),
+		[allAssets],
+	);
 
 	const columns: ColumnDef<Asset>[] = useMemo(
 		() => [
