@@ -125,6 +125,16 @@ export const CAL_COLUMNS: Record<string, string[]> = {
 		"svufoilcoef4",
 		"svufoilcoef5",
 		"svufoilcoef6",
+		// phasecoef0-3 and conccoef0-1 (Offset/Slope): AADI optode certs
+		// report these alongside svufoilcoef/tempcoef, but they were never
+		// tracked even in the legacy do_cal table -- added when wiring up
+		// PDF certificate scraping for do_sensor, see parse_certificate.py.
+		"phasecoef0",
+		"phasecoef1",
+		"phasecoef2",
+		"phasecoef3",
+		"conccoef0",
+		"conccoef1",
 		"tempcoef0",
 		"tempcoef1",
 		"tempcoef2",
@@ -145,6 +155,16 @@ export const CAL_COLUMNS: Record<string, string[]> = {
 		"bb_dc",
 		"bb_res_counts",
 		"bb_res_sf",
+		// bb2_*: a BB2-type sensor's second backscatter wavelength (e.g.
+		// 700nm alongside bb_*'s 470nm) -- added when wiring up PDF
+		// certificate scraping for eco_sensor, see parse_certificate.py's
+		// extract_eco_sensor.
+		"bb2_wl",
+		"bb2_sf",
+		"bb2_maxoutput",
+		"bb2_dc",
+		"bb2_res_counts",
+		"bb2_res_sf",
 		"chla_dc",
 		"chla_sf",
 		"chla_maxoutput",

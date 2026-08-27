@@ -427,7 +427,9 @@ export default function CalibrationFormDialog({
 						/>
 					</Box>
 
-					{state.assetType === "ct_sensor" && (
+					{(state.assetType === "ct_sensor" ||
+						state.assetType === "do_sensor" ||
+						state.assetType === "eco_sensor") && (
 						<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
 							<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
 								<Button

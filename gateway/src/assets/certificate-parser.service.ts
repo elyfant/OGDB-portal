@@ -34,9 +34,19 @@ export class CertificateParserService {
 	// or misconfigured parser degrades to "couldn't read this
 	// certificate," which the UI already has to handle anyway for
 	// certificates from facilities/models it doesn't recognize.
-	async parse(pdfBuffer: Buffer): Promise<ParsedCertificate> {
+	// targetSerial: the asset the dialog currently has selected, so the
+	// script can pick the right block out of an AADI certificate that
+	// bundles more than one sensor in one PDF (e.g. a calibrated pair) --
+	// see parse_certificate.py's extract_do_sensor for why that's a real
+	// case, not hypothetical. Omitted entirely for CT/RBR certs, which
+	// don't need it.
+	async parse(
+		pdfBuffer: Buffer,
+		targetSerial?: string | null,
+	): Promise<ParsedCertificate> {
 		return new Promise((resolve) => {
-			const child = spawn(PYTHON_BIN, [SCRIPT_PATH]);
+			const args = targetSerial ? [SCRIPT_PATH, targetSerial] : [SCRIPT_PATH];
+			const child = spawn(PYTHON_BIN, args);
 			let stdout = "";
 			let stderr = "";
 

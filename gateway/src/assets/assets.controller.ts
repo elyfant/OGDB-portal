@@ -196,10 +196,14 @@ export class AssetsController {
 	@Roles("editor", "admin")
 	@Post(":id/calibrations/parse-certificate")
 	@UseInterceptors(CERTIFICATE_INTERCEPTOR)
-	parseCertificate(@UploadedFile() certificate?: Express.Multer.File) {
+	async parseCertificate(
+		@Param("id", ParseIntPipe) id: number,
+		@UploadedFile() certificate?: Express.Multer.File,
+	) {
 		if (!certificate) {
 			throw new BadRequestException("No certificate file provided.");
 		}
-		return this.certificateParser.parse(certificate.buffer);
+		const asset = await this.assets.findOne(id);
+		return this.certificateParser.parse(certificate.buffer, asset.serialNumber);
 	}
 }

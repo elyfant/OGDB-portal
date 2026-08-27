@@ -71,6 +71,14 @@ export const CAL_FIELDS: Record<string, string[]> = {
 		"svufoilcoef4",
 		"svufoilcoef5",
 		"svufoilcoef6",
+		// phasecoef0-3 and conccoef0-1 (Offset/Slope): see asset-tables.ts's
+		// CAL_COLUMNS.do_sensor for why these were added.
+		"phasecoef0",
+		"phasecoef1",
+		"phasecoef2",
+		"phasecoef3",
+		"conccoef0",
+		"conccoef1",
 		"tempcoef0",
 		"tempcoef1",
 		"tempcoef2",
@@ -90,6 +98,14 @@ export const CAL_FIELDS: Record<string, string[]> = {
 		"bb_dc",
 		"bb_res_counts",
 		"bb_res_sf",
+		// bb2_*: second backscatter wavelength on a BB2-type sensor -- see
+		// asset-tables.ts's CAL_COLUMNS.eco_sensor for why these were added.
+		"bb2_wl",
+		"bb2_sf",
+		"bb2_maxoutput",
+		"bb2_dc",
+		"bb2_res_counts",
+		"bb2_res_sf",
 		"chla_dc",
 		"chla_sf",
 		"chla_maxoutput",
