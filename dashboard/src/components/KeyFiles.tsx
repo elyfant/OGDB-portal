@@ -1,102 +1,64 @@
-"use client";
-
-import { updateMissionFolderPath } from "@/lib/api-client";
-import EditIcon from "@mui/icons-material/Edit";
+import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
-import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import type { MissionFile } from "@ogdb/types";
 
-// Mission folder link is deliberately just a plain clickable link (Option
-// A from the earlier discussion) -- file://\\server\share links aren't
-// reliably clickable across every browser, but that's a "try it and see"
-// tradeoff Fiona chose over a copy-path fallback, not an oversight.
-export default function KeyFiles({
-	missionId,
-	missionFolderPath,
-}: {
-	missionId: number;
-	missionFolderPath: string | null;
-}) {
-	const router = useRouter();
-	const [editing, setEditing] = useState(false);
-	const [value, setValue] = useState(missionFolderPath ?? "");
-	const [saving, setSaving] = useState(false);
-
-	async function handleSave() {
-		setSaving(true);
-		try {
-			await updateMissionFolderPath(missionId, {
-				missionFolderPath: value || null,
-			});
-			setEditing(false);
-			router.refresh();
-		} finally {
-			setSaving(false);
-		}
+// Presentational only -- the "Add key mission file" button and its modal
+// live in MissionFilesEditor. Files open in a new tab via the documents
+// proxy, which serves ascii/text with a text/plain content type so the
+// browser renders them inline rather than downloading.
+export default function KeyFiles({ files }: { files: MissionFile[] }) {
+	if (files.length === 0) {
+		return (
+			<Typography variant="body2" color="text.disabled">
+				No key files yet.
+			</Typography>
+		);
 	}
 
 	return (
-		<Box
-			sx={{
-				display: "flex",
-				alignItems: "flex-start",
-				justifyContent: "space-between",
-				gap: 1,
-			}}
-		>
-			<Box sx={{ minWidth: 0, flex: 1 }}>
-				<Typography variant="body2" sx={{ fontWeight: 600 }}>
-					Mission folder
-				</Typography>
-				{editing ? (
-					<Box sx={{ display: "flex", gap: 1, mt: 0.5, alignItems: "center" }}>
-						<TextField
-							size="small"
-							fullWidth
-							placeholder="\\server\share\path"
-							value={value}
-							onChange={(e) => setValue(e.target.value)}
-							sx={{ "& input": { fontFamily: "monospace", fontSize: 12 } }}
-						/>
-						<Button size="small" onClick={handleSave} disabled={saving}>
-							Save
-						</Button>
-						<Button
-							size="small"
-							onClick={() => setEditing(false)}
-							disabled={saving}
+		<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+			{files.map((file) => (
+				<Box
+					key={file.id}
+					sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}
+				>
+					<InsertDriveFileOutlinedIcon
+						fontSize="small"
+						sx={{ color: "text.secondary", flexShrink: 0 }}
+					/>
+					{file.available ? (
+						<MuiLink
+							href={`/api/documents/${file.id}/file`}
+							target="_blank"
+							rel="noreferrer"
+							sx={{
+								display: "inline-flex",
+								alignItems: "center",
+								gap: 0.5,
+								fontSize: 14,
+								wordBreak: "break-all",
+							}}
 						>
-							Cancel
-						</Button>
-					</Box>
-				) : missionFolderPath ? (
-					<MuiLink
-						href={missionFolderPath}
-						sx={{
-							fontFamily: "monospace",
-							fontSize: 12,
-							wordBreak: "break-all",
-							display: "block",
-						}}
-					>
-						{missionFolderPath}
-					</MuiLink>
-				) : (
-					<Typography variant="caption" color="text.disabled">
-						Not set
-					</Typography>
-				)}
-			</Box>
-			{!editing && (
-				<IconButton size="small" onClick={() => setEditing(true)}>
-					<EditIcon fontSize="small" />
-				</IconButton>
-			)}
+							{file.name}
+							<OpenInNewIcon sx={{ fontSize: 13, flexShrink: 0 }} />
+						</MuiLink>
+					) : (
+						<Tooltip title="Stored on the old network share, not on this server — can't be opened here.">
+							<Typography
+								variant="body2"
+								color="text.disabled"
+								sx={{ wordBreak: "break-all" }}
+							>
+								{file.name}
+							</Typography>
+						</Tooltip>
+					)}
+				</Box>
+			))}
 		</Box>
 	);
 }

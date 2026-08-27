@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { Pool, PoolClient } from "pg";
@@ -33,6 +33,21 @@ function sanitizeFilename(name: string): string {
 const LOCAL_FILE_REFERENCE_PATTERN =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i;
 
+// True when the file actually lives on this VM's DOCUMENTS_DIR volume
+// (as opposed to a legacy reference to the old network share).
+export function isLocallyStored(fileReference: string): boolean {
+	return LOCAL_FILE_REFERENCE_PATTERN.test(fileReference);
+}
+
+// Best-effort human-readable name for a stored file: the sanitized
+// original filename for VM-stored files, or the basename of a legacy
+// share path.
+export function originalNameFromReference(fileReference: string): string {
+	const match = fileReference.match(LOCAL_FILE_REFERENCE_PATTERN);
+	if (match) return match[1];
+	return fileReference.split(/[\\/]/).pop() || fileReference;
+}
+
 @Injectable()
 export class DocumentsService {
 	constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -51,6 +66,7 @@ export class DocumentsService {
 		client: PoolClient,
 		params: {
 			assetId?: number;
+			missionId?: number;
 			serviceEventId?: number;
 			documentType: string;
 			fileReference: string;
@@ -59,11 +75,12 @@ export class DocumentsService {
 		},
 	): Promise<number> {
 		const result = await client.query(
-			`INSERT INTO documents (asset_id, service_event_id, document_type, file_reference, notes, changed_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
+			`INSERT INTO documents (asset_id, mission_id, service_event_id, document_type, file_reference, notes, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
 			[
 				params.assetId ?? null,
+				params.missionId ?? null,
 				params.serviceEventId ?? null,
 				params.documentType,
 				params.fileReference,
@@ -72,6 +89,15 @@ export class DocumentsService {
 			],
 		);
 		return result.rows[0].id;
+	}
+
+	// Delete the file from the storage volume. No-op for legacy
+	// share-path references (nothing of ours to remove) and for a file
+	// that's already gone -- callers delete the DB row first, so a
+	// missing file here shouldn't fail the request.
+	async removeFile(fileReference: string): Promise<void> {
+		if (!isLocallyStored(fileReference)) return;
+		await rm(path.join(DOCUMENTS_DIR, fileReference), { force: true });
 	}
 
 	async getFilePath(

@@ -1,6 +1,7 @@
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import KeyFiles from "@/components/KeyFiles";
+import MissionFilesEditor from "@/components/MissionFilesEditor";
 import { siteToArea } from "@/components/mission-stats/site-areas";
 import MissionTrackMapLoader from "@/components/MissionTrackMapLoader";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
@@ -11,6 +12,7 @@ import {
 	getGlider,
 	getGliderBuild,
 	getMission,
+	getMissionFiles,
 	getMissionSciencePayload,
 	getMissionStructuralComponents,
 	getMissionTracks,
@@ -84,6 +86,7 @@ export default async function MissionDetailPage({
 		sciencePayload,
 		structuralComponents,
 		tracks,
+		missionFiles,
 	] = await Promise.all([
 		// Kept live (not date-scoped) -- GliderBuildEditor's replace/remove
 		// actions operate on whichever assignment is currently open, not
@@ -94,6 +97,7 @@ export default async function MissionDetailPage({
 		getMissionSciencePayload(mission.id),
 		getMissionStructuralComponents(mission.id),
 		getMissionTracks(mission.id),
+		getMissionFiles(mission.id),
 	]);
 
 	const name =
@@ -379,14 +383,19 @@ export default async function MissionDetailPage({
 				</Box>
 
 				<Box>
-					<Typography variant="h6" sx={{ mb: 1.5 }}>
-						Key files
-					</Typography>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							mb: 1.5,
+						}}
+					>
+						<Typography variant="h6">Key files</Typography>
+						<MissionFilesEditor missionId={mission.id} files={missionFiles} />
+					</Box>
 					<Paper variant="outlined" sx={{ p: 2.5 }}>
-						<KeyFiles
-							missionId={mission.id}
-							missionFolderPath={mission.missionFolderPath}
-						/>
+						<KeyFiles files={missionFiles} />
 					</Paper>
 				</Box>
 

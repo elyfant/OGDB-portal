@@ -22,7 +22,8 @@ export async function GET(
 	return new NextResponse(body, {
 		status: res.status,
 		headers: {
-			"Content-Type": res.headers.get("content-type") ?? "application/pdf",
+			"Content-Type":
+				res.headers.get("content-type") ?? "application/octet-stream",
 			"Content-Disposition": res.headers.get("content-disposition") ?? "",
 		},
 	});

@@ -14,6 +14,7 @@ import type {
 	GliderBuildComponent,
 	LookupOption,
 	Mission,
+	MissionFile,
 	MissionTrackPoint,
 	MissionsLeaderboard,
 	MissionsSummary,
@@ -281,6 +282,14 @@ export async function getMissionStructuralComponents(
 		throw new Error(
 			`Failed to fetch structural components for mission ${id}: ${res.status}`,
 		);
+	}
+	return res.json();
+}
+
+export async function getMissionFiles(id: number): Promise<MissionFile[]> {
+	const res = await apiFetch(`/missions/${id}/files`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch files for mission ${id}: ${res.status}`);
 	}
 	return res.json();
 }

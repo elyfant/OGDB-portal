@@ -14,6 +14,10 @@ __pycache__/
 # Docker image builds its own at /opt/parse-venv (see Dockerfile.gateway).
 gateway/.venv-parse/
 
+# Local uploaded-document store -- the DOCUMENTS_DIR fallback used outside
+# Docker (in prod it's a named volume, see docker-compose.yml).
+gateway/storage/
+
 # Machine-local symlinks to sibling projects (absolute paths, won't resolve
 # on another machine/checkout) — see DEVELOPMENT.md "Cross-project context".
 .claude/rules/

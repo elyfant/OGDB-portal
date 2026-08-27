@@ -3,6 +3,8 @@ import type {
 	CreatedMission,
 	GliderBuildComponent,
 	Mission,
+	MissionFile,
+	MissionFilesSaveResult,
 	MissionTrackPoint,
 	MissionsLeaderboard,
 	MissionsSummary,
@@ -11,17 +13,28 @@ import type {
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
 import {
+	DocumentsService,
+	isLocallyStored,
+	originalNameFromReference,
+} from "../documents/documents.service";
+import {
 	applyBuildChangesTx,
 	getMissionSciencePayload,
 	getMissionStructuralComponents,
 } from "../gliders/build.helpers";
 import type { CreateMissionDto } from "./dto/create-mission.dto";
+import type { SaveMissionFilesDto } from "./dto/save-mission-files.dto";
 import type { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
 import type { UpdateMissionDto } from "./dto/update-mission.dto";
 import { buildMissionName } from "./mission-name.helper";
 
 const DAYS_EXPR =
 	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
+
+// documents.document_type for files attached through the mission page's
+// "Add key mission file" modal -- distinct from the asset/service-event
+// document types so a mission-files query never picks those up.
+const MISSION_KEY_FILE_DOCUMENT_TYPE = "mission_key_file";
 
 // Raw FK ids alongside the display strings norglider_missions already
 // resolves -- needed for the Add Mission dialog's "autopopulate from
@@ -74,7 +87,10 @@ const SELECT_MISSIONS = `
 
 @Injectable()
 export class MissionsService {
-	constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+	constructor(
+		@Inject(PG_POOL) private readonly pool: Pool,
+		private readonly documents: DocumentsService,
+	) {}
 
 	async findAll(): Promise<Mission[]> {
 		const result = await this.pool.query(
@@ -116,6 +132,94 @@ export class MissionsService {
 			mission.gliderAssetId,
 			mission.launchDate,
 		);
+	}
+
+	// Files attached to this mission through the "Add key mission file"
+	// modal. Scoped to MISSION_KEY_FILE_DOCUMENT_TYPE so a future
+	// mission-scoped document type (e.g. an auto-registered dataset
+	// output) wouldn't show up here.
+	async getFiles(id: number): Promise<MissionFile[]> {
+		await this.findOne(id);
+		const result = await this.pool.query(
+			`SELECT id, file_reference, document_type, notes, created_at
+       FROM documents
+       WHERE mission_id = $1 AND document_type = $2
+       ORDER BY created_at, id`,
+			[id, MISSION_KEY_FILE_DOCUMENT_TYPE],
+		);
+		return result.rows.map((r) => ({
+			id: r.id,
+			name: originalNameFromReference(r.file_reference),
+			documentType: r.document_type,
+			notes: r.notes,
+			createdAt: r.created_at,
+			available: isLocallyStored(r.file_reference),
+		}));
+	}
+
+	// One modal "save": remove the flagged documents and store the new
+	// uploads, in a single transaction, then report both sides by name
+	// for the success banner. Disk cleanup for removed files happens
+	// after the commit -- the DB row is the source of truth, so a
+	// leftover file is harmless where a deleted row with a live file is
+	// not.
+	async saveFiles(
+		id: number,
+		dto: SaveMissionFilesDto,
+		userId: number,
+		files: Express.Multer.File[],
+	): Promise<MissionFilesSaveResult> {
+		await this.findOne(id);
+
+		const removedRefs: string[] = [];
+		const deleted: string[] = [];
+		const saved: string[] = [];
+
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+
+			for (const docId of dto.deleteIds) {
+				const res = await client.query(
+					`DELETE FROM documents
+           WHERE id = $1 AND mission_id = $2 AND document_type = $3
+           RETURNING file_reference`,
+					[docId, id, MISSION_KEY_FILE_DOCUMENT_TYPE],
+				);
+				if (res.rows.length === 0) {
+					throw new NotFoundException(
+						`Key file ${docId} not found for mission ${id}.`,
+					);
+				}
+				removedRefs.push(res.rows[0].file_reference);
+				deleted.push(originalNameFromReference(res.rows[0].file_reference));
+			}
+
+			for (const file of files) {
+				const { fileReference, originalName } =
+					await this.documents.saveUploadedFile(file);
+				await this.documents.createDocumentRecord(client, {
+					missionId: id,
+					documentType: MISSION_KEY_FILE_DOCUMENT_TYPE,
+					fileReference,
+					changedBy: userId,
+				});
+				saved.push(originalName);
+			}
+
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+
+		await Promise.allSettled(
+			removedRefs.map((ref) => this.documents.removeFile(ref)),
+		);
+
+		return { saved, deleted };
 	}
 
 	async getTracks(id: number): Promise<MissionTrackPoint[]> {

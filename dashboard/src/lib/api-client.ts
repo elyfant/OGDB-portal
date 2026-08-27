@@ -16,6 +16,7 @@ import type {
 	Glider,
 	GliderBuild,
 	Mission,
+	MissionFilesSaveResult,
 	NewProcessingPackageInput,
 	NewProcessingPackageVersionInput,
 	ParsedCertificate,
@@ -401,6 +402,31 @@ export async function updateMissionFolderPath(
 		const data = await res.json().catch(() => null);
 		throw new Error(
 			data?.message ?? `Failed to update mission folder path: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+// One request carrying both sides of an "Add key mission file" save:
+// `newFiles` uploaded, `deleteIds` (documents.id) removed. The gateway
+// does both in a transaction and returns the names for the banner.
+export async function saveMissionFiles(
+	missionId: number,
+	newFiles: File[],
+	deleteIds: number[],
+): Promise<MissionFilesSaveResult> {
+	const formData = new FormData();
+	for (const file of newFiles) formData.append("files", file);
+	formData.append("deleteIds", JSON.stringify(deleteIds));
+
+	const res = await fetch(`/api/missions/${missionId}/files`, {
+		method: "POST",
+		body: formData,
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to save mission files: ${res.status}`,
 		);
 	}
 	return res.json();

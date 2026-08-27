@@ -1,4 +1,6 @@
+import { extname } from "node:path";
 import {
+	BadRequestException,
 	Body,
 	Controller,
 	Get,
@@ -6,14 +8,73 @@ import {
 	ParseIntPipe,
 	Patch,
 	Post,
+	UploadedFiles,
+	UseInterceptors,
 } from "@nestjs/common";
+import { FilesInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { CreateMissionDto } from "./dto/create-mission.dto";
+import { SaveMissionFilesDto } from "./dto/save-mission-files.dto";
 import { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
 import { UpdateMissionDto } from "./dto/update-mission.dto";
 import { MissionsService } from "./missions.service";
+
+// Key mission files are usually ascii/text (glider logs, config, csv),
+// sometimes a PDF or image -- never archives or executables. Allowlist
+// by extension: browser-reported mime types are unreliable for .dat/
+// .log/ascii files (often just application/octet-stream).
+const ALLOWED_MISSION_FILE_EXTENSIONS = new Set([
+	".txt",
+	".text",
+	".asc",
+	".ascii",
+	".dat",
+	".log",
+	".cfg",
+	".ini",
+	".m",
+	".md",
+	".csv",
+	".tsv",
+	".json",
+	".xml",
+	".yaml",
+	".yml",
+	".pdf",
+	".png",
+	".jpg",
+	".jpeg",
+	".gif",
+	".webp",
+]);
+
+const MAX_MISSION_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_MISSION_FILES_PER_REQUEST = 20;
+
+const MISSION_FILES_INTERCEPTOR = FilesInterceptor(
+	"files",
+	MAX_MISSION_FILES_PER_REQUEST,
+	{
+		storage: memoryStorage(),
+		limits: { fileSize: MAX_MISSION_FILE_BYTES },
+		fileFilter: (_req, file, callback) => {
+			const ext = extname(file.originalname).toLowerCase();
+			if (!ALLOWED_MISSION_FILE_EXTENSIONS.has(ext)) {
+				callback(
+					new BadRequestException(
+						`"${file.originalname}" isn't an accepted file type. Allowed: text/ascii, CSV, JSON/XML, PDF, images.`,
+					),
+					false,
+				);
+				return;
+			}
+			callback(null, true);
+		},
+	},
+);
 
 @Controller("missions")
 export class MissionsController {
@@ -58,6 +119,23 @@ export class MissionsController {
 	@Get(":id/structural-components")
 	getStructuralComponents(@Param("id", ParseIntPipe) id: number) {
 		return this.missions.getStructuralComponents(id);
+	}
+
+	@Get(":id/files")
+	getFiles(@Param("id", ParseIntPipe) id: number) {
+		return this.missions.getFiles(id);
+	}
+
+	@Roles("editor", "admin")
+	@Post(":id/files")
+	@UseInterceptors(MISSION_FILES_INTERCEPTOR)
+	saveFiles(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: SaveMissionFilesDto,
+		@CurrentUser() user: JwtPayload,
+		@UploadedFiles() files?: Express.Multer.File[],
+	) {
+		return this.missions.saveFiles(id, dto, user.sub, files ?? []);
 	}
 
 	@Get(":id/tracks")

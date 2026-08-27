@@ -495,6 +495,32 @@ export interface UpdateMissionFolderPathInput {
 	missionFolderPath: string | null;
 }
 
+// One file attached to a mission (documents.mission_id) -- the "Key
+// files" section on the mission detail page. Uploaded through the portal
+// and stored on the same DOCUMENTS_DIR volume as calibration
+// certificates.
+export interface MissionFile {
+	id: number;
+	// Human-readable name: the sanitized original filename, with the UUID
+	// prefix saveUploadedFile adds stripped back off.
+	name: string;
+	documentType: string;
+	notes: string | null;
+	createdAt: string;
+	// false for legacy rows whose file_reference points at the old
+	// network share (never copied onto this VM) -- the open link is
+	// disabled for those.
+	available: boolean;
+}
+
+// Result of one "save" from the Add key mission file modal: the modal
+// batches new uploads and removals into a single request, and the
+// success banner lists both by name.
+export interface MissionFilesSaveResult {
+	saved: string[];
+	deleted: string[];
+}
+
 export interface MissionTrackPoint {
 	latitude: number;
 	longitude: number;
