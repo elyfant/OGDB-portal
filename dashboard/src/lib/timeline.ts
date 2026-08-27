@@ -57,7 +57,7 @@ export const KIND_META: Record<
 		label: "Mission",
 		color: "#2e7d32",
 		fill: "rgba(46,125,50,0.10)",
-		cardStyle: "span",
+		cardStyle: "marker",
 	},
 	calibration: {
 		label: "Calibration",
