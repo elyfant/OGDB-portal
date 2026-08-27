@@ -17,6 +17,7 @@ import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { CalibrationsService } from "../calibrations/calibrations.service";
+import { MissionsService } from "../missions/missions.service";
 import { RecordServicingEventDto } from "../servicing/dto/record-servicing-event.dto";
 import { ServicingService } from "../servicing/servicing.service";
 import { AssetsService } from "./assets.service";
@@ -75,6 +76,7 @@ export class AssetsController {
 		private readonly certificateParser: CertificateParserService,
 		private readonly calibrations: CalibrationsService,
 		private readonly servicing: ServicingService,
+		private readonly missions: MissionsService,
 	) {}
 
 	@Get()
@@ -170,6 +172,11 @@ export class AssetsController {
 	@Get(":id/servicing")
 	getServicingEvents(@Param("id", ParseIntPipe) id: number) {
 		return this.servicing.getForAsset(id);
+	}
+
+	@Get(":id/missions")
+	getMissions(@Param("id", ParseIntPipe) id: number) {
+		return this.missions.getForAsset(id);
 	}
 
 	@Roles("editor", "admin")

@@ -9,7 +9,7 @@
 // client." Anything a Server Component needs to import and actually
 // invoke (not just render as JSX) has to live in a plain module like
 // this one instead.
-import type { ServicingEvent } from "@ogdb/types";
+import type { GliderDeployment, ServicingEvent } from "@ogdb/types";
 
 export type TimelineEventKind =
 	| "mission"
@@ -102,6 +102,29 @@ export function servicingEventToTimelineEvent(
 		instant: false,
 		documentId: e.documentId,
 		notes: e.details,
+	};
+}
+
+// Shared by every caller that has a raw GliderDeployment[] to fold into
+// a timeline -- originally only GliderTimelineTab's own inline loop,
+// now also the asset detail page's per-asset missions (GET
+// /assets/:id/missions). A deployment with no launch date recorded yet
+// has nothing to place on the chart, so callers filter the null out.
+export function deploymentToTimelineEvent(
+	d: GliderDeployment,
+): TimelineEvent | null {
+	if (!d.launchDate) return null;
+	return {
+		id: `mission-${d.id}`,
+		kind: "mission",
+		label: d.stdMissionName ?? `Mission ${d.missionNumber ?? d.id}`,
+		detail: [d.site, d.dives ? `${d.dives} dives` : null]
+			.filter(Boolean)
+			.join(" · "),
+		startDate: d.launchDate,
+		endDate: d.recoveryDate,
+		instant: false,
+		href: `/missions/${d.id}`,
 	};
 }
 

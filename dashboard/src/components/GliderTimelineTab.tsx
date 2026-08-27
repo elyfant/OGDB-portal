@@ -8,7 +8,11 @@ import ServicingEventControls, {
 } from "@/components/ServicingEventControls";
 import ServicingHistoryTable from "@/components/ServicingHistoryTable";
 import { formatAssetType, formatDate } from "@/lib/format";
-import { KIND_META, type TimelineEvent } from "@/lib/timeline";
+import {
+	KIND_META,
+	type TimelineEvent,
+	deploymentToTimelineEvent,
+} from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -42,19 +46,8 @@ function buildTimelineEvents(
 	const events: TimelineEvent[] = [];
 
 	for (const d of deployments) {
-		if (!d.launchDate) continue;
-		events.push({
-			id: `mission-${d.id}`,
-			kind: "mission",
-			label: d.stdMissionName ?? `Mission ${d.missionNumber ?? d.id}`,
-			detail: [d.site, d.dives ? `${d.dives} dives` : null]
-				.filter(Boolean)
-				.join(" · "),
-			startDate: d.launchDate,
-			endDate: d.recoveryDate,
-			instant: false,
-			href: `/missions/${d.id}`,
-		});
+		const event = deploymentToTimelineEvent(d);
+		if (event) events.push(event);
 	}
 
 	const componentsById = new Map(components.map((c) => [c.assetId, c]));

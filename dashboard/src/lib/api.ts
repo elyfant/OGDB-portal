@@ -12,6 +12,7 @@ import type {
 	Glider,
 	GliderBuild,
 	GliderBuildComponent,
+	GliderDeployment,
 	LookupOption,
 	Mission,
 	MissionFile,
@@ -349,6 +350,18 @@ export async function getServicingEvents(
 	if (!res.ok) {
 		throw new Error(
 			`Failed to fetch servicing events for asset ${assetId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getAssetMissions(
+	assetId: number,
+): Promise<GliderDeployment[]> {
+	const res = await apiFetch(`/assets/${assetId}/missions`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch missions for asset ${assetId}: ${res.status}`,
 		);
 	}
 	return res.json();

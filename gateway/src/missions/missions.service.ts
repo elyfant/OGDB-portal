@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type {
 	CreatedMission,
 	GliderBuildComponent,
+	GliderDeployment,
 	Mission,
 	MissionFile,
 	MissionFilesSaveResult,
@@ -132,6 +133,40 @@ export class MissionsService {
 			mission.gliderAssetId,
 			mission.launchDate,
 		);
+	}
+
+	// Every mission a given asset was actually attached to a glider for --
+	// the reverse of getSciencePayload/getStructuralComponents above (asset
+	// -> missions instead of mission -> assets). Reads asset_assignments.
+	// mission_id directly rather than inferring it from date overlap: every
+	// assignment change made through GliderBuildEditor from a mission page
+	// (applyBuildChangesTx in build.helpers.ts) already stamps mission_id
+	// on the row, so this is exact, not a guess. The tradeoff is that it
+	// only sees assignments made through the app -- the original historical
+	// backfill's 88 rows never got mission_id populated (see
+	// docs/design/build-hierarchy.md's "real remaining gaps"), so an asset
+	// with only pre-app assignment history shows no missions here yet.
+	async getForAsset(assetId: number): Promise<GliderDeployment[]> {
+		const asset = await this.pool.query("SELECT 1 FROM assets WHERE id = $1", [
+			assetId,
+		]);
+		if (asset.rows.length === 0) {
+			throw new NotFoundException(`Asset ${assetId} not found`);
+		}
+
+		const result = await this.pool.query(
+			`SELECT DISTINCT nm.id, nm.mission_number AS "missionNumber",
+              nm.std_mission_name AS "stdMissionName", nm.status, nm.site,
+              nm.launch_date AS "launchDate", nm.recovery_date AS "recoveryDate",
+              nm.dives, nm.distance_km AS "distanceKm"
+       FROM asset_assignments aa
+       JOIN missions m ON m.id = aa.mission_id
+       JOIN norglider_missions nm ON nm.id = m.id
+       WHERE aa.child_asset_id = $1
+       ORDER BY nm.launch_date DESC NULLS LAST`,
+			[assetId],
+		);
+		return result.rows;
 	}
 
 	// Files attached to this mission through the "Add key mission file"

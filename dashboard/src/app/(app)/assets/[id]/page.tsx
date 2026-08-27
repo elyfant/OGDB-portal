@@ -8,6 +8,7 @@ import {
 	getAsset,
 	getAssetBattery,
 	getAssetCalibrations,
+	getAssetMissions,
 	getAssetTypes,
 	getContacts,
 	getSensorModels,
@@ -19,6 +20,7 @@ import { formatAssetType, formatDate, formatUsd } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import {
 	type TimelineEvent,
+	deploymentToTimelineEvent,
 	servicingEventToTimelineEvent,
 } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -77,6 +79,7 @@ export default async function AssetDetailPage({
 	const [
 		calibrations,
 		servicingEvents,
+		missions,
 		eventTypes,
 		contacts,
 		assetTypes,
@@ -85,6 +88,7 @@ export default async function AssetDetailPage({
 	] = await Promise.all([
 		getAssetCalibrations(asset.id),
 		getServicingEvents(asset.id),
+		getAssetMissions(asset.id),
 		getServicingEventTypes(),
 		getContacts(),
 		getAssetTypes(),
@@ -99,13 +103,14 @@ export default async function AssetDetailPage({
 	const battery =
 		asset.assetType === "battery" ? await getAssetBattery(asset.id) : null;
 
-	// No asset-scoped "which missions was this on" query exists yet for
-	// non-glider assets (see the schema audit) -- the Missions chip/kind
-	// stays in the timeline for consistency with the glider version, it
-	// just always reads 0 until that's built.
+	// GET /assets/:id/missions reads asset_assignments.mission_id directly
+	// -- only populated for assignments made through GliderBuildEditor
+	// (see MissionsService.getForAsset), so an asset whose only history is
+	// the original pre-app backfill shows no missions here yet.
 	const events: TimelineEvent[] = [
 		...calibrations.map(calibrationToTimelineEvent),
 		...servicingEvents.map(servicingEventToTimelineEvent),
+		...missions.map(deploymentToTimelineEvent).filter((e) => e !== null),
 	];
 
 	const name = asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`;
