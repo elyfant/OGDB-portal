@@ -38,4 +38,21 @@ export class CreateAssetDto {
 	@IsOptional()
 	@IsInt()
 	l22ModelId?: number;
+
+	// Batteries only -- asset_battery_details.battery_model_id. Ignored
+	// server-side for any other asset type (same pattern as l22ModelId).
+	@IsOptional()
+	@IsInt()
+	batteryModelId?: number;
+
+	// Batteries only -- asset_battery_details.date_of_manufacture.
+	@IsOptional()
+	@IsDateString()
+	dateOfManufacture?: string;
+
+	// Batteries only -- recorded as the first row in the append-only
+	// asset_battery_measurements history (asset_battery_measurements.weight).
+	@IsOptional()
+	@IsNumber()
+	weight?: number;
 }

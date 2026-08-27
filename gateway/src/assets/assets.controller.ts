@@ -90,6 +90,12 @@ export class AssetsController {
 	}
 
 	// Same reason: must come before :id.
+	@Get("batteries")
+	findBatteries() {
+		return this.assets.findBatteries();
+	}
+
+	// Same reason: must come before :id.
 	@Get("servicing-event-types")
 	getServicingEventTypes() {
 		return this.servicing.getEventTypes();
@@ -129,6 +135,11 @@ export class AssetsController {
 	@Get(":id/calibrations")
 	getCalibrations(@Param("id", ParseIntPipe) id: number) {
 		return this.calibrations.getForAsset(id);
+	}
+
+	@Get(":id/battery")
+	getBattery(@Param("id", ParseIntPipe) id: number) {
+		return this.assets.getBatteryForAsset(id);
 	}
 
 	@Roles("editor", "admin")

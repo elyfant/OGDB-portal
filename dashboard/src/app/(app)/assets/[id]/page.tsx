@@ -1,10 +1,12 @@
 import AssetFormDialog from "@/components/AssetFormDialog";
 import AssetServicingTimeline from "@/components/AssetServicingTimeline";
+import BatteryDetailsSection from "@/components/BatteryDetailsSection";
 import CalibrationHistorySection from "@/components/CalibrationHistorySection";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import {
 	getAsset,
+	getAssetBattery,
 	getAssetCalibrations,
 	getAssetTypes,
 	getContacts,
@@ -90,6 +92,12 @@ export default async function AssetDetailPage({
 		getCurrentUser(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
+
+	// Battery-type assets get a read-only "Battery details" accordion
+	// (model + manufacture date + measurement history) -- the generic
+	// asset detail grid has no source for those.
+	const battery =
+		asset.assetType === "battery" ? await getAssetBattery(asset.id) : null;
 
 	// No asset-scoped "which missions was this on" query exists yet for
 	// non-glider assets (see the schema audit) -- the Missions chip/kind
@@ -187,6 +195,7 @@ export default async function AssetDetailPage({
 				contacts={contacts}
 				canEdit={canEdit}
 			/>
+			{battery && <BatteryDetailsSection battery={battery} />}
 			<CalibrationHistorySection
 				calibrations={calibrations}
 				canEdit={canEdit}

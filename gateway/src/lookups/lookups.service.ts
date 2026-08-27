@@ -97,4 +97,14 @@ export class LookupsService {
 		);
 		return result.rows;
 	}
+
+	// The controlled list for a battery's asset_battery_details.
+	// battery_model_id -- battery_models is a small local spec lookup
+	// (model name + voltage/capacity/chemistry), not an NVS collection.
+	async getBatteryModels(): Promise<LookupOption[]> {
+		const result = await this.pool.query(
+			"SELECT id, model AS name FROM battery_models ORDER BY model",
+		);
+		return result.rows;
+	}
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import BatteryFullIcon from "@mui/icons-material/BatteryFull";
 import ConnectingAirports from "@mui/icons-material/ConnectingAirports";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import DirectionsBoatIcon from "@mui/icons-material/DirectionsBoat";
@@ -44,6 +45,7 @@ const NAV_GROUPS = [
 		items: [
 			{ label: "Glider fleet", href: "/gliders", icon: ConnectingAirports },
 			{ label: "All assets", href: "/assets", icon: WidgetsIcon },
+			{ label: "Batteries", href: "/batteries", icon: BatteryFullIcon },
 		],
 	},
 	{

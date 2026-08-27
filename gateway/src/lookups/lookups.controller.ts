@@ -49,4 +49,9 @@ export class LookupsController {
 	getSensorModels() {
 		return this.lookups.getSensorModels();
 	}
+
+	@Get("battery-models")
+	getBatteryModels() {
+		return this.lookups.getBatteryModels();
+	}
 }

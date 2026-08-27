@@ -2,6 +2,8 @@ import "server-only";
 import type {
 	Asset,
 	AssetStatusOption,
+	Battery,
+	BatteryDetail,
 	CalibrationCatalogueRow,
 	CalibrationCatalogueTypeGroup,
 	Cruise,
@@ -79,6 +81,14 @@ export async function getAsset(id: number): Promise<Asset | null> {
 	return res.json();
 }
 
+export async function getBatteries(): Promise<Battery[]> {
+	const res = await apiFetch("/assets/batteries");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch batteries: ${res.status}`);
+	}
+	return res.json();
+}
+
 export async function getCruises(): Promise<Cruise[]> {
 	const res = await apiFetch("/cruises");
 	if (!res.ok) {
@@ -148,6 +158,14 @@ export async function getSensorModels(): Promise<LookupOption[]> {
 	const res = await apiFetch("/lookups/sensor-models");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch sensor models: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getBatteryModels(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/battery-models");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch battery models: ${res.status}`);
 	}
 	return res.json();
 }
@@ -287,6 +305,16 @@ export async function getAssetCalibrations(
 	if (!res.ok) {
 		throw new Error(
 			`Failed to fetch calibrations for asset ${assetId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getAssetBattery(assetId: number): Promise<BatteryDetail> {
+	const res = await apiFetch(`/assets/${assetId}/battery`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch battery detail for asset ${assetId}: ${res.status}`,
 		);
 	}
 	return res.json();

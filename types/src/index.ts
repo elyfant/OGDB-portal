@@ -152,6 +152,50 @@ export interface Asset {
 	statusEffectiveDate: string | null;
 }
 
+// The Batteries catalogue row -- assets of type "battery" with their
+// battery-specific detail fields joined in (the generic "All assets"
+// table has no source for model/manufacture date/weight). Weight is the
+// latest asset_battery_measurements reading.
+export interface Battery {
+	id: number;
+	serialNumber: string | null;
+	institute: string | null;
+	batteryModel: string | null;
+	dateOfManufacture: string | null;
+	weight: number | null;
+	purchaseDate: string | null;
+	purchaseValueUsd: number | null;
+	statusId: number | null;
+	status: AssetStatus | null;
+	statusEffectiveDate: string | null;
+}
+
+// One row of the append-only asset_battery_measurements history -- a
+// battery is re-measured over its life (capacity degrades), so this is a
+// dated series, not a single current value. Any field can be null on a
+// given row (e.g. a capacity-only test leaves voltage/weight unset).
+export interface BatteryMeasurement {
+	id: number;
+	measuredDate: string;
+	voltage: number | null;
+	// Grams -- legacy battery_inventory.weight unit (a Slocum pack is
+	// ~10 000).
+	weight: number | null;
+	// Fraction 0–1 of the model's nominal capacity still available.
+	remainingCapacity: number | null;
+	ageDerating: number | null;
+	notes: string | null;
+}
+
+// Read-only battery detail for the asset page's "Battery details"
+// accordion: the per-instance spec (asset_battery_details) plus the
+// measurement history, newest first.
+export interface BatteryDetail {
+	batteryModel: string | null;
+	dateOfManufacture: string | null;
+	measurements: BatteryMeasurement[];
+}
+
 // Generic fields only — every asset type has these, but only gliders
 // (created via CreateGliderInput instead) have their own detail-table
 // fields modeled yet. assetTypeId must not resolve to "glider".
@@ -164,6 +208,12 @@ export interface CreateAssetInput {
 	instituteId?: number | null;
 	// Science sensors only -- ignored server-side for any other asset type.
 	l22ModelId?: number | null;
+	// Batteries only -- ignored server-side for any other asset type.
+	// batteryModelId + dateOfManufacture land on asset_battery_details;
+	// weight opens the asset_battery_measurements history.
+	batteryModelId?: number | null;
+	dateOfManufacture?: string | null;
+	weight?: number | null;
 }
 
 // assetTypeId deliberately absent -- changing what type an asset is

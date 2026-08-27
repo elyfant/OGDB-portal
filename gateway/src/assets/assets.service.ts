@@ -5,7 +5,12 @@ import {
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
-import type { Asset, AssetSearchResult } from "@ogdb/types";
+import type {
+	Asset,
+	AssetSearchResult,
+	Battery,
+	BatteryDetail,
+} from "@ogdb/types";
 import type { Pool } from "pg";
 import {
 	CAL_COLUMNS,
@@ -74,6 +79,36 @@ const SELECT_ASSETS = `
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
 `;
 
+// Batteries-only catalogue -- the "All assets" table (SELECT_ASSETS) has
+// no model/manufacture-date/weight source for batteries, so this pulls
+// the battery-specific detail tables in directly: asset_battery_details
+// (model + date of manufacture) and the current_battery_measurement view
+// (latest weight, same "current = latest by date" pattern as
+// current_asset_status). institute is joined here too since the Batteries
+// table shows it as a column.
+const SELECT_BATTERIES = `
+  SELECT
+    a.id,
+    a.serial_number AS "serialNumber",
+    i.name AS institute,
+    bm.model AS "batteryModel",
+    abd.date_of_manufacture AS "dateOfManufacture",
+    cbm.weight::float8 AS weight,
+    a.purchase_date AS "purchaseDate",
+    a.purchase_value_usd::float8 AS "purchaseValueUsd",
+    aso.id AS "statusId",
+    aso.name AS status,
+    cas.effective_date AS "statusEffectiveDate"
+  FROM assets a
+  JOIN asset_types at ON at.id = a.asset_type_id AND at.name = 'battery'
+  LEFT JOIN institutes i ON i.id = a.institute_id
+  LEFT JOIN asset_battery_details abd ON abd.asset_id = a.id
+  LEFT JOIN battery_models bm ON bm.id = abd.battery_model_id
+  LEFT JOIN current_battery_measurement cbm ON cbm.asset_id = a.id
+  LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
+  LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
+`;
+
 @Injectable()
 export class AssetsService {
 	constructor(
@@ -86,6 +121,53 @@ export class AssetsService {
 			`${SELECT_ASSETS} ORDER BY at.name, a.serial_number`,
 		);
 		return result.rows;
+	}
+
+	async findBatteries(): Promise<Battery[]> {
+		const result = await this.pool.query(
+			`${SELECT_BATTERIES} ORDER BY a.serial_number`,
+		);
+		return result.rows;
+	}
+
+	// Read-only detail for the asset page's "Battery details" accordion --
+	// the per-instance spec (model + date of manufacture from
+	// asset_battery_details) plus the full asset_battery_measurements
+	// history, newest first. Returns empty-ish rather than 404 when the
+	// asset has no asset_battery_details row yet (a battery created before
+	// that field existed, or one imported without a model); the caller
+	// only asks for battery-type assets.
+	async getBatteryForAsset(id: number): Promise<BatteryDetail> {
+		await this.findOne(id);
+
+		const detail = await this.pool.query(
+			`SELECT bm.model AS "batteryModel",
+              abd.date_of_manufacture AS "dateOfManufacture"
+       FROM asset_battery_details abd
+       LEFT JOIN battery_models bm ON bm.id = abd.battery_model_id
+       WHERE abd.asset_id = $1`,
+			[id],
+		);
+
+		const measurements = await this.pool.query(
+			`SELECT id,
+              measured_date AS "measuredDate",
+              voltage::float8 AS voltage,
+              weight::float8 AS weight,
+              remaining_capacity::float8 AS "remainingCapacity",
+              age_derating::float8 AS "ageDerating",
+              notes
+       FROM asset_battery_measurements
+       WHERE asset_id = $1
+       ORDER BY measured_date DESC, id DESC`,
+			[id],
+		);
+
+		return {
+			batteryModel: detail.rows[0]?.batteryModel ?? null,
+			dateOfManufacture: detail.rows[0]?.dateOfManufacture ?? null,
+			measurements: measurements.rows,
+		};
 	}
 
 	async findOne(id: number): Promise<Asset> {
@@ -252,6 +334,31 @@ export class AssetsService {
          ON CONFLICT (asset_id) DO UPDATE SET l22_model_id = EXCLUDED.l22_model_id`,
 				[assetId, dto.l22ModelId],
 			);
+		}
+
+		// Batteries only -- same "ignored for any other type" contract as
+		// the sensor block above. asset_battery_details holds the per-unit
+		// model + manufacture date; weight is the first row of the
+		// append-only asset_battery_measurements history (that table is a
+		// re-measured-over-time record, not a flat column).
+		if (typeResult.rows[0].name === "battery") {
+			if (dto.batteryModelId != null || dto.dateOfManufacture != null) {
+				await this.pool.query(
+					`INSERT INTO asset_battery_details (asset_id, battery_model_id, date_of_manufacture)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (asset_id) DO UPDATE SET
+             battery_model_id = EXCLUDED.battery_model_id,
+             date_of_manufacture = EXCLUDED.date_of_manufacture`,
+					[assetId, dto.batteryModelId ?? null, dto.dateOfManufacture ?? null],
+				);
+			}
+			if (dto.weight != null) {
+				await this.pool.query(
+					`INSERT INTO asset_battery_measurements (asset_id, weight, changed_by)
+           VALUES ($1, $2, $3)`,
+					[assetId, dto.weight, userId],
+				);
+			}
 		}
 
 		return this.findOne(assetId);
