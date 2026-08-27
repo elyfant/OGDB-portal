@@ -112,69 +112,6 @@ const CT_CAL_REMAP: Record<string, string> = {
 	ptcb2: "sbe_pres_ptcb2",
 };
 
-const CT_CAL_UNMAP: Record<string, string> = Object.fromEntries(
-	Object.entries(CT_CAL_REMAP).map(([varName, column]) => [column, varName]),
-);
-
-// Layout mirrors a typical sg_calib_constants.m: temperature channel,
-// conductivity channel, then cpcor/ctcor/wbotc and pressure terms.
-const CT_CAL_M_FIELD_ORDER = [
-	"sbe_temp_g",
-	"sbe_temp_h",
-	"sbe_temp_i",
-	"sbe_temp_j",
-	"sbe_cond_g",
-	"sbe_cond_h",
-	"sbe_cond_i",
-	"sbe_cond_j",
-	"sbe_cond_cpcor",
-	"sbe_cond_ctcor",
-	"sbe_cond_wbotc",
-	"sbe_pres_pa0",
-	"sbe_pres_pa1",
-	"sbe_pres_pa2",
-	"sbe_pres_ptca0",
-	"sbe_pres_ptca1",
-	"sbe_pres_ptca2",
-	"sbe_pres_ptcb0",
-	"sbe_pres_ptcb1",
-	"sbe_pres_ptcb2",
-	"sbe_pres_ptha0",
-	"sbe_pres_ptha1",
-	"sbe_pres_ptha2",
-];
-
-function formatMatlabNumber(value: number): string {
-	if (value === 0) return "0.00000000E+00";
-	const [mantissa, rawExp] = value.toExponential(8).split("e");
-	const expNum = Number(rawExp);
-	const sign = expNum >= 0 ? "+" : "-";
-	const expStr = String(Math.abs(expNum)).padStart(2, "0");
-	return `${mantissa}E${sign}${expStr}`;
-}
-
-// Reconstructs the sg_calib_constants.m text for a CT sensor's
-// calibration record -- the inverse of mapCtCalFields, so pasting the
-// output back in would round-trip to the same column values. Not a copy
-// of any original file (there isn't one on file) -- generated fresh
-// from whatever's in asset_ct_sensor_cal, so it can never go stale.
-export function renderSgCalibConstants(
-	coefficients: Record<string, number | string | null>,
-): string {
-	const lines: string[] = ["% CT sensors cal constants"];
-	for (const column of CT_CAL_M_FIELD_ORDER) {
-		const value = coefficients[column];
-		if (value === null || value === undefined) continue;
-		const varName = CT_CAL_UNMAP[column] ?? column;
-		lines.push(
-			typeof value === "string"
-				? `${varName}='${value}';`
-				: `${varName}=${formatMatlabNumber(value)};`,
-		);
-	}
-	return lines.join("\n");
-}
-
 export function mapCtCalFields(fields: ParsedCalField[]): MappedCalFields {
 	const coefficients: Record<string, number | string> = {};
 	const unmapped: ParsedCalField[] = [];

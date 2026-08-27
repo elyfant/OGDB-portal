@@ -1,15 +1,9 @@
 "use client";
 
-import { renderSgCalibConstants } from "@/lib/calibration-paste";
 import { formatDate, formatFieldValue } from "@/lib/format";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
@@ -61,58 +55,6 @@ function CoefficientGrid({
 	);
 }
 
-function SgCalibConstantsDialog({
-	coefficients,
-	serialNumber,
-	onClose,
-}: {
-	coefficients: Record<string, number | string | null>;
-	serialNumber: string | null;
-	onClose: () => void;
-}) {
-	const text = renderSgCalibConstants(coefficients);
-	return (
-		<Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-			<DialogTitle>sg_calib_constants.m — SN {serialNumber ?? "—"}</DialogTitle>
-			<DialogContent dividers>
-				<Typography
-					variant="caption"
-					color="text.secondary"
-					sx={{ mb: 1.5, display: "block" }}
-				>
-					Generated from this calibration record — not a copy of an original
-					file, so it can't go stale.
-				</Typography>
-				<Box
-					component="pre"
-					sx={{
-						fontFamily: "monospace",
-						fontSize: 12,
-						bgcolor: "action.hover",
-						p: 2,
-						borderRadius: 1,
-						overflowX: "auto",
-						m: 0,
-					}}
-				>
-					{text}
-				</Box>
-			</DialogContent>
-			<DialogActions>
-				<Button
-					onClick={() => navigator.clipboard.writeText(text)}
-					size="small"
-				>
-					Copy
-				</Button>
-				<Button onClick={onClose} variant="contained" size="small">
-					Close
-				</Button>
-			</DialogActions>
-		</Dialog>
-	);
-}
-
 export default function SciencePayloadTable({
 	sensors,
 	asOfDate,
@@ -121,8 +63,6 @@ export default function SciencePayloadTable({
 	asOfDate: string;
 }) {
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
-	const [viewingConstants, setViewingConstants] =
-		useState<ScienceSensorRecord | null>(null);
 
 	function toggle(assetId: number) {
 		setExpanded((prev) => {
@@ -151,145 +91,118 @@ export default function SciencePayloadTable({
 	}
 
 	return (
-		<>
-			<TableContainer component={Paper} variant="outlined">
-				<Table size="small">
-					<TableHead>
-						<TableRow>
-							<TableCell>L22 Model</TableCell>
-							<TableCell>Serial number</TableCell>
-							<TableCell>Parameters</TableCell>
-						</TableRow>
-					</TableHead>
-					<TableBody>
-						{sensors.map((s) => {
-							const isOpen = expanded.has(s.assetId);
-							return (
-								<Fragment key={s.assetId}>
-									<TableRow
-										hover
-										onClick={() => toggle(s.assetId)}
-										sx={{ cursor: "pointer" }}
-									>
-										<TableCell>
-											<Box
-												sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-											>
-												{s.model ?? "—"}
-												{s.modelUri && (
-													<Tooltip title="View NVS term">
-														<MuiLink
-															href={s.modelUri}
-															target="_blank"
-															rel="noreferrer"
-															onClick={(e) => e.stopPropagation()}
-															sx={{
-																display: "inline-flex",
-																color: "text.secondary",
-															}}
-														>
-															<InfoOutlinedIcon sx={{ fontSize: 15 }} />
-														</MuiLink>
-													</Tooltip>
-												)}
-											</Box>
-										</TableCell>
-										<TableCell sx={{ fontFamily: "monospace" }}>
-											{s.serialNumber ?? "—"}
-										</TableCell>
-										<TableCell>
-											<Box
-												sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-											>
-												<Box component="span" sx={{ flex: 1 }}>
-													{s.measuredParameters.length > 0
-														? s.measuredParameters
-																.map((p) => p.label)
-																.join(", ")
-														: "—"}
-												</Box>
-												<IconButton size="small" sx={{ p: 0.25 }}>
-													<ExpandMoreIcon
-														fontSize="small"
+		<TableContainer component={Paper} variant="outlined">
+			<Table size="small">
+				<TableHead>
+					<TableRow>
+						<TableCell>L22 Model</TableCell>
+						<TableCell>Serial number</TableCell>
+						<TableCell>Parameters</TableCell>
+					</TableRow>
+				</TableHead>
+				<TableBody>
+					{sensors.map((s) => {
+						const isOpen = expanded.has(s.assetId);
+						return (
+							<Fragment key={s.assetId}>
+								<TableRow
+									hover
+									onClick={() => toggle(s.assetId)}
+									sx={{ cursor: "pointer" }}
+								>
+									<TableCell>
+										<Box
+											sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+										>
+											{s.model ?? "—"}
+											{s.modelUri && (
+												<Tooltip title="View NVS term">
+													<MuiLink
+														href={s.modelUri}
+														target="_blank"
+														rel="noreferrer"
+														onClick={(e) => e.stopPropagation()}
 														sx={{
-															transform: isOpen ? "rotate(180deg)" : "none",
-															transition: "transform 0.15s",
+															display: "inline-flex",
+															color: "text.secondary",
 														}}
-													/>
-												</IconButton>
+													>
+														<InfoOutlinedIcon sx={{ fontSize: 15 }} />
+													</MuiLink>
+												</Tooltip>
+											)}
+										</Box>
+									</TableCell>
+									<TableCell sx={{ fontFamily: "monospace" }}>
+										{s.serialNumber ?? "—"}
+									</TableCell>
+									<TableCell>
+										<Box
+											sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+										>
+											<Box component="span" sx={{ flex: 1 }}>
+												{s.measuredParameters.length > 0
+													? s.measuredParameters.map((p) => p.label).join(", ")
+													: "—"}
 											</Box>
+											<IconButton size="small" sx={{ p: 0.25 }}>
+												<ExpandMoreIcon
+													fontSize="small"
+													sx={{
+														transform: isOpen ? "rotate(180deg)" : "none",
+														transition: "transform 0.15s",
+													}}
+												/>
+											</IconButton>
+										</Box>
+									</TableCell>
+								</TableRow>
+								{isOpen && (
+									<TableRow>
+										<TableCell
+											colSpan={3}
+											sx={{ bgcolor: "action.hover", py: 2 }}
+										>
+											<Typography
+												variant="caption"
+												sx={{
+													display: "inline-block",
+													bgcolor: "info.main",
+													color: "info.contrastText",
+													px: 1.25,
+													py: 0.5,
+													borderRadius: 10,
+													mb: 1.5,
+												}}
+											>
+												As of {formatDate(asOfDate)} — the calibration in effect
+												on this mission, not necessarily this sensor's latest
+											</Typography>
+											<Typography
+												variant="caption"
+												color="text.secondary"
+												sx={{ display: "block", mb: 1 }}
+											>
+												Calibration date:{" "}
+												{formatDate(s.calibration?.date ?? null)}
+											</Typography>
+											{s.calibration ? (
+												<CoefficientGrid
+													coefficients={s.calibration.coefficients}
+												/>
+											) : (
+												<Typography variant="body2" color="text.disabled">
+													No calibration on record as of this date.
+												</Typography>
+											)}
 										</TableCell>
 									</TableRow>
-									{isOpen && (
-										<TableRow>
-											<TableCell
-												colSpan={3}
-												sx={{ bgcolor: "action.hover", py: 2 }}
-											>
-												<Typography
-													variant="caption"
-													sx={{
-														display: "inline-block",
-														bgcolor: "info.main",
-														color: "info.contrastText",
-														px: 1.25,
-														py: 0.5,
-														borderRadius: 10,
-														mb: 1.5,
-													}}
-												>
-													As of {formatDate(asOfDate)} — the calibration in
-													effect on this mission, not necessarily this sensor's
-													latest
-												</Typography>
-												<Typography
-													variant="caption"
-													color="text.secondary"
-													sx={{ display: "block", mb: 1 }}
-												>
-													Calibration date:{" "}
-													{formatDate(s.calibration?.date ?? null)}
-												</Typography>
-												{s.calibration ? (
-													<>
-														<CoefficientGrid
-															coefficients={s.calibration.coefficients}
-														/>
-														{s.assetType === "ct_sensor" && (
-															<Button
-																size="small"
-																sx={{ mt: 1.5 }}
-																onClick={(e) => {
-																	e.stopPropagation();
-																	setViewingConstants(s);
-																}}
-															>
-																View sg_calib_constants.m
-															</Button>
-														)}
-													</>
-												) : (
-													<Typography variant="body2" color="text.disabled">
-														No calibration on record as of this date.
-													</Typography>
-												)}
-											</TableCell>
-										</TableRow>
-									)}
-								</Fragment>
-							);
-						})}
-					</TableBody>
-				</Table>
-			</TableContainer>
-
-			{viewingConstants?.calibration && (
-				<SgCalibConstantsDialog
-					coefficients={viewingConstants.calibration.coefficients}
-					serialNumber={viewingConstants.serialNumber}
-					onClose={() => setViewingConstants(null)}
-				/>
-			)}
-		</>
+								)}
+							</Fragment>
+						);
+					})}
+				</TableBody>
+			</Table>
+		</TableContainer>
 	);
 }
