@@ -27,7 +27,6 @@ import type {
 	UpdateAssetInput,
 	UpdateExternalReferencesInput,
 	UpdateGliderInput,
-	UpdateMissionFolderPathInput,
 } from "@ogdb/types";
 
 export async function getGliderBuildClient(
@@ -385,24 +384,6 @@ export async function updateMission(
 	if (!res.ok) {
 		const data = await res.json().catch(() => null);
 		throw new Error(data?.message ?? `Failed to update mission: ${res.status}`);
-	}
-	return res.json();
-}
-
-export async function updateMissionFolderPath(
-	missionId: number,
-	input: UpdateMissionFolderPathInput,
-): Promise<Mission> {
-	const res = await fetch(`/api/missions/${missionId}/folder-path`, {
-		method: "PATCH",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(input),
-	});
-	if (!res.ok) {
-		const data = await res.json().catch(() => null);
-		throw new Error(
-			data?.message ?? `Failed to update mission folder path: ${res.status}`,
-		);
 	}
 	return res.json();
 }

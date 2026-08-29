@@ -18,7 +18,6 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { CreateMissionDto } from "./dto/create-mission.dto";
 import { SaveMissionFilesDto } from "./dto/save-mission-files.dto";
-import { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
 import { UpdateMissionDto } from "./dto/update-mission.dto";
 import { MissionsService } from "./missions.service";
 
@@ -151,15 +150,5 @@ export class MissionsController {
 		@CurrentUser() user: JwtPayload,
 	) {
 		return this.missions.updateMission(id, dto, user.sub);
-	}
-
-	@Roles("editor", "admin")
-	@Patch(":id/folder-path")
-	updateFolderPath(
-		@Param("id", ParseIntPipe) id: number,
-		@Body() dto: UpdateMissionFolderPathDto,
-		@CurrentUser() user: JwtPayload,
-	) {
-		return this.missions.updateFolderPath(id, dto, user.sub);
 	}
 }

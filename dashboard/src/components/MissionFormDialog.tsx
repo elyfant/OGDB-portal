@@ -84,7 +84,8 @@ interface FormState {
 	dives: string;
 	distanceKm: string;
 	iridiumMinutes: string;
-	missionFolderPath: string;
+	l1File: string;
+	l2File: string;
 }
 
 function emptyForm(): FormState {
@@ -113,7 +114,8 @@ function emptyForm(): FormState {
 		dives: "",
 		distanceKm: "",
 		iridiumMinutes: "",
-		missionFolderPath: "",
+		l1File: "",
+		l2File: "",
 	};
 }
 
@@ -148,7 +150,8 @@ function formFromMission(m: Mission): FormState {
 		dives: m.dives?.toString() ?? "",
 		distanceKm: m.distanceKm?.toString() ?? "",
 		iridiumMinutes: m.iridiumMinutes?.toString() ?? "",
-		missionFolderPath: m.missionFolderPath ?? "",
+		l1File: m.l1File ?? "",
+		l2File: m.l2File ?? "",
 	};
 }
 
@@ -326,7 +329,10 @@ export default function MissionFormDialog({
 			dives: source.dives?.toString() ?? "",
 			distanceKm: source.distanceKm?.toString() ?? "",
 			iridiumMinutes: source.iridiumMinutes?.toString() ?? "",
-			missionFolderPath: source.missionFolderPath ?? "",
+			// L1/L2 dataset pointers belong to the source mission's data --
+			// nothing to carry over to a mission that hasn't happened yet.
+			l1File: "",
+			l2File: "",
 		}));
 		if (source.gliderAssetId) loadBuild(source.gliderAssetId);
 	}
@@ -494,7 +500,8 @@ export default function MissionFormDialog({
 				dives: toNumberOrNull(form.dives),
 				distanceKm: toNumberOrNull(form.distanceKm),
 				iridiumMinutes: toNumberOrNull(form.iridiumMinutes),
-				missionFolderPath: form.missionFolderPath || null,
+				l1File: form.l1File || null,
+				l2File: form.l2File || null,
 				buildChanges: pendingChanges.length > 0 ? pendingChanges : undefined,
 			};
 			const result =
@@ -900,16 +907,30 @@ export default function MissionFormDialog({
 
 					<Section label="Data & links">
 						<Grid>
-							<Field label="Mission folder path" span={3}>
+							<Field label="L1 file" span={3}>
 								<TextField
 									size="small"
 									fullWidth
-									placeholder="\\server\share\..."
-									value={form.missionFolderPath}
+									placeholder="path or URI to the current best L1 dataset"
+									value={form.l1File}
 									onChange={(e) =>
 										setForm((s) => ({
 											...s,
-											missionFolderPath: e.target.value,
+											l1File: e.target.value,
+										}))
+									}
+								/>
+							</Field>
+							<Field label="L2 file" span={3}>
+								<TextField
+									size="small"
+									fullWidth
+									placeholder="path or URI to the current best L2 dataset"
+									value={form.l2File}
+									onChange={(e) =>
+										setForm((s) => ({
+											...s,
+											l2File: e.target.value,
 										}))
 									}
 								/>

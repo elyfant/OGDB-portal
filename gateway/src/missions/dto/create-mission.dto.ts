@@ -109,7 +109,11 @@ export class CreateMissionDto {
 
 	@IsOptional()
 	@IsString()
-	missionFolderPath?: string | null;
+	l1File?: string | null;
+
+	@IsOptional()
+	@IsString()
+	l2File?: string | null;
 
 	@IsOptional()
 	@IsArray()

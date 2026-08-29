@@ -25,7 +25,6 @@ import {
 } from "../gliders/build.helpers";
 import type { CreateMissionDto } from "./dto/create-mission.dto";
 import type { SaveMissionFilesDto } from "./dto/save-mission-files.dto";
-import type { UpdateMissionFolderPathDto } from "./dto/update-mission-folder-path.dto";
 import type { UpdateMissionDto } from "./dto/update-mission.dto";
 import { buildMissionName } from "./mission-name.helper";
 
@@ -41,13 +40,14 @@ const MISSION_KEY_FILE_DOCUMENT_TYPE = "mission_key_file";
 // resolves -- needed for the Add Mission dialog's "autopopulate from
 // previous mission" feature, which has to set real dropdown selections,
 // not just show text. Same correlated-subquery pattern already used for
-// gliderAssetId/missionFolderPath below (norglider_missions doesn't
+// gliderAssetId/l1File/l2File below (norglider_missions doesn't
 // expose these directly; missions does).
 const SELECT_MISSIONS = `
   SELECT
     id,
     (SELECT glider_asset_id FROM missions WHERE missions.id = norglider_missions.id) AS "gliderAssetId",
-    (SELECT mission_folder_path FROM missions WHERE missions.id = norglider_missions.id) AS "missionFolderPath",
+    (SELECT l1_file FROM missions WHERE missions.id = norglider_missions.id) AS "l1File",
+    (SELECT l2_file FROM missions WHERE missions.id = norglider_missions.id) AS "l2File",
     (SELECT status_id FROM missions WHERE missions.id = norglider_missions.id) AS "statusId",
     (SELECT project_id FROM missions WHERE missions.id = norglider_missions.id) AS "projectId",
     (SELECT site_id FROM missions WHERE missions.id = norglider_missions.id) AS "siteId",
@@ -269,19 +269,6 @@ export class MissionsService {
 		return result.rows;
 	}
 
-	async updateFolderPath(
-		id: number,
-		dto: UpdateMissionFolderPathDto,
-		userId: number,
-	): Promise<Mission> {
-		await this.findOne(id);
-		await this.pool.query(
-			"UPDATE missions SET mission_folder_path = $1, changed_by = $2 WHERE id = $3",
-			[dto.missionFolderPath, userId, id],
-		);
-		return this.findOne(id);
-	}
-
 	// Creates the mission row and applies its initial glider build (if
 	// any) in one transaction -- a partial save (mission created, build
 	// changes lost, or vice versa) shouldn't be possible. mission_name is
@@ -322,14 +309,14 @@ export class MissionsService {
            launch_date, launch_latitude, launch_longitude, launch_cruise_id,
            end_date_science, recovery_date, recovery_latitude, recovery_longitude, recovery_cruise_id,
            volume, weight_in_air, density, dives, distance_km, iridium_minutes,
-           mission_folder_path, changed_by
+           l1_file, l2_file, changed_by
          ) VALUES (
            $1, $2, $3, $4, $5, $6,
            $7, $8, $9, $10,
            $11, $12, $13, $14,
            $15, $16, $17, $18, $19,
            $20, $21, $22, $23, $24, $25,
-           $26, $27
+           $26, $27, $28
          ) RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
 					dto.missionNumber,
@@ -357,7 +344,8 @@ export class MissionsService {
 					dto.dives ?? null,
 					dto.distanceKm ?? null,
 					dto.iridiumMinutes ?? null,
-					dto.missionFolderPath ?? null,
+					dto.l1File ?? null,
+					dto.l2File ?? null,
 					userId,
 				],
 			);
@@ -430,8 +418,8 @@ export class MissionsService {
            end_date_science = $15, recovery_date = $16, recovery_latitude = $17,
            recovery_longitude = $18, recovery_cruise_id = $19,
            volume = $20, weight_in_air = $21, density = $22, dives = $23, distance_km = $24,
-           iridium_minutes = $25, mission_folder_path = $26, changed_by = $27, updated_at = now()
-         WHERE id = $28
+           iridium_minutes = $25, l1_file = $26, l2_file = $27, changed_by = $28, updated_at = now()
+         WHERE id = $29
          RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
 					dto.missionNumber,
@@ -459,7 +447,8 @@ export class MissionsService {
 					dto.dives ?? null,
 					dto.distanceKm ?? null,
 					dto.iridiumMinutes ?? null,
-					dto.missionFolderPath ?? null,
+					dto.l1File ?? null,
+					dto.l2File ?? null,
 					userId,
 					id,
 				],

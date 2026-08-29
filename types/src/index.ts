@@ -484,15 +484,13 @@ export interface Mission {
 	dives: number | null;
 	distanceKm: number | null;
 	numberOfDays: number | null;
-	// UNC/network path to this mission's data folder, shown in the "Key
-	// files" section. Free text, not validated as a real path -- rendered
-	// as a best-effort clickable link since file://\\server\share links
-	// aren't reliably clickable across browsers.
-	missionFolderPath: string | null;
-}
-
-export interface UpdateMissionFolderPathInput {
-	missionFolderPath: string | null;
+	// Free-text pointers (path or URI) to the current best dataset for this
+	// mission at each processing level -- the concatenated realtime file
+	// during the mission, the archived location after archival, the
+	// reprocessed file after manual QC. Not validated as real paths, and
+	// no history is kept: moving the pointer overwrites it.
+	l1File: string | null;
+	l2File: string | null;
 }
 
 // One file attached to a mission (documents.mission_id) -- the "Key
@@ -566,7 +564,8 @@ export interface CreateMissionInput {
 	dives?: number | null;
 	distanceKm?: number | null;
 	iridiumMinutes?: number | null;
-	missionFolderPath?: string | null;
+	l1File?: string | null;
+	l2File?: string | null;
 	// The new mission's initial build, applied in the same transaction as
 	// the mission row itself -- omit/empty when the glider's current live
 	// build already covers it (most redeployments need no changes at all).
