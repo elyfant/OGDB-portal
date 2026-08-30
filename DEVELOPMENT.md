@@ -23,6 +23,17 @@ ln -s ~/projects/OGDB/alembic/design-notes.md .claude/rules/ogdb-design-notes.md
 
 See `docs/design/build-hierarchy.md` for the summary this unlocked.
 
+## Cross-project context: norgliders (facility planning)
+
+Same problem, one level up: `~/projects/norgliders` holds the facility-wide
+system map, open cross-repo dependency questions, and architecture
+decisions — none of it visible to a session started here without help.
+
+```bash
+ln -s ~/projects/norgliders/dependencies.md .claude/rules/norgliders-dependencies.md
+ln -s ~/projects/norgliders/decisions .claude/rules/norgliders-decisions
+```
+
 ## 0. Ground rule: no real data entry locally
 
 `ogdb-test` (local) and production (the VM) are two different databases
