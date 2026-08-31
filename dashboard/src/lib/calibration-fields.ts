@@ -136,9 +136,25 @@ export const SCIENCE_ASSET_TYPES = [
 // Empty string -> omit the field entirely (leaves the column NULL).
 // Otherwise a valid-looking number is coerced to a real number so it's
 // stored numerically, same as the paste-parser's coerceValue.
+//
+// Coefficients are routinely pasted straight out of a PDF viewer (or,
+// for a scanned certificate, that viewer's own OCR) rather than typed --
+// both are prone to substituting a typographic minus sign (−) or an
+// en/em dash for a plain ASCII hyphen, and OCR in particular can leave
+// stray or non-breaking whitespace inside a number. None of that fails
+// loudly here: Number() just returns NaN, so -- before this normalizing
+// pass existed -- the raw string got returned as-is, silently sent to
+// the gateway, and rejected by Postgres as invalid input for a
+// double-precision column (a confusing save-time error with no obvious
+// cause). Only used for the numeric-parse attempt, not the fallback
+// return value, so a genuine free-text field (facility, notes) never
+// gets its intentional whitespace stripped.
 export function coerceCalibrationInput(raw: string): number | string {
 	const trimmed = raw.trim();
-	const num = Number(trimmed);
-	if (trimmed !== "" && !Number.isNaN(num)) return num;
+	const forParsing = trimmed
+		.replace(/[−‐-―]/g, "-")
+		.replace(/[\s ]/g, "");
+	const num = Number(forParsing);
+	if (forParsing !== "" && !Number.isNaN(num)) return num;
 	return trimmed;
 }

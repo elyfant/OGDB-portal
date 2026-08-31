@@ -57,8 +57,15 @@ function coerceValue(rawValue: string): {
 	) {
 		return { value: rawValue.slice(1, -1), isNumber: false };
 	}
-	const num = Number(rawValue);
-	if (!Number.isNaN(num) && rawValue !== "") {
+	// Same normalization as calibration-fields.ts's coerceCalibrationInput
+	// -- a typographic minus/dash or stray whitespace in the pasted block
+	// would otherwise silently make Number() return NaN, so the raw
+	// string gets treated as non-numeric instead of failing loudly.
+	const forParsing = rawValue
+		.replace(/[−‐-―]/g, "-")
+		.replace(/[\s ]/g, "");
+	const num = Number(forParsing);
+	if (!Number.isNaN(num) && forParsing !== "") {
 		return { value: num, isNumber: true };
 	}
 	return { value: rawValue, isNumber: false };
