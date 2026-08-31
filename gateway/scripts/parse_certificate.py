@@ -638,6 +638,24 @@ def extract(pdf_bytes: bytes, target_serial: str | None = None) -> dict:
         pages_text = [page.extract_text() or "" for page in pdf.pages]
     full_text = "\n".join(pages_text)
 
+    # A scanned/image-only PDF (no embedded text layer at all) looks
+    # identical to "we don't recognize this format" further down --
+    # pdfplumber has no OCR, so every page comes back empty regardless of
+    # what the cert actually is. Distinguishing this case avoids sending
+    # someone chasing a phantom "add support for my sensor" gap when the
+    # real issue is that this specific PDF has no extractable text (seen
+    # firsthand: an older WEBB Glider cert scanned as one full-page image
+    # per page, vs. a newer one from the same vendor with real text).
+    if full_text.strip() == "":
+        return {
+            "recognized": False,
+            "reason": (
+                "This PDF has no extractable text (likely a scanned image, "
+                "not a native digital document) -- enter the coefficients "
+                "manually."
+            ),
+        }
+
     if any(
         any(marker in text.upper() for marker in AADI_PAGE_MARKERS)
         for text in pages_text
