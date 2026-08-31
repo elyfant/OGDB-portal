@@ -6,7 +6,8 @@ stdout.
 
 Scope is deliberately narrow: only the facility+model combinations we
 have real ground-truth certificates for (RBR Legato3/RBR, SBE CT-Sail/
-SBE, SBE GPCTD/NOC, SBE GPCTD/SBE, AADI Oxygen Optode). Anything else
+SBE, SBE GPCTD/NOC, SBE GPCTD/SBE, SBE "WEBB Glider"/SBE, AADI Oxygen
+Optode). Anything else
 returns {"recognized": false} rather than guessing -- the "Read in
 certificate" UI falls back to plain manual entry when that happens. The
 user always reviews and can edit every extracted value before saving
@@ -40,6 +41,20 @@ concatenated -- RBR's own cert reuses the same C0/C1/C2/C3/X0.. names
 across its temperature/conductivity/pressure pages with completely
 different values each time, so extracting from the full text blindly
 would silently mix up channels.
+
+"WEBB Glider" certificates: the CT sensor on early (pre-GPCTD) Slocum
+G1 gliders, custom-OEM'd by Sea-Bird for Webb Research -- every section
+header on these certs literally reads "WEBB GLIDER {TYPE} CALIBRATION
+DATA" instead of a standard model name (see scripts/nvs_terms.yaml's
+TOOL0669 entry in the OGDB repo for the full backstory; OGDB stores it
+under NVS L22 TOOL0669, "Sea-Bird SBE 41CP CTD", inferred by era/design
+rather than a vendor cross-reference). Confirmed against two real
+certs for glider 0069 (RMA 87931, 03-Feb-16 and 19-Feb-16): temperature
+(a0-a3) and conductivity (g/h/i/j/CPcor/CTcor/WBOTC) print the exact
+same coefficient names as GPCTD, so those maps are reused as-is -- only
+the pressure channel differs, printing "PTHA0/1/2" where GPCTD's own
+certs print "PTEMPA0/1/2" for the same physical thermal-correction
+coefficients (see WEBB_GLIDER_PRES_MAP).
 
 Date policy: take the EARLIEST calibration date found anywhere in the
 document (confirmed with Fiona -- a single upload can legitimately span
@@ -84,6 +99,24 @@ GPCTD_PRES_MAP = {
     "sbe_pres_ptcb1": "PTCB1",
     "sbe_pres_ptcb2": "PTCB2",
 }
+# Same physical coefficients as GPCTD_PRES_MAP, same PA0-2/PTCA0-2/
+# PTCB0-2 names too -- only the thermal-correction-for-pressure trio
+# differs ("PTHA0/1/2" here vs GPCTD's "PTEMPA0/1/2"), confirmed against
+# the real WEBB Glider 0069 pressure certs.
+WEBB_GLIDER_PRES_MAP = {
+    "sbe_pres_pa0": "PA0",
+    "sbe_pres_pa1": "PA1",
+    "sbe_pres_pa2": "PA2",
+    "sbe_pres_ptha0": "PTHA0",
+    "sbe_pres_ptha1": "PTHA1",
+    "sbe_pres_ptha2": "PTHA2",
+    "sbe_pres_ptca0": "PTCA0",
+    "sbe_pres_ptca1": "PTCA1",
+    "sbe_pres_ptca2": "PTCA2",
+    "sbe_pres_ptcb0": "PTCB0",
+    "sbe_pres_ptcb1": "PTCB1",
+    "sbe_pres_ptcb2": "PTCB2",
+}
 RBR_COND_MAP = {
     "rbr_cond_c0": "C0",
     "rbr_cond_c1": "C1",
@@ -113,6 +146,8 @@ RBR_PRES_MAP = {
 
 def detect_model(full_text: str) -> str | None:
     t = full_text.upper()
+    if "WEBB GLIDER" in t:
+        return "webb_glider_ctd"
     if "SLOCUM PAYLOAD CTD" in t or "GPCTD" in t:
         return "gpctd"
     if "GLIDER APL" in t:
@@ -207,11 +242,15 @@ def build_channel_maps(model: str) -> dict[str, dict[str, str]]:
             "pressure": RBR_PRES_MAP,
         }
     channels = {
-        "temperature": GPCTD_TEMP_MAP if model == "gpctd" else CT_SAIL_TEMP_MAP,
+        # WEBB Glider certs print a0-a3 for temperature, same as GPCTD --
+        # only pressure's naming actually differs (see WEBB_GLIDER_PRES_MAP).
+        "temperature": CT_SAIL_TEMP_MAP if model == "ct_sail" else GPCTD_TEMP_MAP,
         "conductivity": SBE_COND_MAP,
     }
     if model == "gpctd":
         channels["pressure"] = GPCTD_PRES_MAP
+    elif model == "webb_glider_ctd":
+        channels["pressure"] = WEBB_GLIDER_PRES_MAP
     return channels
 
 
