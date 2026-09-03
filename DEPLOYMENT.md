@@ -165,6 +165,9 @@ docker compose down                 # stop everything (data survives — it's in
 git pull && docker compose up -d --build   # deploy a new version
 ```
 
+If the new version needs a **schema migration**, run it *before*
+`docker compose up` — see "Running schema migrations" below.
+
 Containers restart automatically on VM reboot (`restart: unless-stopped`),
 as long as Docker itself starts on boot, which it does by default after
 the install in step 1.
@@ -211,3 +214,38 @@ Postico, etc.) — same tunnel, two ways to use it:
   `~/.ssh/id_rsa`, remote port `5432` — then the database host/port
   fields in the client itself just point at whatever local port the
   client's tunnel picks (often shown in its connection UI).
+
+## Running schema migrations against production
+
+The schema lives in the separate `OGDB` repo (`~/projects/OGDB`,
+Alembic). The VM has **no Python migration tooling** — the initial
+production schema came over in the data dump (step 3), not from running
+Alembic there, and it's not worth maintaining an out-of-container Python
+env on the VM for an occasional task. Run migrations from your laptop
+through the same SSH tunnel used for `psql` above.
+
+1. Merge + push the migration(s) in `~/projects/OGDB`.
+2. Open the tunnel (leave running in its own terminal):
+   ```bash
+   ssh -N -L 5555:localhost:5432 nrec_app
+   ```
+3. From `~/projects/OGDB` (needs `pip install -r requirements-dev.txt` —
+   Alembic + SQLAlchemy 1.4):
+   ```bash
+   PW=$(ssh nrec_app "grep -E '^POSTGRES_PASSWORD=' ~/OGDB-portal/.env | cut -d= -f2-")
+   DATABASE_URL="postgresql://ogdb:${PW}@localhost:5555/ogdb" alembic current   # sanity check
+   DATABASE_URL="postgresql://ogdb:${PW}@localhost:5555/ogdb" alembic upgrade head
+   ```
+   `env.py` reads `DATABASE_URL` when set, overriding `alembic.ini`'s dev
+   default.
+4. *Then* deploy the app (`git pull && docker compose up -d --build`).
+
+Migrations that only add columns/views/lookup rows are
+backward-compatible — safe to run ahead of the code that uses them. One
+that drops or renames something the running code still references is
+not; deploy those in lock-step or with a compatibility window.
+
+If the tunnel/tooling isn't available in a pinch, the DDL can be applied
+by hand via `docker compose exec -T postgres psql` on the VM, finishing
+with `UPDATE alembic_version SET version_num = '<new head>';` so Alembic
+stays in sync. This is a fallback, not the norm.

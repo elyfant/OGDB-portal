@@ -350,6 +350,31 @@ WHERE a.decommissioned_date IS NULL
   AND cas_name.name IS DISTINCT FROM d.status;
 ```
 
+### The script
+
+Runnable version lives at `OGDB/scripts/backfill_derived_glider_status.sql`
+(gitignored — the repo ignores `*.sql`; `git add -f` it if you want it
+tracked). Fill in `actor_email` and the three incident dates at the top,
+then:
+
+```bash
+cd ~/OGDB-portal && docker compose exec -T postgres psql -U ogdb -d ogdb \
+  < backfill_derived_glider_status.sql
+```
+
+A guard aborts before the transaction if the placeholders aren't filled
+in. The `missing` / `destroyed` INSERTs are skipped for a glider that
+already has that event type, so a partial re-run is safe. Verified end to
+end against ogdb-test (2026-09-03): SG561/URD → `destroyed` +
+`decommissioned_date` moved to the incident date; SG562 → open `missing`
+event, retirement date left as-is, reason `lost at sea`; GNÅ → reason
+only. `freyja`, `odin`, `sg559`, `skuld`, `snotra` stay `Lab` + Retired
+with no reason until someone fills in the optional block.
+
+As of 2026-09-03 the audit query returns nothing on prod beyond the
+expected `durin` (lab → deployed, a real open mission) — no stragglers to
+fix.
+
 ---
 
 ## 8. Order of work
