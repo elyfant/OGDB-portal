@@ -25,6 +25,7 @@ import {
 	FLAT_MODEL_TABLES,
 	VALID_PARENT_TYPES,
 } from "../common/asset-tables";
+import { originalNameFromReference } from "../documents/documents.service";
 
 // Mirrors missions.service.ts's DAYS_EXPR/getSummary exactly, scoped to
 // one glider instead of the whole fleet — kept as a separate query
@@ -362,15 +363,15 @@ async function fetchComponentDetails(
 				// alongside as its own field instead.
 				const documentJoin = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
 					? `LEFT JOIN LATERAL (
-							SELECT id FROM documents
+							SELECT id, file_reference FROM documents
 							WHERE service_event_id = c.service_event_id
 							AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
 							ORDER BY created_at DESC LIMIT 1
 						 ) doc ON true`
 					: "";
 				const documentSelect = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
-					? `, doc.id AS "documentId"`
-					: `, NULL::int AS "documentId"`;
+					? `, doc.id AS "documentId", doc.file_reference AS "documentFileReference"`
+					: `, NULL::int AS "documentId", NULL AS "documentFileReference"`;
 				const result = await pool.query(
 					`SELECT c.*${documentSelect}
              FROM ${table} c
@@ -386,10 +387,18 @@ async function fetchComponentDetails(
 						changed_by,
 						created_at,
 						documentId,
+						documentFileReference,
 						[dateColumn]: date,
 						...coefficients
 					} = row;
-					return { date, coefficients, documentId: documentId ?? null };
+					return {
+						date,
+						coefficients,
+						documentId: documentId ?? null,
+						documentName: documentFileReference
+							? originalNameFromReference(documentFileReference)
+							: null,
+					};
 				});
 			}
 

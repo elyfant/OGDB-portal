@@ -628,6 +628,9 @@ export interface SensorCalRecord {
 	// see CAL_TABLES_WITH_SERVICE_EVENT) -- null means no certificate
 	// uploaded, not that certificates aren't supported.
 	documentId?: number | null;
+	// Original filename for documentId, same "what the link's text
+	// shows" role as ServicingEvent.documentName.
+	documentName?: string | null;
 }
 
 // A P01 term an asset_sensor_parameters row points at -- "readable
@@ -776,6 +779,12 @@ export interface ServicingEvent {
 	performedByContactId: number | null;
 	performedByName: string | null;
 	documentId: number | null;
+	// Original filename (not the on-disk UUID-prefixed reference, see
+	// documents.service.ts's originalNameFromReference) -- what the
+	// timeline/servicing tables link with, so the link reads as
+	// "cert_2026.pdf" instead of a generic "PDF"/"Attached document".
+	// Null exactly when documentId is.
+	documentName: string | null;
 }
 
 // Everything the Add/Edit Servicing Event dialog submits. endDate absent

@@ -96,7 +96,7 @@ export default function ServicingHistoryTable({
 											}}
 										>
 											<OpenInNewIcon sx={{ fontSize: 14 }} />
-											PDF
+											{e.documentName ?? "Document"}
 										</MuiLink>
 									) : (
 										"—"

@@ -39,6 +39,11 @@ export interface TimelineEvent {
 	// -- open with GET /documents/:id/file (already serves inline, not
 	// as a download; see DocumentsController).
 	documentId?: number | null;
+	// Original filename for documentId -- what the accordion tables link
+	// with, so it reads as the actual file name rather than a generic
+	// "PDF"/"Attached document" label. Undefined/null exactly when
+	// documentId is.
+	documentName?: string | null;
 	// Long free text (servicing details, a calibration's notes) -- shown
 	// only when a card is expanded, unlike `detail` above which is the
 	// always-visible one-line subtitle.
@@ -129,6 +134,7 @@ export function servicingEventToTimelineEvent(
 		endDate: e.endDate,
 		instant: false,
 		documentId: e.documentId,
+		documentName: e.documentName,
 		notes: e.details,
 	};
 }

@@ -8,7 +8,10 @@ import {
 import type { ServicingEvent, ServicingEventTypeOption } from "@ogdb/types";
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../db/db.constants";
-import { DocumentsService } from "../documents/documents.service";
+import {
+	DocumentsService,
+	originalNameFromReference,
+} from "../documents/documents.service";
 import type { RecordServicingEventDto } from "./dto/record-servicing-event.dto";
 
 // The subset of asset_service_event_types this feature owns. Calibration
@@ -46,12 +49,13 @@ const SELECT_SERVICING_EVENT = `
     se.description AS details,
     se.performed_by_contact_id AS "performedByContactId",
     TRIM(c.first_name || ' ' || c.last_name) AS "performedByName",
-    doc.id AS "documentId"
+    doc.id AS "documentId",
+    doc.file_reference AS "documentFileReference"
   FROM asset_service_events se
   JOIN asset_service_event_types t ON t.id = se.event_type_id
   LEFT JOIN contacts c ON c.id = se.performed_by_contact_id
   LEFT JOIN LATERAL (
-    SELECT id FROM documents
+    SELECT id, file_reference FROM documents
     WHERE service_event_id = se.id
     ORDER BY created_at DESC LIMIT 1
   ) doc ON true
@@ -88,7 +92,12 @@ export class ServicingService {
        ORDER BY se.start_date DESC`,
 			[assetId, SERVICING_EVENT_TYPES],
 		);
-		return result.rows;
+		return result.rows.map(({ documentFileReference, ...row }) => ({
+			...row,
+			documentName: documentFileReference
+				? originalNameFromReference(documentFileReference)
+				: null,
+		}));
 	}
 
 	// The one-open-event-per-asset rule: a row with start_date set and

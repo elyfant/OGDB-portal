@@ -12,13 +12,16 @@ import {
 	KIND_META,
 	type TimelineEvent,
 	deploymentToTimelineEvent,
+	servicingEventToTimelineEvent,
 } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import MuiLink from "@mui/material/Link";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -70,6 +73,7 @@ function buildTimelineEvents(
 				detail: component?.serialNumber ? `SN ${component.serialNumber}` : "",
 				notes: typeof note === "string" ? note : undefined,
 				documentId: cal.documentId,
+				documentName: cal.documentName,
 				startDate: cal.date,
 				endDate: null,
 				instant: true,
@@ -78,15 +82,7 @@ function buildTimelineEvents(
 	}
 
 	for (const e of servicingEvents) {
-		events.push({
-			id: `servicing-${e.id}`,
-			kind: e.eventType,
-			label: e.title ?? KIND_META[e.eventType].label,
-			detail: e.performedByName ?? "",
-			startDate: e.startDate,
-			endDate: e.endDate,
-			instant: false,
-		});
+		events.push(servicingEventToTimelineEvent(e));
 	}
 
 	return events;
@@ -183,6 +179,7 @@ export default function GliderTimelineTab({
 										<TableCell>Type</TableCell>
 										<TableCell>Description</TableCell>
 										<TableCell>Date</TableCell>
+										<TableCell>Document</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -220,6 +217,26 @@ export default function GliderTimelineTab({
 														: `${formatDate(e.startDate)} – ${
 																e.endDate ? formatDate(e.endDate) : "ongoing"
 															}`}
+												</TableCell>
+												<TableCell>
+													{e.documentId ? (
+														<MuiLink
+															href={`/api/documents/${e.documentId}/file`}
+															target="_blank"
+															rel="noreferrer"
+															sx={{
+																display: "inline-flex",
+																alignItems: "center",
+																gap: 0.5,
+																fontSize: 12.5,
+															}}
+														>
+															<OpenInNewIcon sx={{ fontSize: 14 }} />
+															{e.documentName ?? "Document"}
+														</MuiLink>
+													) : (
+														"—"
+													)}
 												</TableCell>
 											</TableRow>
 										);
