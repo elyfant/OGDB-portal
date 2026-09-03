@@ -126,6 +126,9 @@ export default async function GliderDetailPage({
 								size="small"
 							/>
 						)}
+						{glider.decommissionedDate && (
+							<Chip label="Retired" size="small" variant="outlined" />
+						)}
 					</Box>
 					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
 						Serial {glider.serialNumber ?? "—"} · WMO {glider.wmo ?? "—"} ·{" "}
@@ -240,8 +243,10 @@ export default async function GliderDetailPage({
 						<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 							<GliderStatusBox
 								status={glider.status}
-								statusEffectiveDate={glider.statusEffectiveDate}
-								statusHistory={build.statusHistory}
+								statusSince={glider.statusSince}
+								statusSource={glider.statusSource}
+								decommissionedDate={glider.decommissionedDate}
+								decommissionReason={glider.decommissionReason}
 							/>
 						</Paper>
 
@@ -279,6 +284,10 @@ export default async function GliderDetailPage({
 						eventTypes={eventTypes}
 						contacts={contacts}
 						canEdit={canEdit}
+						lifecycle={{
+							decommissionedDate: glider.decommissionedDate,
+							name: glider.name,
+						}}
 					/>
 				}
 			/>

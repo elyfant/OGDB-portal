@@ -14,9 +14,24 @@ import type { RecordServicingEventDto } from "./dto/record-servicing-event.dto";
 // The subset of asset_service_event_types this feature owns. Calibration
 // already has its own dedicated flow (AssetsService.recordCalibration)
 // and the rest (pressure_test, inspection, refurb, deployment_config)
-// aren't exposed here yet -- deliberately narrow rather than "every
-// type this table happens to allow".
-const SERVICING_EVENT_TYPES = ["servicing", "factory_repair", "transit"] as const;
+// aren't exposed here -- deliberately narrow rather than "every type this
+// table happens to allow". `missing`/`destroyed` are state-change events
+// more than servicing; `destroyed` is terminal (see recordEvent).
+const SERVICING_EVENT_TYPES = [
+	"servicing",
+	"factory_repair",
+	"transit",
+	"on_loan",
+	"field_test",
+	"missing",
+	"destroyed",
+] as const;
+
+// Logging one of these retires the asset from the fleet -- the derived
+// status view treats a `destroyed` event as terminal, and the asset's
+// decommissioned_date is stamped here so the "Retired" tag shows without
+// a second step.
+const TERMINAL_EVENT_TYPES = new Set<string>(["destroyed"]);
 
 const SERVICING_ATTACHMENT_DOCUMENT_TYPE = "servicing_attachment";
 
@@ -108,7 +123,9 @@ export class ServicingService {
 			[eventType, SERVICING_EVENT_TYPES],
 		);
 		if (result.rows.length === 0) {
-			throw new BadRequestException(`Unknown servicing event type: ${eventType}`);
+			throw new BadRequestException(
+				`Unknown servicing event type: ${eventType}`,
+			);
 		}
 		return result.rows[0].id;
 	}
@@ -147,11 +164,37 @@ export class ServicingService {
 		}
 
 		const eventTypeId = await this.resolveEventTypeId(dto.eventType);
-		await this.assertNoOpenEvent(assetId);
+		const terminal = TERMINAL_EVENT_TYPES.has(dto.eventType);
+		// A terminal event (destroyed) is allowed even while another event
+		// is open -- it closes that one below. Everything else obeys the
+		// one-open-event-per-asset rule.
+		if (!terminal) {
+			await this.assertNoOpenEvent(assetId);
+		}
 
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
+
+			if (terminal) {
+				// Close any still-open event as of the terminal date, then
+				// retire the asset. Destruction is the strongest retirement
+				// claim, so it sets the date/reason even if the asset was
+				// already flagged retired (e.g. a rough earlier import) --
+				// return-to-service + re-log undoes a mistake.
+				await client.query(
+					`UPDATE asset_service_events SET end_date = $2, changed_by = $3
+           WHERE asset_id = $1 AND end_date IS NULL`,
+					[assetId, dto.startDate, userId],
+				);
+				await client.query(
+					`UPDATE assets
+             SET decommissioned_date = $2, decommission_reason = $3,
+                 updated_at = now(), changed_by = $4
+           WHERE id = $1`,
+					[assetId, dto.startDate, dto.eventType, userId],
+				);
+			}
 
 			const insert = await client.query(
 				`INSERT INTO asset_service_events

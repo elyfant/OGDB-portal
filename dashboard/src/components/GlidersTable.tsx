@@ -1,16 +1,16 @@
 "use client";
 
-import StatusEditor from "@/components/StatusEditor";
 import { formatDate } from "@/lib/format";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Tooltip from "@mui/material/Tooltip";
-import type { AssetStatusOption, Glider } from "@ogdb/types";
+import type { AssetStatus, Glider } from "@ogdb/types";
 import { useMemo, useState } from "react";
 import { type ColumnDef, TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
-import { STATUS_LABEL } from "../lib/status-meta";
+import { STATUS_COLOR, STATUS_LABEL } from "../lib/status-meta";
 import {
 	type FilterDef,
 	type FilterState,
@@ -20,14 +20,19 @@ import {
 import DataTable from "./DataTable";
 import FilterBar from "./FilterBar";
 
+function statusTooltip(g: Glider): string {
+	if (!g.statusSince) return "";
+	const since = `since ${formatDate(g.statusSince)}`;
+	if (g.statusSource === "mission") return `Deployed ${since} · from a mission`;
+	if (g.statusSource === "service_event")
+		return `${since} · from a logged event`;
+	return since;
+}
+
 export default function GlidersTable({
 	gliders,
-	statusOptions,
-	canEdit,
 }: {
 	gliders: Glider[];
-	statusOptions: AssetStatusOption[];
-	canEdit: boolean;
 }) {
 	const [showDecommissioned, setShowDecommissioned] = useState(false);
 	const [filterState, setFilterState] = useState<FilterState>({});
@@ -87,15 +92,27 @@ export default function GlidersTable({
 				label: "Status",
 				kind: "string",
 				defaultVisible: true,
-				capitalize: true,
 				renderCell: (g) => (
-					<StatusEditor
-						kind="gliders"
-						id={g.id}
-						statusId={g.statusId}
-						options={statusOptions}
-						disabled={!canEdit}
-					/>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+						{g.status && (
+							<Tooltip title={statusTooltip(g)}>
+								<Chip
+									label={STATUS_LABEL[g.status]}
+									color={STATUS_COLOR[g.status]}
+									size="small"
+								/>
+							</Tooltip>
+						)}
+						{g.decommissionedDate && (
+							<Tooltip
+								title={`Retired ${formatDate(g.decommissionedDate)}${
+									g.decommissionReason ? ` · ${g.decommissionReason}` : ""
+								}`}
+							>
+								<Chip label="Retired" size="small" variant="outlined" />
+							</Tooltip>
+						)}
+					</Box>
 				),
 			},
 			{
@@ -106,7 +123,7 @@ export default function GlidersTable({
 				align: "right",
 			},
 		],
-		[statusOptions, canEdit],
+		[],
 	);
 
 	const platformFilter: FilterDef<Glider> = useMemo(
@@ -129,18 +146,22 @@ export default function GlidersTable({
 		[],
 	);
 
-	const statusFilter: FilterDef<Glider> = useMemo(
-		() => ({
+	const statusFilter: FilterDef<Glider> = useMemo(() => {
+		const present = Array.from(
+			new Set(
+				gliders.map((g) => g.status).filter((s): s is AssetStatus => !!s),
+			),
+		);
+		return {
 			key: "status",
 			label: "Status",
 			type: "multiSelect",
-			getValue: (g) => g.statusId,
-			options: [...statusOptions]
-				.sort((a, b) => a.name.localeCompare(b.name))
-				.map((o) => ({ value: String(o.id), label: STATUS_LABEL[o.name] })),
-		}),
-		[statusOptions],
-	);
+			getValue: (g) => g.status,
+			options: present
+				.sort((a, b) => STATUS_LABEL[a].localeCompare(STATUS_LABEL[b]))
+				.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+		};
+	}, [gliders]);
 
 	const filters = useMemo(
 		() => [platformFilter, manufacturerFilter, statusFilter],
@@ -149,7 +170,7 @@ export default function GlidersTable({
 
 	const visibleGliders = showDecommissioned
 		? gliders
-		: gliders.filter((g) => g.status !== "decommissioned");
+		: gliders.filter((g) => g.decommissionedDate == null);
 
 	const filteredRows = useMemo(
 		() => applyFilters(visibleGliders, filters, filterState),
@@ -198,7 +219,7 @@ export default function GlidersTable({
 								onChange={(e) => setShowDecommissioned(e.target.checked)}
 							/>
 						}
-						label="Show decommissioned"
+						label="Show retired"
 					/>
 				</Box>
 			}

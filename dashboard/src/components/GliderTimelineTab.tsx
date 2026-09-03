@@ -102,6 +102,7 @@ export default function GliderTimelineTab({
 	eventTypes,
 	contacts,
 	canEdit,
+	lifecycle,
 }: {
 	assetId: number;
 	deployments: GliderDeployment[];
@@ -112,6 +113,10 @@ export default function GliderTimelineTab({
 	eventTypes: ServicingEventTypeOption[];
 	contacts: LookupOption[];
 	canEdit: boolean;
+	// Present only for gliders -- enables the "Decommission / Return to
+	// service" path in the Add event dialog. Other assets keep the manual
+	// status flow and don't pass this.
+	lifecycle: { decommissionedDate: string | null; name: string };
 }) {
 	const allEvents = useMemo(
 		() =>
@@ -145,6 +150,7 @@ export default function GliderTimelineTab({
 				eventTypes={eventTypes}
 				contacts={contacts}
 				canEdit={canEdit}
+				lifecycle={lifecycle}
 			/>
 
 			<AssetTimelineSection events={allEvents} />

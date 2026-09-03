@@ -17,7 +17,10 @@ export default function StatusEditor({
 	options,
 	disabled = false,
 }: {
-	kind: "gliders" | "assets";
+	// Gliders' status is derived, not editable -- see
+	// docs/design/derived-glider-status.md. This control is for other
+	// asset types only.
+	kind: "assets";
 	id: number;
 	statusId: number | null;
 	options: AssetStatusOption[];

@@ -13,6 +13,7 @@ import type {
 	CreatedMission,
 	Cruise,
 	DatasetProcessingDetail,
+	DecommissionInput,
 	Glider,
 	GliderBuild,
 	Mission,
@@ -413,8 +414,10 @@ export async function saveMissionFiles(
 	return res.json();
 }
 
+// Assets only -- a glider's operational status is derived from its
+// timeline, not set (see docs/design/derived-glider-status.md).
 export async function setStatus(
-	kind: "gliders" | "assets",
+	kind: "assets",
 	id: number,
 	statusId: number,
 ): Promise<void> {
@@ -425,5 +428,25 @@ export async function setStatus(
 	});
 	if (!res.ok) {
 		throw new Error(`Failed to update status: ${res.status}`);
+	}
+}
+
+// Fleet lifecycle. `decommissionedDate: null` returns the asset to
+// service. Routed through the assets endpoint (the column is on
+// `assets`); gliders are the only asset type that surfaces it today.
+export async function decommissionAsset(
+	assetId: number,
+	input: DecommissionInput,
+): Promise<void> {
+	const res = await fetch(`/api/assets/${assetId}/decommission`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to update decommission status: ${res.status}`,
+		);
 	}
 }

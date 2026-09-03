@@ -25,6 +25,7 @@ import { CertificateParserService } from "./certificate-parser.service";
 import { CreateAssetDto } from "./dto/create-asset.dto";
 import { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import { SetAssetStatusDto } from "./dto/set-asset-status.dto";
+import { SetDecommissionDto } from "./dto/set-decommission.dto";
 import { UpdateAssetDto } from "./dto/update-asset.dto";
 
 // Calibration certificates only -- one PDF per calibration entry (any
@@ -132,6 +133,16 @@ export class AssetsController {
 		@CurrentUser() user: JwtPayload,
 	) {
 		return this.assets.setStatus(id, dto, user.sub);
+	}
+
+	@Roles("editor", "admin")
+	@Patch(":id/decommission")
+	setDecommission(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: SetDecommissionDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.assets.setDecommission(id, dto, user.sub);
 	}
 
 	@Get(":id/calibrations")

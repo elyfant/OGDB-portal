@@ -23,6 +23,7 @@ import { DocumentsService } from "../documents/documents.service";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
+import type { SetDecommissionDto } from "./dto/set-decommission.dto";
 import type { UpdateAssetDto } from "./dto/update-asset.dto";
 
 // The one calibration-related asset_service_event_types row -- used to
@@ -274,6 +275,27 @@ export class AssetsService {
 			}
 			throw err instanceof Error ? err : new Error(String(err));
 		}
+		return this.findOne(id);
+	}
+
+	// Fleet lifecycle, separate from operational status (which for gliders
+	// is derived, not set). A date retires the asset; null returns it to
+	// service. Applies to any asset; only gliders surface it in the UI
+	// today. See docs/design/derived-glider-status.md.
+	async setDecommission(
+		id: number,
+		dto: SetDecommissionDto,
+		userId: number,
+	): Promise<Asset> {
+		await this.findOne(id);
+		const date = dto.decommissionedDate ?? null;
+		await this.pool.query(
+			`UPDATE assets
+         SET decommissioned_date = $2, decommission_reason = $3,
+             updated_at = now(), changed_by = $4
+       WHERE id = $1`,
+			[id, date, date ? (dto.reason ?? null) : null, userId],
+		);
 		return this.findOne(id);
 	}
 

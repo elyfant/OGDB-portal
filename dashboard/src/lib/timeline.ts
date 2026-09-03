@@ -16,7 +16,11 @@ export type TimelineEventKind =
 	| "calibration"
 	| "servicing"
 	| "factory_repair"
-	| "transit";
+	| "transit"
+	| "on_loan"
+	| "field_test"
+	| "missing"
+	| "destroyed";
 
 export interface TimelineEvent {
 	id: string;
@@ -81,6 +85,30 @@ export const KIND_META: Record<
 		label: "Transit",
 		color: "#607d8b",
 		fill: "rgba(96,125,139,0.12)",
+		cardStyle: "marker",
+	},
+	on_loan: {
+		label: "On loan",
+		color: "#6a1b9a",
+		fill: "rgba(106,27,154,0.12)",
+		cardStyle: "marker",
+	},
+	field_test: {
+		label: "Field test",
+		color: "#00838f",
+		fill: "rgba(0,131,143,0.12)",
+		cardStyle: "marker",
+	},
+	missing: {
+		label: "Missing",
+		color: "#ff8f00",
+		fill: "rgba(255,143,0,0.14)",
+		cardStyle: "marker",
+	},
+	destroyed: {
+		label: "Destroyed",
+		color: "#37474f",
+		fill: "rgba(55,71,79,0.16)",
 		cardStyle: "marker",
 	},
 };

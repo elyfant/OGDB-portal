@@ -5,7 +5,12 @@ export type AssetStatus =
 	| "transit"
 	| "deployed"
 	| "on_loan"
+	| "field_test"
 	| "missing"
+	| "destroyed"
+	// Non-glider assets still set this manually via asset_status_history.
+	// For gliders it is a derived value and never "decommissioned" -- fleet
+	// retirement moved to Glider.decommissionedDate (see below).
 	| "decommissioned";
 
 export interface AssetStatusOption {
@@ -62,9 +67,23 @@ export interface Glider {
 	platformManufacturerUri: string | null;
 	purchaseDate: string | null;
 	purchaseValueUsd: number | null;
+	// `status` is derived from the glider's timeline (open mission / open
+	// service event / a `destroyed` marker), not a hand-set value -- see
+	// docs/design/derived-glider-status.md. `statusId` is that name
+	// resolved back to an asset_status_options id, kept only for callers
+	// that still key off it. `statusSource` says which fact drove it.
 	statusId: number | null;
 	status: AssetStatus | null;
+	statusSource: "mission" | "service_event" | "default" | null;
+	// When the current status started -- the driving event's start date
+	// (`statusEffectiveDate` is the same value, kept for now under its old
+	// name; prefer `statusSince`).
+	statusSince: string | null;
 	statusEffectiveDate: string | null;
+	// Fleet lifecycle, independent of `status`. NULL = active fleet. A
+	// retired glider still has a real operational status.
+	decommissionedDate: string | null;
+	decommissionReason: string | null;
 	// Raw FK ids alongside the resolved display strings above (platform,
 	// owner) — needed to pre-select the right dropdown option when
 	// editing, the same reason Mission exposes both siteId and site.
@@ -711,15 +730,34 @@ export interface CalibrationCatalogueTypeGroup {
 	models: CalibrationCatalogueModelGroup[];
 }
 
-// The controlled list for RecordServicingEventDto.eventType --
-// deliberately a subset of asset_service_event_types: calibration has
-// its own dedicated flow (CalibrationCatalogueRow above), and the rest
-// (pressure_test, inspection, refurb, deployment_config) aren't
-// exposed through this feature.
+// The asset_service_event_types this feature exposes -- deliberately a
+// subset: calibration has its own dedicated flow (CalibrationCatalogueRow
+// above), and pressure_test / inspection / refurb / deployment_config
+// aren't surfaced here. `missing` and `destroyed` are state-change events
+// more than "servicing" (the table is really an asset activity/state
+// timeline); `destroyed` is terminal and also stamps
+// Glider.decommissionedDate -- see docs/design/derived-glider-status.md.
+export type ServicingEventType =
+	| "servicing"
+	| "factory_repair"
+	| "transit"
+	| "on_loan"
+	| "field_test"
+	| "missing"
+	| "destroyed";
+
 export interface ServicingEventTypeOption {
 	id: number;
-	name: "servicing" | "factory_repair" | "transit";
+	name: ServicingEventType;
 	description: string | null;
+}
+
+// What PATCH /assets/:id/decommission takes. `decommissionedDate: null`
+// clears it (return to service). Applies to any asset; only gliders
+// surface it in the UI today.
+export interface DecommissionInput {
+	decommissionedDate: string | null;
+	reason?: string | null;
 }
 
 // One servicing event for one asset -- factory servicing, transit, or
@@ -730,7 +768,7 @@ export interface ServicingEventTypeOption {
 export interface ServicingEvent {
 	id: number;
 	assetId: number;
-	eventType: "servicing" | "factory_repair" | "transit";
+	eventType: ServicingEventType;
 	title: string | null;
 	startDate: string;
 	endDate: string | null;
@@ -744,7 +782,7 @@ export interface ServicingEvent {
 // means "still open" -- ServicingService rejects a new event for an
 // asset that already has one open.
 export interface RecordServicingEventInput {
-	eventType: "servicing" | "factory_repair" | "transit";
+	eventType: ServicingEventType;
 	title: string;
 	startDate: string;
 	endDate?: string;

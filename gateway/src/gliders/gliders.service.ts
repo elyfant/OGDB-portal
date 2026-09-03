@@ -11,7 +11,6 @@ import { PG_POOL } from "../db/db.constants";
 import { applyBuildChangesTx, getGliderBuild } from "./build.helpers";
 import type { ApplyBuildChangesDto } from "./dto/apply-build-changes.dto";
 import type { CreateGliderDto } from "./dto/create-glider.dto";
-import type { SetGliderStatusDto } from "./dto/set-glider-status.dto";
 import type { UpdateGliderDto } from "./dto/update-glider.dto";
 
 const GLIDER_ASSET_TYPE_ID = 1;
@@ -37,9 +36,23 @@ const SELECT_FLEET = `
     pmfr."NVS_L35_url" AS "platformManufacturerUri",
     a.purchase_date AS "purchaseDate",
     a.purchase_value_usd::float8 AS "purchaseValueUsd",
+    -- Operational status is derived from the glider's own timeline
+    -- (open mission / open service event / destroyed marker), not a
+    -- hand-set asset_status_history row -- see
+    -- OGDB/alembic/.../xxxx_derived_asset_status_view and
+    -- docs/design/derived-glider-status.md. das always has a row per
+    -- glider (defaults to 'lab'); aso resolves the name back to an id
+    -- for the few callers that still key off it.
     aso.id AS "statusId",
-    aso.name AS status,
-    cas.effective_date AS "statusEffectiveDate",
+    das.status AS status,
+    das.status_since AS "statusEffectiveDate",
+    das.status_since AS "statusSince",
+    das.status_source AS "statusSource",
+    -- Fleet lifecycle -- a separate axis from operational status. NULL =
+    -- active fleet. A retired glider still has a real operational status
+    -- (GNÅ is Lab + retired, SG562 is Missing + retired).
+    a.decommissioned_date AS "decommissionedDate",
+    a.decommission_reason AS "decommissionReason",
     agd.platform_id AS "platformId",
     a.institute_id AS "instituteId"
   FROM assets a
@@ -50,8 +63,8 @@ const SELECT_FLEET = `
   LEFT JOIN institutes i ON i.id = a.institute_id
   LEFT JOIN manufacturers_with_nvs m ON m.id = a.manufacturer_id
   LEFT JOIN manufacturers_with_nvs pmfr ON pmfr.id = p.manufacturer_id
-  LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
-  LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
+  LEFT JOIN derived_asset_status das ON das.asset_id = a.id
+  LEFT JOIN asset_status_options aso ON aso.name = das.status
   WHERE a.asset_type_id = $1
 `;
 
@@ -178,28 +191,6 @@ export class GlidersService {
 		} finally {
 			client.release();
 		}
-	}
-
-	async setStatus(
-		id: number,
-		dto: SetGliderStatusDto,
-		userId: number,
-	): Promise<Glider> {
-		await this.findOne(id);
-		try {
-			await this.pool.query(
-				"INSERT INTO asset_status_history (asset_id, status_id, notes, changed_by) VALUES ($1, $2, $3, $4)",
-				[id, dto.statusId, dto.notes ?? null, userId],
-			);
-		} catch (err) {
-			if (isFkViolation(err)) {
-				throw new ConflictException(
-					`Status option ${dto.statusId} does not exist.`,
-				);
-			}
-			throw mapDbError(err);
-		}
-		return this.findOne(id);
 	}
 
 	// Applies a batch of build changes as one transaction -- a "replace" is

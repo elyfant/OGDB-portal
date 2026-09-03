@@ -14,7 +14,7 @@ export async function PATCH(
 
 	const { id } = await params;
 	const body = await request.text();
-	const res = await fetch(`${API_URL}/gliders/${id}/status`, {
+	const res = await fetch(`${API_URL}/assets/${id}/decommission`, {
 		method: "PATCH",
 		headers: {
 			"Content-Type": "application/json",

@@ -10,7 +10,9 @@ export const STATUS_COLOR: Record<
 	transit: "info",
 	deployed: "success",
 	on_loan: "info",
+	field_test: "info",
 	missing: "error",
+	destroyed: "error",
 	decommissioned: "default",
 };
 
@@ -21,6 +23,8 @@ export const STATUS_LABEL: Record<AssetStatus, string> = {
 	transit: "Transit",
 	deployed: "Deployed",
 	on_loan: "On loan",
+	field_test: "Field test",
 	missing: "Missing",
+	destroyed: "Destroyed",
 	decommissioned: "Decommissioned",
 };

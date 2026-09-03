@@ -16,6 +16,10 @@ const CHIP_KINDS: TimelineEventKind[] = [
 	"factory_repair",
 	"servicing",
 	"transit",
+	"on_loan",
+	"field_test",
+	"missing",
+	"destroyed",
 ];
 
 // The filter chips + the chart, as one reusable unit -- shared by the

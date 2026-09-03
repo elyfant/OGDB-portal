@@ -13,7 +13,15 @@ import {
 // arrive as form-field strings rather than JSON types -- the
 // transforms below turn "" into undefined so an unfilled optional
 // field doesn't fail IsDateString/IsInt.
-const SERVICING_EVENT_TYPES = ["servicing", "factory_repair", "transit"] as const;
+const SERVICING_EVENT_TYPES = [
+	"servicing",
+	"factory_repair",
+	"transit",
+	"on_loan",
+	"field_test",
+	"missing",
+	"destroyed",
+] as const;
 
 export class RecordServicingEventDto {
 	@IsIn(SERVICING_EVENT_TYPES)
