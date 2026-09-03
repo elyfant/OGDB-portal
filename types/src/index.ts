@@ -709,11 +709,15 @@ export interface CalibrationCatalogueRow {
 	// was never recorded.
 	notes: string | null;
 	coefficients: Record<string, number | string | null>;
-	// Only ever set for ct_sensor rows (the only cal table with a
-	// service_event_id link to hang a certificate off today) -- null
-	// means no certificate uploaded, not that certificates aren't
-	// supported for this row.
+	// Only set for asset types whose cal table has a service_event_id
+	// link to hang a certificate off (see CAL_TABLES_WITH_SERVICE_EVENT)
+	// -- null means no certificate uploaded, not that certificates
+	// aren't supported for this row.
 	certificateDocumentId: number | null;
+	// Original filename for certificateDocumentId, same role as
+	// ServicingEvent.documentName -- what the catalogue/accordion link
+	// text shows instead of a generic "PDF".
+	certificateDocumentName: string | null;
 }
 
 export interface CalibrationCatalogueModelGroup {

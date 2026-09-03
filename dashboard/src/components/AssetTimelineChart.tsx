@@ -108,10 +108,12 @@ function layout(events: TimelineEvent[], expandedIds: Set<string>) {
 // an "attached document" as a servicing-event PDF).
 function CardExtras({
 	documentId,
+	documentName,
 	notes,
 	expanded,
 }: {
 	documentId: number | null | undefined;
+	documentName: string | null | undefined;
 	notes: string | null | undefined;
 	expanded: boolean;
 }) {
@@ -134,7 +136,7 @@ function CardExtras({
 					}}
 				>
 					<OpenInNewIcon sx={{ fontSize: 14 }} />
-					Attached document
+					{documentName ?? "Attached document"}
 				</MuiLink>
 			)}
 			{hasNotes && (
@@ -325,6 +327,7 @@ export default function AssetTimelineChart({
 									)}
 									<CardExtras
 										documentId={event.documentId}
+										documentName={event.documentName}
 										notes={event.notes}
 										expanded={expanded}
 									/>
@@ -377,6 +380,7 @@ export default function AssetTimelineChart({
 							)}
 							<CardExtras
 								documentId={event.documentId}
+								documentName={event.documentName}
 								notes={event.notes}
 								expanded={expanded}
 							/>

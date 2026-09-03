@@ -45,6 +45,7 @@ function calibrationToTimelineEvent(row: {
 	facility: string | null;
 	notes: string | null;
 	certificateDocumentId: number | null;
+	certificateDocumentName: string | null;
 	calDate: string;
 }): TimelineEvent {
 	return {
@@ -54,6 +55,7 @@ function calibrationToTimelineEvent(row: {
 		detail: row.facility ?? "",
 		notes: row.notes,
 		documentId: row.certificateDocumentId,
+		documentName: row.certificateDocumentName,
 		startDate: row.calDate,
 		endDate: null,
 		instant: true,

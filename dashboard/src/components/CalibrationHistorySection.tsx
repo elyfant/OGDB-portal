@@ -94,7 +94,7 @@ export default function CalibrationHistorySection({
 													}}
 												>
 													<OpenInNewIcon sx={{ fontSize: 14 }} />
-													PDF
+													{row.certificateDocumentName ?? "Document"}
 												</MuiLink>
 											) : (
 												"—"

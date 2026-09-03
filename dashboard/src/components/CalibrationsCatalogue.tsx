@@ -228,7 +228,7 @@ function ModelCalibrationTable({
 												}}
 											>
 												<OpenInNewIcon sx={{ fontSize: 15 }} />
-												PDF
+												{row.certificateDocumentName ?? "Document"}
 											</MuiLink>
 										) : (
 											<Tooltip title="Not connected yet">

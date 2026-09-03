@@ -5,8 +5,12 @@ import type {
 	CalibrationCatalogueTypeGroup,
 } from "@ogdb/types";
 import type { Pool } from "pg";
-import { CAL_TABLES, CAL_TABLES_WITH_SERVICE_EVENT } from "../common/asset-tables";
+import {
+	CAL_TABLES,
+	CAL_TABLES_WITH_SERVICE_EVENT,
+} from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
+import { originalNameFromReference } from "../documents/documents.service";
 
 // The "sensor" asset_type_group, in catalogue display order. Not every
 // CAL_TABLES entry belongs here -- slocum_forward_section has a cal
@@ -48,19 +52,17 @@ export class CalibrationsService {
 			// "/Data/gfi/projects/.../CERT.pdf"), which was never copied
 			// here and can't be served. Those are excluded rather than
 			// surfacing a link that 404s; Fiona will re-upload them by hand.
-			const documentJoin =
-				CAL_TABLES_WITH_SERVICE_EVENT.has(table)
-					? `LEFT JOIN LATERAL (
-					SELECT id FROM documents
+			const documentJoin = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
+				? `LEFT JOIN LATERAL (
+					SELECT id, file_reference FROM documents
 					WHERE service_event_id = c.service_event_id
 					AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
 					ORDER BY created_at DESC LIMIT 1
 				 ) doc ON true`
-					: "";
-			const documentSelect =
-				CAL_TABLES_WITH_SERVICE_EVENT.has(table)
-					? `, doc.id AS "certificateDocumentId"`
-					: `, NULL AS "certificateDocumentId"`;
+				: "";
+			const documentSelect = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
+				? `, doc.id AS "certificateDocumentId", doc.file_reference AS "certificateFileReference"`
+				: `, NULL AS "certificateDocumentId", NULL AS "certificateFileReference"`;
 
 			const result = await this.pool.query(
 				`SELECT c.*, a.serial_number AS "serialNumber",
@@ -89,6 +91,7 @@ export class CalibrationsService {
 					model,
 					modelUri,
 					certificateDocumentId,
+					certificateFileReference,
 					[dateColumn]: calDate,
 					...coefficients
 				} = row;
@@ -110,6 +113,9 @@ export class CalibrationsService {
 					notes: note ?? null,
 					coefficients,
 					certificateDocumentId: certificateDocumentId ?? null,
+					certificateDocumentName: certificateFileReference
+						? originalNameFromReference(certificateFileReference)
+						: null,
 				};
 				group.rows.push(calibrationRow);
 			}
@@ -145,19 +151,17 @@ export class CalibrationsService {
 		}
 		const [table, dateColumn] = calInfo;
 
-		const documentJoin =
-			CAL_TABLES_WITH_SERVICE_EVENT.has(table)
-				? `LEFT JOIN LATERAL (
-					SELECT id FROM documents
+		const documentJoin = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
+			? `LEFT JOIN LATERAL (
+					SELECT id, file_reference FROM documents
 					WHERE service_event_id = c.service_event_id
 					AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
 					ORDER BY created_at DESC LIMIT 1
 				 ) doc ON true`
-				: "";
-		const documentSelect =
-			CAL_TABLES_WITH_SERVICE_EVENT.has(table)
-				? `, doc.id AS "certificateDocumentId"`
-				: `, NULL AS "certificateDocumentId"`;
+			: "";
+		const documentSelect = CAL_TABLES_WITH_SERVICE_EVENT.has(table)
+			? `, doc.id AS "certificateDocumentId", doc.file_reference AS "certificateFileReference"`
+			: `, NULL AS "certificateDocumentId", NULL AS "certificateFileReference"`;
 
 		const result = await this.pool.query(
 			`SELECT c.*, a.serial_number AS "serialNumber"
@@ -181,6 +185,7 @@ export class CalibrationsService {
 				service_event_id,
 				serialNumber,
 				certificateDocumentId,
+				certificateFileReference,
 				[dateColumn]: calDate,
 				...coefficients
 			} = row;
@@ -195,6 +200,9 @@ export class CalibrationsService {
 				notes: note ?? null,
 				coefficients,
 				certificateDocumentId: certificateDocumentId ?? null,
+				certificateDocumentName: certificateFileReference
+					? originalNameFromReference(certificateFileReference)
+					: null,
 			};
 			return calibrationRow;
 		});
