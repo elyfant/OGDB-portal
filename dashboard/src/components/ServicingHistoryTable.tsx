@@ -14,11 +14,11 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { ServicingEvent } from "@ogdb/types";
 
-// Factory + in-house servicing only (transit stays out, same scope
-// this table always had) -- shared by the glider Timeline tab's
-// Servicing accordion and the asset detail page's, so a row click
-// opens the same edit flow regardless of which page you're on. The
-// caller owns the actual ServicingEventControls instance/ref; this
+// Every asset_service_events row this feature owns -- servicing, factory
+// repair, transit, on loan, field test, missing, destroyed. Shared by the
+// glider Timeline tab's Servicing accordion and the asset detail page's,
+// so a row click opens the same edit flow regardless of which page you're
+// on. The caller owns the ServicingEventControls instance/ref; this
 // component just reports which row was clicked.
 export default function ServicingHistoryTable({
 	events,
@@ -30,11 +30,7 @@ export default function ServicingHistoryTable({
 	onEditEvent: (event: ServicingEvent) => void;
 }) {
 	if (events.length === 0) {
-		return (
-			<Typography color="text.disabled">
-				No factory or in-house servicing recorded.
-			</Typography>
-		);
+		return <Typography color="text.disabled">No events recorded.</Typography>;
 	}
 
 	return (

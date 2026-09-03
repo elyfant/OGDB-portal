@@ -41,9 +41,6 @@ export default function AssetServicingTimeline({
 	canEdit: boolean;
 }) {
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);
-	const servicingOnly = servicingEvents.filter(
-		(e) => e.eventType === "servicing" || e.eventType === "factory_repair",
-	);
 
 	return (
 		<Box>
@@ -64,7 +61,7 @@ export default function AssetServicingTimeline({
 				</AccordionSummary>
 				<AccordionDetails>
 					<ServicingHistoryTable
-						events={servicingOnly}
+						events={servicingEvents}
 						canEdit={canEdit}
 						onEditEvent={(e) => controlsRef.current?.openForEdit(e)}
 					/>

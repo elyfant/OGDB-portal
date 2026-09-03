@@ -38,6 +38,7 @@ import type {
 	ServicingEvent,
 	ServicingEventTypeOption,
 } from "@ogdb/types";
+import { useRouter } from "next/navigation";
 import { useMemo, useRef } from "react";
 
 function buildTimelineEvents(
@@ -74,6 +75,10 @@ function buildTimelineEvents(
 				notes: typeof note === "string" ? note : undefined,
 				documentId: cal.documentId,
 				documentName: cal.documentName,
+				// Calibrations are edited on the component's own asset page
+				// (each sensor type has its own coefficient form) -- the row
+				// links there rather than opening an editor here.
+				href: `/assets/${detail.assetId}`,
 				startDate: cal.date,
 				endDate: null,
 				instant: true,
@@ -125,10 +130,17 @@ export default function GliderTimelineTab({
 		[deployments, components, componentDetails, servicingEvents],
 	);
 
-	const servicingOnly = servicingEvents.filter(
-		(e) => e.eventType === "servicing" || e.eventType === "factory_repair",
-	);
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);
+	const router = useRouter();
+
+	// Timeline id -> the raw ServicingEvent, so an "All events" row that
+	// came from asset_service_events can open the same edit dialog the
+	// Servicing accordion uses. servicingEventToTimelineEvent keys them
+	// `servicing-<id>`.
+	const servicingByTimelineId = useMemo(
+		() => new Map(servicingEvents.map((e) => [`servicing-${e.id}`, e])),
+		[servicingEvents],
+	);
 
 	// All events, newest first -- same convention as every other history
 	// table in this app (GliderEditHistory, the calibration catalogue),
@@ -185,8 +197,25 @@ export default function GliderTimelineTab({
 								<TableBody>
 									{allEventsRows.map((e) => {
 										const meta = KIND_META[e.kind];
+										const editable = canEdit
+											? servicingByTimelineId.get(e.id)
+											: undefined;
+										// Editable service event -> open the dialog;
+										// mission / calibration -> navigate to where it's
+										// edited (its own page). Missions stay
+										// non-editable here by design.
+										const onRowClick = editable
+											? () => controlsRef.current?.openForEdit(editable)
+											: e.href
+												? () => router.push(e.href as string)
+												: undefined;
 										return (
-											<TableRow key={e.id}>
+											<TableRow
+												key={e.id}
+												hover={!!onRowClick}
+												onClick={onRowClick}
+												sx={onRowClick ? { cursor: "pointer" } : undefined}
+											>
 												<TableCell>
 													<Chip
 														size="small"
@@ -224,6 +253,7 @@ export default function GliderTimelineTab({
 															href={`/api/documents/${e.documentId}/file`}
 															target="_blank"
 															rel="noreferrer"
+															onClick={(evt) => evt.stopPropagation()}
 															sx={{
 																display: "inline-flex",
 																alignItems: "center",
@@ -250,11 +280,11 @@ export default function GliderTimelineTab({
 
 			<Accordion disableGutters>
 				<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-					<Typography color="text.secondary">Servicing</Typography>
+					<Typography color="text.secondary">Servicing &amp; status</Typography>
 				</AccordionSummary>
 				<AccordionDetails>
 					<ServicingHistoryTable
-						events={servicingOnly}
+						events={servicingEvents}
 						canEdit={canEdit}
 						onEditEvent={(e) => controlsRef.current?.openForEdit(e)}
 					/>

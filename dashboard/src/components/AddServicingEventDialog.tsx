@@ -180,6 +180,10 @@ export default function AddServicingEventDialog({
 			setError("Give this event a short title.");
 			return;
 		}
+		if (state.endDate && state.endDate < state.startDate) {
+			setError("End date can't be before the start date.");
+			return;
+		}
 
 		setSaving(true);
 		try {
@@ -285,7 +289,7 @@ export default function AddServicingEventDialog({
 						</Alert>
 					)}
 
-					{isTerminal && (
+					{isTerminal && !isEdit && (
 						<Alert severity="warning" sx={{ fontSize: 12.5 }}>
 							Logging this retires {lifecycle?.name ?? "the glider"} from the
 							fleet as of the date below, and closes any open event. It can't be

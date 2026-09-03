@@ -126,6 +126,16 @@ export class ServicingService {
 		}
 	}
 
+	// start/end are IsDateString'd 'YYYY-MM-DD' -- lexical compare is date
+	// order. Backstopped by a CHECK constraint (see the
+	// asset_service_events_date_check migration); this is just the
+	// friendlier error.
+	private assertDateOrder(dto: RecordServicingEventDto): void {
+		if (dto.endDate && dto.endDate < dto.startDate) {
+			throw new BadRequestException("End date can't be before the start date.");
+		}
+	}
+
 	private async resolveEventTypeId(eventType: string): Promise<number> {
 		const result = await this.pool.query(
 			"SELECT id FROM asset_service_event_types WHERE name = $1 AND name = ANY($2)",
@@ -172,6 +182,7 @@ export class ServicingService {
 			throw new NotFoundException(`Asset ${assetId} not found`);
 		}
 
+		this.assertDateOrder(dto);
 		const eventTypeId = await this.resolveEventTypeId(dto.eventType);
 		const terminal = TERMINAL_EVENT_TYPES.has(dto.eventType);
 		// A terminal event (destroyed) is allowed even while another event
@@ -247,6 +258,7 @@ export class ServicingService {
 		userId: number,
 		attachment?: Express.Multer.File,
 	): Promise<void> {
+		this.assertDateOrder(dto);
 		const eventTypeId = await this.resolveEventTypeId(dto.eventType);
 
 		// Only worth re-checking "no open event" when this edit would
