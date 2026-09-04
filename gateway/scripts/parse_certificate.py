@@ -633,6 +633,75 @@ def is_eco_sensor_page(text: str) -> bool:
     return any(title_re.search(text) for title_re, _ in WET_LABS_CHAR_SHEET_CHANNELS.values())
 
 
+# --- NOC/NMFCL GPCTD certificates, 2023-onward template ----------------
+#
+# NOC (National Marine Facilities Calibration Laboratory) reworked their
+# certificate template at some point before June 2023. Deliberately kept
+# as its own dispatch path rather than folded into the generic ct_sensor
+# loop above, which the OLD NOC template already flows through cleanly
+# (its top-level "Certificate Date <D Month YYYY>" is the only thing
+# among CALIBRATION_DATE_RE/CERTIFICATE_DATE_RE/RBR_CALIBRATION_DATE_RE
+# that ever matched it) -- two real, confirmed differences make that
+# path silently fail on the new one instead of just needing a tweak:
+#
+# 1. The cover page's "Certificate Date" is now numeric slash-separated
+#    ("29/06/2023"), not "29 June 2023" -- CERTIFICATE_DATE_RE's month
+#    name requirement no longer matches it at all.
+# 2. Each schedule page (temperature/conductivity/pressure) prints its
+#    own "Date <D Month YYYY>" directly adjacent to the label, cleanly
+#    associated -- unlike the old template, where per-channel dates
+#    were deliberately NOT used because they were hard to associate
+#    reliably in that layout's linearized text. That ambiguity doesn't
+#    exist here, so this path uses the general "earliest date found"
+#    policy (same as GPCTD/CT-Sail/RBR above) rather than inheriting the
+#    old template's top-level-only carve-out.
+#
+# Coefficient extraction reuses classify_page/extract_coef/
+# build_channel_maps("gpctd") unchanged -- those are already
+# format-agnostic; only date handling and the dispatch trigger differ.
+# Confirmed against a real certificate for SN 9689, June 2023.
+NOC_2023_TITLE_MARKER = "NMFCL CALIBRATION CERTIFICATE"
+NOC_2023_DATE_RE = re.compile(r"\bDate\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})\b")
+
+
+def extract_noc_gpctd_2023(pages_text: list[str]) -> dict:
+    channel_maps = build_channel_maps("gpctd")
+    coefficients: dict[str, float] = {}
+    dates_found: list[date] = []
+
+    for text in pages_text:
+        channel = classify_page(text)
+        if channel and channel in channel_maps:
+            for column, raw_name in channel_maps[channel].items():
+                value = extract_coef(text, raw_name)
+                if value is not None:
+                    coefficients[column] = value
+        for match in NOC_2023_DATE_RE.finditer(text):
+            try:
+                dates_found.append(dateparser.parse(match.group(1)).date())
+            except (ValueError, OverflowError):
+                continue
+
+    if not dates_found:
+        return {
+            "recognized": False,
+            "reason": "Identified this as a NOC/NMFCL GPCTD certificate, but couldn't find a calibration date on it.",
+        }
+    if not coefficients:
+        return {
+            "recognized": False,
+            "reason": "Identified this as a NOC/NMFCL GPCTD certificate, but couldn't find any coefficients on it.",
+        }
+
+    return {
+        "recognized": True,
+        "model": "gpctd_noc2023",
+        "facility": "NOC",
+        "calDate": min(dates_found).isoformat(),
+        "coefficients": coefficients,
+    }
+
+
 def extract(pdf_bytes: bytes, target_serial: str | None = None) -> dict:
     with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
         pages_text = [page.extract_text() or "" for page in pdf.pages]
@@ -664,6 +733,9 @@ def extract(pdf_bytes: bytes, target_serial: str | None = None) -> dict:
 
     if any(is_eco_sensor_page(text) for text in pages_text):
         return extract_eco_sensor(pages_text, target_serial)
+
+    if NOC_2023_TITLE_MARKER in full_text.upper():
+        return extract_noc_gpctd_2023(pages_text)
 
     model = detect_model(full_text)
     facility = detect_facility(full_text)
