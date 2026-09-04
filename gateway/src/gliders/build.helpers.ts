@@ -402,10 +402,35 @@ async function fetchComponentDetails(
 				});
 			}
 
-			return { assetId: c.assetId, detail, calibrations };
+			// Same shape as RmasService.getForAsset -- this file talks to
+			// pool directly rather than injecting RmasService (a plain
+			// helper module, not a Nest provider), so the query is
+			// duplicated here rather than shared. Lets a glider's own
+			// Timeline tab show an RMA that's actually against one of its
+			// *components* (e.g. a hull section currently built into it),
+			// not just the glider's own asset row.
+			const rmaResult = await pool.query(
+				`SELECT r.id AS "rmaId", r.rma_number AS "rmaNumber", ra.reason,
+                r.opened_date AS "openedDate",
+                COALESCE(crs.current_stage, 'opened') AS "currentStage",
+                CASE WHEN crs.current_stage = 'closed' THEN crs.event_date END AS "closedDate",
+                COALESCE(crs.current_stage, 'opened') <> 'closed' AS open
+         FROM rma_assets ra
+         JOIN rmas r ON r.id = ra.rma_id
+         LEFT JOIN current_rma_status crs ON crs.rma_id = r.id
+         WHERE ra.asset_id = $1
+         ORDER BY r.opened_date DESC, r.id DESC`,
+				[c.assetId],
+			);
+			const rmas: GliderComponentDetail["rmas"] =
+				rmaResult.rows.length > 0 ? rmaResult.rows : null;
+
+			return { assetId: c.assetId, detail, calibrations, rmas };
 		}),
 	);
-	return results.filter((r) => r.detail !== null || r.calibrations !== null);
+	return results.filter(
+		(r) => r.detail !== null || r.calibrations !== null || r.rmas !== null,
+	);
 }
 
 async function fetchStatusHistory(

@@ -831,6 +831,10 @@ export interface GliderComponentDetail {
 	assetId: number;
 	detail: Record<string, string | number | boolean | null> | null;
 	calibrations: SensorCalRecord[] | null;
+	// Same null-vs-empty convention as calibrations -- null means this
+	// component has never been linked to an RMA at all, not that it was
+	// checked and found to have none.
+	rmas: AssetRmaSummary[] | null;
 }
 
 // A filtered, curated view of norglider_missions for one glider — the
@@ -846,6 +850,123 @@ export interface GliderDeployment {
 	recoveryDate: string | null;
 	dives: number | null;
 	distanceKm: number | null;
+}
+
+// rma_events.event_type -- a bespoke CHECK-constrained vocabulary
+// (asset_faults.status/severity's precedent for a smaller, case-specific
+// set), not a full lookup table like asset_service_event_types.
+export type RmaEventType =
+	| "opened"
+	| "shipped_out"
+	| "received_by_repairer"
+	| "status_update"
+	| "escalated_to_manufacturer"
+	| "shipping_issue"
+	| "received_by_manufacturer"
+	| "returned"
+	| "closed";
+
+// The RMA case header -- who issued it (manufacturers, reused rather
+// than inventing a vendor table: a repair facility and a manufacturer
+// are the same kind of entity) and, if one was issued, the manufacturer's
+// own case number. Status is never stored here -- see
+// current_rma_status/RmaCatalogueRow.currentStage.
+export interface Rma {
+	id: number;
+	rmaNumber: string | null;
+	manufacturerId: number;
+	manufacturerName: string;
+	openedDate: string;
+	notes: string | null;
+}
+
+// Which assets an RMA covers, and *why* -- one row per asset, since two
+// assets on the same case (e.g. two different hulls) commonly have
+// completely different failure reasons.
+export interface RmaAsset {
+	id: number;
+	rmaId: number;
+	assetId: number;
+	assetSerialNumber: string | null;
+	// Drives whether the linked-assets table's row links to /assets/:id
+	// or /gliders/:id -- same "glider is an asset too" distinction
+	// Asset.assetType already carries elsewhere.
+	assetType: string;
+	reason: string;
+}
+
+// One step in an RMA's own rich sub-timeline -- shipped out, received by
+// the repairer, escalated to the manufacturer, a shipping issue, an
+// arrival confirmation, eventually closed. Only ever shown on the RMA's
+// own page, never as part of an asset's thin history feed (see
+// AssetRmaSummary below).
+export interface RmaEvent {
+	id: number;
+	rmaId: number;
+	eventType: RmaEventType;
+	eventDate: string;
+	facilityId: number | null;
+	facilityName: string | null;
+	referenceNumber: string | null;
+	notes: string | null;
+	documentId: number | null;
+	documentName: string | null;
+}
+
+// One row for the /rmas catalogue. currentStage/open are derived from
+// current_rma_status (whichever RmaEvent is most recent), never stored
+// -- same philosophy as docs/design/derived-glider-status.md.
+export interface RmaCatalogueRow {
+	id: number;
+	rmaNumber: string | null;
+	manufacturerName: string;
+	openedDate: string;
+	currentStage: RmaEventType;
+	open: boolean;
+	assetCount: number;
+	assetSerials: string[];
+}
+
+// The *thin* feed for an asset's own history (asset detail page timeline
+// + accordion, glider Timeline tab) -- deliberately excludes the rich
+// rma_events sub-timeline, which only ever shows on the RMA's own page.
+// openedDate/closedDate exist purely so this can be placed on a
+// TimelineEvent (chart placement needs real dates); closedDate is only
+// ever set once currentStage is "closed".
+export interface AssetRmaSummary {
+	rmaId: number;
+	rmaNumber: string | null;
+	reason: string;
+	currentStage: RmaEventType;
+	open: boolean;
+	openedDate: string;
+	closedDate: string | null;
+}
+
+export interface CreateRmaInput {
+	rmaNumber?: string | null;
+	manufacturerId: number;
+	openedDate: string;
+	notes?: string | null;
+}
+
+export interface LinkRmaAssetInput {
+	assetId: number;
+	reason: string;
+}
+
+export interface UpdateRmaAssetReasonInput {
+	reason: string;
+}
+
+// Everything the Add/Edit RMA event dialog submits. Mirrors
+// RecordServicingEventInput's shape.
+export interface RecordRmaEventInput {
+	eventType: RmaEventType;
+	eventDate: string;
+	facilityId?: number | null;
+	referenceNumber?: string | null;
+	notes?: string | null;
 }
 
 export interface AssetSearchResult {

@@ -107,4 +107,15 @@ export class LookupsService {
 		);
 		return result.rows;
 	}
+
+	// The RMA create dialog's manufacturer dropdown, and the Add RMA
+	// event dialog's "current facility" dropdown -- the same table
+	// (manufacturers) serves both, since a repairer (e.g. NOC) and a
+	// manufacturer (e.g. TWR) are the same kind of entity here.
+	async getManufacturers(): Promise<LookupOption[]> {
+		const result = await this.pool.query(
+			"SELECT id, name FROM manufacturers ORDER BY name",
+		);
+		return result.rows;
+	}
 }

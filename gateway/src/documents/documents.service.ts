@@ -68,6 +68,7 @@ export class DocumentsService {
 			assetId?: number;
 			missionId?: number;
 			serviceEventId?: number;
+			rmaEventId?: number;
 			documentType: string;
 			fileReference: string;
 			notes?: string | null;
@@ -75,13 +76,14 @@ export class DocumentsService {
 		},
 	): Promise<number> {
 		const result = await client.query(
-			`INSERT INTO documents (asset_id, mission_id, service_event_id, document_type, file_reference, notes, changed_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+			`INSERT INTO documents (asset_id, mission_id, service_event_id, rma_event_id, document_type, file_reference, notes, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id`,
 			[
 				params.assetId ?? null,
 				params.missionId ?? null,
 				params.serviceEventId ?? null,
+				params.rmaEventId ?? null,
 				params.documentType,
 				params.fileReference,
 				params.notes ?? null,

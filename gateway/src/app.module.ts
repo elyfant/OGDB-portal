@@ -15,6 +15,7 @@ import { GlidersModule } from "./gliders/gliders.module";
 import { LookupsModule } from "./lookups/lookups.module";
 import { MissionsModule } from "./missions/missions.module";
 import { ProcessingPackagesModule } from "./processing-packages/processing-packages.module";
+import { RmasModule } from "./rmas/rmas.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -33,6 +34,7 @@ import { UsersModule } from "./users/users.module";
 		CruisesModule,
 		UsersModule,
 		ProcessingPackagesModule,
+		RmasModule,
 	],
 	providers: [
 		{ provide: APP_GUARD, useClass: JwtAuthGuard },

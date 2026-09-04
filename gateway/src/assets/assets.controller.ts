@@ -18,6 +18,7 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { CalibrationsService } from "../calibrations/calibrations.service";
 import { MissionsService } from "../missions/missions.service";
+import { RmasService } from "../rmas/rmas.service";
 import { RecordServicingEventDto } from "../servicing/dto/record-servicing-event.dto";
 import { ServicingService } from "../servicing/servicing.service";
 import { AssetsService } from "./assets.service";
@@ -78,6 +79,7 @@ export class AssetsController {
 		private readonly calibrations: CalibrationsService,
 		private readonly servicing: ServicingService,
 		private readonly missions: MissionsService,
+		private readonly rmas: RmasService,
 	) {}
 
 	@Get()
@@ -188,6 +190,11 @@ export class AssetsController {
 	@Get(":id/missions")
 	getMissions(@Param("id", ParseIntPipe) id: number) {
 		return this.missions.getForAsset(id);
+	}
+
+	@Get(":id/rmas")
+	getRmas(@Param("id", ParseIntPipe) id: number) {
+		return this.rmas.getForAsset(id);
 	}
 
 	@Roles("editor", "admin")
