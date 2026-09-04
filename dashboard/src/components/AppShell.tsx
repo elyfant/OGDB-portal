@@ -7,6 +7,7 @@ import DirectionsBoatIcon from "@mui/icons-material/DirectionsBoat";
 import HomeIcon from "@mui/icons-material/Home";
 import InsightsIcon from "@mui/icons-material/Insights";
 import LightModeIcon from "@mui/icons-material/LightMode";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import RouteIcon from "@mui/icons-material/Route";
 import SensorsIcon from "@mui/icons-material/Sensors";
 import TopicIcon from "@mui/icons-material/Topic";
@@ -61,6 +62,10 @@ const NAV_GROUPS = [
 		items: [
 			{ label: "Calibrations", href: "/calibrations", icon: SensorsIcon },
 		],
+	},
+	{
+		label: "RMAs",
+		items: [{ label: "RMAs", href: "/rmas", icon: LocalShippingIcon }],
 	},
 ];
 

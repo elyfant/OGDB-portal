@@ -10,12 +10,14 @@ import type {
 	CreateCruiseInput,
 	CreateGliderInput,
 	CreateMissionInput,
+	CreateRmaInput,
 	CreatedMission,
 	Cruise,
 	DatasetProcessingDetail,
 	DecommissionInput,
 	Glider,
 	GliderBuild,
+	LinkRmaAssetInput,
 	Mission,
 	MissionFilesSaveResult,
 	NewProcessingPackageInput,
@@ -23,11 +25,16 @@ import type {
 	ParsedCertificate,
 	ProcessingPackage,
 	ProcessingPackageVersion,
+	RecordRmaEventInput,
 	RecordSensorCalibrationInput,
 	RecordServicingEventInput,
+	Rma,
+	RmaAsset,
 	UpdateAssetInput,
 	UpdateExternalReferencesInput,
 	UpdateGliderInput,
+	UpdateRmaAssetReasonInput,
+	UpdateRmaInput,
 } from "@ogdb/types";
 
 export async function getGliderBuildClient(
@@ -448,5 +455,120 @@ export async function decommissionAsset(
 		throw new Error(
 			data?.message ?? `Failed to update decommission status: ${res.status}`,
 		);
+	}
+}
+
+export async function createRma(input: CreateRmaInput): Promise<Rma> {
+	const res = await fetch("/api/rmas", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to create RMA: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function updateRma(
+	id: number,
+	input: UpdateRmaInput,
+): Promise<Rma> {
+	const res = await fetch(`/api/rmas/${id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to update RMA: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function linkRmaAsset(
+	rmaId: number,
+	input: LinkRmaAssetInput,
+): Promise<RmaAsset> {
+	const res = await fetch(`/api/rmas/${rmaId}/assets`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to link asset: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function updateRmaAssetReason(
+	rmaId: number,
+	rmaAssetId: number,
+	input: UpdateRmaAssetReasonInput,
+): Promise<RmaAsset> {
+	const res = await fetch(`/api/rmas/${rmaId}/assets/${rmaAssetId}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to update reason: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Same multipart-always convention as servicingFormData -- an optional
+// attachment (an AWB, a commercial invoice, a repair report) can ride
+// along, so the proxy route and gateway endpoint only ever handle one
+// request shape.
+function rmaEventFormData(
+	input: RecordRmaEventInput,
+	attachment?: File,
+): FormData {
+	const formData = new FormData();
+	formData.append("eventType", input.eventType);
+	formData.append("eventDate", input.eventDate);
+	if (input.facilityId != null) {
+		formData.append("facilityId", String(input.facilityId));
+	}
+	if (input.referenceNumber) {
+		formData.append("referenceNumber", input.referenceNumber);
+	}
+	if (input.notes) formData.append("notes", input.notes);
+	if (attachment) formData.append("attachment", attachment);
+	return formData;
+}
+
+export async function recordRmaEvent(
+	rmaId: number,
+	input: RecordRmaEventInput,
+	attachment?: File,
+): Promise<void> {
+	const res = await fetch(`/api/rmas/${rmaId}/events`, {
+		method: "POST",
+		body: rmaEventFormData(input, attachment),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to record event: ${res.status}`);
+	}
+}
+
+export async function updateRmaEvent(
+	rmaId: number,
+	eventId: number,
+	input: RecordRmaEventInput,
+	attachment?: File,
+): Promise<void> {
+	const res = await fetch(`/api/rmas/${rmaId}/events/${eventId}`, {
+		method: "PATCH",
+		body: rmaEventFormData(input, attachment),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to update event: ${res.status}`);
 	}
 }

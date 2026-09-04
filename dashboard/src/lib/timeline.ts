@@ -9,7 +9,11 @@
 // client." Anything a Server Component needs to import and actually
 // invoke (not just render as JSX) has to live in a plain module like
 // this one instead.
-import type { GliderDeployment, ServicingEvent } from "@ogdb/types";
+import type {
+	AssetRmaSummary,
+	GliderDeployment,
+	ServicingEvent,
+} from "@ogdb/types";
 
 export type TimelineEventKind =
 	| "mission"
@@ -20,7 +24,8 @@ export type TimelineEventKind =
 	| "on_loan"
 	| "field_test"
 	| "missing"
-	| "destroyed";
+	| "destroyed"
+	| "rma";
 
 export interface TimelineEvent {
 	id: string;
@@ -116,6 +121,20 @@ export const KIND_META: Record<
 		fill: "rgba(55,71,79,0.16)",
 		cardStyle: "marker",
 	},
+	// Deliberately its own kind rather than reusing "factory_repair" --
+	// AssetTimelineSection's filter chips group and count strictly by
+	// kind, so an RMA's thin summary would otherwise silently merge into
+	// the same "Factory servicing · N" toggle/count as genuine
+	// asset_service_events rows from a completely different table. Same
+	// red as factory_repair for visual consistency (an RMA reads as a
+	// factory-repair case to a viewer), different label so the count
+	// stays honest.
+	rma: {
+		label: "RMA case",
+		color: "#c62828",
+		fill: "rgba(198,40,40,0.12)",
+		cardStyle: "marker",
+	},
 };
 
 // Shared by every caller that has a raw ServicingEvent[] to fold into a
@@ -159,6 +178,25 @@ export function deploymentToTimelineEvent(
 		endDate: d.recoveryDate,
 		instant: false,
 		href: `/missions/${d.id}`,
+	};
+}
+
+// Shared by every caller that has a raw AssetRmaSummary[] to fold into a
+// timeline -- the asset detail page's own RMAs and (via
+// GliderComponentDetail.rmas) a glider's currently-built components'
+// RMAs. Deliberately thin: label/detail carry just the RMA number and
+// this asset's own reason, never the rich shipping/freight sub-timeline
+// -- that only ever shows on the RMA's own page, reached via href.
+export function rmaToTimelineEvent(summary: AssetRmaSummary): TimelineEvent {
+	return {
+		id: `rma-${summary.rmaId}`,
+		kind: "rma",
+		label: summary.rmaNumber ? `RMA ${summary.rmaNumber}` : "RMA case",
+		detail: summary.reason,
+		startDate: summary.openedDate,
+		endDate: summary.closedDate,
+		instant: false,
+		href: `/rmas/${summary.rmaId}`,
 	};
 }
 

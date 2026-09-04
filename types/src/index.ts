@@ -950,6 +950,15 @@ export interface CreateRmaInput {
 	notes?: string | null;
 }
 
+// Full-replace PATCH -- every field optional, an omitted one keeps its
+// current value (COALESCE-based update, same as UpdateAssetInput).
+export interface UpdateRmaInput {
+	rmaNumber?: string | null;
+	manufacturerId?: number;
+	openedDate?: string;
+	notes?: string | null;
+}
+
 export interface LinkRmaAssetInput {
 	assetId: number;
 	reason: string;

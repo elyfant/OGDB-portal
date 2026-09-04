@@ -12,6 +12,7 @@ import {
 	KIND_META,
 	type TimelineEvent,
 	deploymentToTimelineEvent,
+	rmaToTimelineEvent,
 	servicingEventToTimelineEvent,
 } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -30,6 +31,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type {
+	AssetRmaSummary,
 	GliderBuildComponent,
 	GliderComponentDetail,
 	GliderDeployment,
@@ -46,6 +48,7 @@ function buildTimelineEvents(
 	components: GliderBuildComponent[],
 	componentDetails: GliderComponentDetail[],
 	servicingEvents: ServicingEvent[],
+	rmas: AssetRmaSummary[],
 ): TimelineEvent[] {
 	const events: TimelineEvent[] = [];
 
@@ -54,8 +57,19 @@ function buildTimelineEvents(
 		if (event) events.push(event);
 	}
 
+	for (const r of rmas) {
+		events.push(rmaToTimelineEvent(r));
+	}
+
 	const componentsById = new Map(components.map((c) => [c.assetId, c]));
 	for (const detail of componentDetails) {
+		// A component's own RMAs (e.g. a hull section currently built
+		// into this glider) -- surfaced on the glider's own Timeline tab
+		// even though the RMA is really against that component's asset
+		// row, not the glider's.
+		for (const r of detail.rmas ?? []) {
+			events.push(rmaToTimelineEvent(r));
+		}
 		if (!detail.calibrations) continue;
 		const component = componentsById.get(detail.assetId);
 		for (const [i, cal] of detail.calibrations.entries()) {
@@ -99,6 +113,7 @@ export default function GliderTimelineTab({
 	components,
 	componentDetails,
 	servicingEvents,
+	rmas,
 	editHistory,
 	eventTypes,
 	contacts,
@@ -110,6 +125,7 @@ export default function GliderTimelineTab({
 	components: GliderBuildComponent[];
 	componentDetails: GliderComponentDetail[];
 	servicingEvents: ServicingEvent[];
+	rmas: AssetRmaSummary[];
 	editHistory: GliderEditHistoryItem[];
 	eventTypes: ServicingEventTypeOption[];
 	contacts: LookupOption[];
@@ -126,8 +142,9 @@ export default function GliderTimelineTab({
 				components,
 				componentDetails,
 				servicingEvents,
+				rmas,
 			),
-		[deployments, components, componentDetails, servicingEvents],
+		[deployments, components, componentDetails, servicingEvents, rmas],
 	);
 
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);

@@ -20,6 +20,7 @@ const CHIP_KINDS: TimelineEventKind[] = [
 	"field_test",
 	"missing",
 	"destroyed",
+	"rma",
 ];
 
 // The filter chips + the chart, as one reusable unit -- shared by the

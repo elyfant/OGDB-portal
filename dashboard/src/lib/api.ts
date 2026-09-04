@@ -1,6 +1,7 @@
 import "server-only";
 import type {
 	Asset,
+	AssetRmaSummary,
 	AssetStatusOption,
 	Battery,
 	BatteryDetail,
@@ -21,6 +22,10 @@ import type {
 	MissionsSummary,
 	OgdbUser,
 	ProcessingPackage,
+	Rma,
+	RmaAsset,
+	RmaCatalogueRow,
+	RmaEvent,
 	ScienceSensorRecord,
 	ServicingEvent,
 	ServicingEventTypeOption,
@@ -373,6 +378,57 @@ export async function getServicingEventTypes(): Promise<
 	const res = await apiFetch("/assets/servicing-event-types");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch servicing event types: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getManufacturers(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/manufacturers");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch manufacturers: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getRmas(): Promise<RmaCatalogueRow[]> {
+	const res = await apiFetch("/rmas");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch RMAs: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getRma(id: number): Promise<Rma | null> {
+	const res = await apiFetch(`/rmas/${id}`);
+	if (res.status === 404) return null;
+	if (!res.ok) {
+		throw new Error(`Failed to fetch RMA ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getRmaAssets(id: number): Promise<RmaAsset[]> {
+	const res = await apiFetch(`/rmas/${id}/assets`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch assets for RMA ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getRmaEvents(id: number): Promise<RmaEvent[]> {
+	const res = await apiFetch(`/rmas/${id}/events`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch events for RMA ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getAssetRmas(
+	assetId: number,
+): Promise<AssetRmaSummary[]> {
+	const res = await apiFetch(`/assets/${assetId}/rmas`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch RMAs for asset ${assetId}: ${res.status}`);
 	}
 	return res.json();
 }

@@ -9,6 +9,7 @@ import {
 	getAssetBattery,
 	getAssetCalibrations,
 	getAssetMissions,
+	getAssetRmas,
 	getAssetTypes,
 	getContacts,
 	getSensorModels,
@@ -21,6 +22,7 @@ import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import {
 	type TimelineEvent,
 	deploymentToTimelineEvent,
+	rmaToTimelineEvent,
 	servicingEventToTimelineEvent,
 } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -82,6 +84,7 @@ export default async function AssetDetailPage({
 		calibrations,
 		servicingEvents,
 		missions,
+		rmas,
 		eventTypes,
 		contacts,
 		assetTypes,
@@ -91,6 +94,7 @@ export default async function AssetDetailPage({
 		getAssetCalibrations(asset.id),
 		getServicingEvents(asset.id),
 		getAssetMissions(asset.id),
+		getAssetRmas(asset.id),
 		getServicingEventTypes(),
 		getContacts(),
 		getAssetTypes(),
@@ -113,6 +117,7 @@ export default async function AssetDetailPage({
 		...calibrations.map(calibrationToTimelineEvent),
 		...servicingEvents.map(servicingEventToTimelineEvent),
 		...missions.map(deploymentToTimelineEvent).filter((e) => e !== null),
+		...rmas.map(rmaToTimelineEvent),
 	];
 
 	const name = asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`;
@@ -198,6 +203,7 @@ export default async function AssetDetailPage({
 				assetId={asset.id}
 				events={events}
 				servicingEvents={servicingEvents}
+				rmas={rmas}
 				eventTypes={eventTypes}
 				contacts={contacts}
 				canEdit={canEdit}

@@ -209,15 +209,20 @@ export class RmasService {
 		}
 	}
 
-	// Full-replace PATCH, same convention as MissionsService.updateMission
-	// -- correcting the case header (a typo'd rma_number, the wrong
-	// manufacturer), not logging a new step.
+	// COALESCE-based update, same convention as AssetsService.update --
+	// correcting the case header (a typo'd rma_number, the wrong
+	// manufacturer), not logging a new step. An omitted field keeps its
+	// current value rather than getting cleared, so (like
+	// AssetsService.update's serialNumber/notes) there's no way to blank
+	// out rma_number/notes through this form once set.
 	async update(id: number, dto: UpdateRmaDto, userId: number): Promise<Rma> {
 		await this.getOne(id);
 		await this.pool.query(
 			`UPDATE rmas SET
-         rma_number = $1, manufacturer_id = COALESCE($2, manufacturer_id),
-         opened_date = COALESCE($3, opened_date), notes = $4,
+         rma_number = COALESCE($1, rma_number),
+         manufacturer_id = COALESCE($2, manufacturer_id),
+         opened_date = COALESCE($3, opened_date),
+         notes = COALESCE($4, notes),
          updated_at = now(), changed_by = $6
        WHERE id = $5`,
 			[

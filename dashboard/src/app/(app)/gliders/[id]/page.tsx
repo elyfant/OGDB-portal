@@ -9,6 +9,7 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
 import StatTile from "@/components/StatTile";
 import {
+	getAssetRmas,
 	getContacts,
 	getGlider,
 	getGliderBuild,
@@ -69,6 +70,7 @@ export default async function GliderDetailPage({
 		institutes,
 		user,
 		servicingEvents,
+		rmas,
 		eventTypes,
 		contacts,
 	] = await Promise.all([
@@ -78,6 +80,7 @@ export default async function GliderDetailPage({
 		getInstitutes(),
 		getCurrentUser(),
 		getServicingEvents(glider.id),
+		getAssetRmas(glider.id),
 		getServicingEventTypes(),
 		getContacts(),
 	]);
@@ -280,6 +283,7 @@ export default async function GliderDetailPage({
 						components={build.components}
 						componentDetails={build.componentDetails}
 						servicingEvents={servicingEvents}
+						rmas={rmas}
 						editHistory={build.editHistory}
 						eventTypes={eventTypes}
 						contacts={contacts}

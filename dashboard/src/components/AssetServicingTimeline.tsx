@@ -1,5 +1,6 @@
 "use client";
 
+import AssetRmaHistoryTable from "@/components/AssetRmaHistoryTable";
 import AssetTimelineSection from "@/components/AssetTimelineSection";
 import ServicingEventControls, {
 	type ServicingEventControlsHandle,
@@ -13,6 +14,7 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import type {
+	AssetRmaSummary,
 	LookupOption,
 	ServicingEvent,
 	ServicingEventTypeOption,
@@ -29,6 +31,7 @@ export default function AssetServicingTimeline({
 	assetId,
 	events,
 	servicingEvents,
+	rmas,
 	eventTypes,
 	contacts,
 	canEdit,
@@ -36,6 +39,7 @@ export default function AssetServicingTimeline({
 	assetId: number;
 	events: TimelineEvent[];
 	servicingEvents: ServicingEvent[];
+	rmas: AssetRmaSummary[];
 	eventTypes: ServicingEventTypeOption[];
 	contacts: LookupOption[];
 	canEdit: boolean;
@@ -65,6 +69,15 @@ export default function AssetServicingTimeline({
 						canEdit={canEdit}
 						onEditEvent={(e) => controlsRef.current?.openForEdit(e)}
 					/>
+				</AccordionDetails>
+			</Accordion>
+
+			<Accordion disableGutters sx={{ mt: 2 }}>
+				<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+					<Typography color="text.secondary">RMA cases</Typography>
+				</AccordionSummary>
+				<AccordionDetails>
+					<AssetRmaHistoryTable rmas={rmas} />
 				</AccordionDetails>
 			</Accordion>
 		</Box>
