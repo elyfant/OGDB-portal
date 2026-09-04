@@ -62,8 +62,11 @@ function coerceValue(rawValue: string): {
 	// would otherwise silently make Number() return NaN, so the raw
 	// string gets treated as non-numeric instead of failing loudly.
 	const forParsing = rawValue
-		.replace(/[−‐-―]/g, "-")
-		.replace(/[\s ]/g, "");
+		.replace(/[\u2212\u2010-\u2015]/g, "-")
+		.replace(/\s/g, "")
+		// Zero-width/invisible characters -- see coerceCalibrationInput's
+		// fuller comment on why these need their own step.
+		.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
 	const num = Number(forParsing);
 	if (!Number.isNaN(num) && forParsing !== "") {
 		return { value: num, isNumber: true };

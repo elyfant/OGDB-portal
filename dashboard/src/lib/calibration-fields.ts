@@ -152,8 +152,22 @@ export const SCIENCE_ASSET_TYPES = [
 export function coerceCalibrationInput(raw: string): number | string {
 	const trimmed = raw.trim();
 	const forParsing = trimmed
-		.replace(/[−‐-―]/g, "-")
-		.replace(/[\s ]/g, "");
+		// U+2212 minus sign, U+2010-U+2015 hyphen/dash variants (hyphen,
+		// non-breaking hyphen, figure dash, en dash, em dash, horizontal
+		// bar) -> plain ASCII hyphen-minus.
+		.replace(/[\u2212\u2010-\u2015]/g, "-")
+		// \s already covers regular whitespace and NBSP (U+00A0) in JS --
+		// this also strips any other stray whitespace-like character OCR
+		// might introduce mid-number.
+		.replace(/\s/g, "")
+		// Zero-width/invisible characters (zero-width space U+200B, ZWNJ
+		// U+200C, ZWJ U+200D, word joiner U+2060, BOM/zero-width no-break
+		// space U+FEFF) -- invisible even to a human eyeballing the value,
+		// so unlike the dash/whitespace cases above, someone re-typing what
+		// they see to sanity-check a failing paste will not reproduce this
+		// one. Seen from OCR text (e.g. selecting a coefficient off a
+		// scanned certificate).
+		.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
 	const num = Number(forParsing);
 	if (forParsing !== "" && !Number.isNaN(num)) return num;
 	return trimmed;
