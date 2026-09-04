@@ -259,10 +259,18 @@ export default function AddServicingEventDialog({
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 2 }}
 				>
-					{isEdit && initialEvent?.endDate === null && (
+					{isEdit && initialEvent?.endDate === null && !isTerminal && (
 						<Alert severity="warning" sx={{ fontSize: 12.5 }}>
 							This event is still open. Add an end date to close it before a new
 							event can be logged for this asset.
+						</Alert>
+					)}
+
+					{isEdit && isTerminal && (
+						<Alert severity="info" sx={{ fontSize: 12.5 }}>
+							Destroyed events don't have an end date and never need to be
+							closed — they don't block adding another event for this asset,
+							including one dated before this.
 						</Alert>
 					)}
 

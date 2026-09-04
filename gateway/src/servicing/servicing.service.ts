@@ -36,6 +36,19 @@ const SERVICING_EVENT_TYPES = [
 // a second step.
 const TERMINAL_EVENT_TYPES = new Set<string>(["destroyed"]);
 
+// The one-open-event-per-asset rule (see assertNoOpenEvent) exists to
+// stop genuinely contradictory concurrent state -- an asset can't be in
+// transit AND in factory servicing at once. A terminal event doesn't fit
+// that: it's deliberately never closed (there's no "un-destroyed" end
+// date, see AddServicingEventDialog's isTerminal handling), so if it
+// counted here it would permanently block logging anything else for that
+// asset -- including backfilling a real event from before it was
+// destroyed. Excluded from the check entirely rather than date-scoped,
+// since a destroyed asset genuinely has nothing left to conflict with.
+const BLOCKING_EVENT_TYPES = SERVICING_EVENT_TYPES.filter(
+	(t) => !TERMINAL_EVENT_TYPES.has(t),
+);
+
 const SERVICING_ATTACHMENT_DOCUMENT_TYPE = "servicing_attachment";
 
 const SELECT_SERVICING_EVENT = `
@@ -116,7 +129,7 @@ export class ServicingService {
        WHERE se.asset_id = $1 AND t.name = ANY($2) AND se.end_date IS NULL
          AND se.id != $3
        LIMIT 1`,
-			[assetId, SERVICING_EVENT_TYPES, excludeEventId ?? -1],
+			[assetId, BLOCKING_EVENT_TYPES, excludeEventId ?? -1],
 		);
 		if (open.rows.length > 0) {
 			const row = open.rows[0];
