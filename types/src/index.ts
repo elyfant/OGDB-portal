@@ -2,6 +2,7 @@ export type AssetStatus =
 	| "lab"
 	| "in_house_repairs"
 	| "factory_service"
+	| "pre_mission_service"
 	| "transit"
 	| "deployed"
 	| "on_loan"
@@ -751,7 +752,11 @@ export type ServicingEventType =
 	| "on_loan"
 	| "field_test"
 	| "missing"
-	| "destroyed";
+	| "destroyed"
+	// Glider-only in the Add event dialog -- a full lab servicing pass
+	// done specifically ahead of an upcoming mission, distinct from
+	// routine "servicing".
+	| "pre_mission_servicing";
 
 export interface ServicingEventTypeOption {
 	id: number;

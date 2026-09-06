@@ -21,6 +21,7 @@ const SERVICING_EVENT_TYPES = [
 	"field_test",
 	"missing",
 	"destroyed",
+	"pre_mission_servicing",
 ] as const;
 
 export class RecordServicingEventDto {

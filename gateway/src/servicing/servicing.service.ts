@@ -28,6 +28,7 @@ const SERVICING_EVENT_TYPES = [
 	"field_test",
 	"missing",
 	"destroyed",
+	"pre_mission_servicing",
 ] as const;
 
 // Logging one of these retires the asset from the fleet -- the derived
@@ -114,12 +115,18 @@ export class ServicingService {
 	}
 
 	// The one-open-event-per-asset rule: a row with start_date set and
-	// end_date still null is "in progress", and the UI won't let you log
-	// another servicing event for the same asset until it's closed
-	// (edited to add an end date). `excludeEventId` lets updateEvent
+	// end_date still null is "in progress" as of today onward. That's
+	// only a genuine conflict for a *new* event dated on or after the
+	// open one's own start -- claiming two things are both "current" at
+	// once. A new event dated strictly before it is pure backfill (the
+	// open event hadn't started yet), which is always fine -- same
+	// reasoning that already exempted terminal events (destroyed)
+	// entirely, generalized here to a date check so it applies to every
+	// type, not just terminal ones. `excludeEventId` lets updateEvent
 	// re-check without tripping over the very row it's editing.
 	private async assertNoOpenEvent(
 		assetId: number,
+		newStartDate: string,
 		excludeEventId?: number,
 	): Promise<void> {
 		const open = await this.pool.query(
@@ -127,14 +134,14 @@ export class ServicingService {
        FROM asset_service_events se
        JOIN asset_service_event_types t ON t.id = se.event_type_id
        WHERE se.asset_id = $1 AND t.name = ANY($2) AND se.end_date IS NULL
-         AND se.id != $3
+         AND se.id != $3 AND se.start_date <= $4
        LIMIT 1`,
-			[assetId, BLOCKING_EVENT_TYPES, excludeEventId ?? -1],
+			[assetId, BLOCKING_EVENT_TYPES, excludeEventId ?? -1, newStartDate],
 		);
 		if (open.rows.length > 0) {
 			const row = open.rows[0];
 			throw new ConflictException(
-				`Asset ${assetId} has an open servicing event (${row.title ?? row.eventType}, id ${row.id}) — close it before adding another.`,
+				`Asset ${assetId} has an open servicing event (${row.title ?? row.eventType}, id ${row.id}) — close it before adding another dated on or after it started.`,
 			);
 		}
 	}
@@ -202,7 +209,7 @@ export class ServicingService {
 		// is open -- it closes that one below. Everything else obeys the
 		// one-open-event-per-asset rule.
 		if (!terminal) {
-			await this.assertNoOpenEvent(assetId);
+			await this.assertNoOpenEvent(assetId, dto.startDate);
 		}
 
 		const client = await this.pool.connect();
@@ -278,7 +285,7 @@ export class ServicingService {
 		// leave the row open -- an edit that's setting/keeping an end
 		// date can never conflict with anything.
 		if (!dto.endDate) {
-			await this.assertNoOpenEvent(assetId, eventId);
+			await this.assertNoOpenEvent(assetId, dto.startDate, eventId);
 		}
 
 		const client = await this.pool.connect();

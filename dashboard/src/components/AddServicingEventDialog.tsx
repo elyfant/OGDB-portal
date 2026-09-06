@@ -33,15 +33,25 @@ import { useEffect, useState } from "react";
 const DECOMMISSION = "__decommission__";
 const RETURN_TO_SERVICE = "__return_to_service__";
 
+// Labels shown in this dialog's own Event type dropdown -- distinct from
+// KIND_META's labels (lib/timeline.ts), which drive the timeline chart's
+// chips/cards elsewhere and are left as-is here on purpose (e.g.
+// "Factory servicing" there vs. "Factory service" here) since only this
+// dropdown was asked to be reorganized.
 const EVENT_TYPE_LABEL: Record<string, string> = {
-	servicing: "Lab servicing (in-house)",
-	factory_repair: "Factory servicing",
+	servicing: "Lab service",
+	factory_repair: "Factory service",
 	transit: "Transit",
 	on_loan: "On loan",
 	field_test: "Field test",
 	missing: "Went missing",
 	destroyed: "Destroyed",
+	// Glider modal only -- filtered out of typeOptions below when
+	// `lifecycle` is absent (a bare, non-glider asset).
+	pre_mission_servicing: "Pre-mission lab service",
 };
+
+const PRE_MISSION_SERVICING = "pre_mission_servicing";
 
 // destroyed also stamps the asset's retirement date (gateway side); the
 // dialog just warns. missing is a normal span whose end date means
@@ -235,21 +245,26 @@ export default function AddServicingEventDialog({
 
 	const retired = lifecycle?.decommissionedDate ?? null;
 
-	// Real event types, plus (gliders only, add mode only) one synthetic
-	// fleet-lifecycle action.
-	const typeOptions: { value: string; label: string }[] = [
-		...eventTypes.map((t) => ({
+	// Real event types (pre_mission_servicing filtered to gliders only),
+	// plus (gliders only, add mode only) one synthetic fleet-lifecycle
+	// action -- all sorted together alphabetically by label so the two
+	// asset-page/glider-page dialogs read as one consistent, organized
+	// list rather than "real types, then a special one tacked on at the
+	// end".
+	const typeOptions: { value: string; label: string }[] = eventTypes
+		.filter((t) => t.name !== PRE_MISSION_SERVICING || lifecycle != null)
+		.map((t) => ({
 			value: t.name,
 			label: EVENT_TYPE_LABEL[t.name] ?? t.name,
-		})),
-	];
+		}));
 	if (lifecycle != null && !isEdit) {
 		typeOptions.push(
 			retired
 				? { value: RETURN_TO_SERVICE, label: "Return to service" }
-				: { value: DECOMMISSION, label: "Decommission — retire from fleet" },
+				: { value: DECOMMISSION, label: "Retired" },
 		);
 	}
+	typeOptions.sort((a, b) => a.label.localeCompare(b.label));
 
 	return (
 		<>

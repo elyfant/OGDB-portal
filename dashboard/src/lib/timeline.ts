@@ -25,7 +25,8 @@ export type TimelineEventKind =
 	| "field_test"
 	| "missing"
 	| "destroyed"
-	| "rma";
+	| "rma"
+	| "pre_mission_servicing";
 
 export interface TimelineEvent {
 	id: string;
@@ -133,6 +134,12 @@ export const KIND_META: Record<
 		label: "RMA case",
 		color: "#c62828",
 		fill: "rgba(198,40,40,0.12)",
+		cardStyle: "marker",
+	},
+	pre_mission_servicing: {
+		label: "Pre-mission service",
+		color: "#3949ab",
+		fill: "rgba(57,73,171,0.12)",
 		cardStyle: "marker",
 	},
 };

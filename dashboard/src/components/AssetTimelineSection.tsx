@@ -21,6 +21,7 @@ const CHIP_KINDS: TimelineEventKind[] = [
 	"missing",
 	"destroyed",
 	"rma",
+	"pre_mission_servicing",
 ];
 
 // The filter chips + the chart, as one reusable unit -- shared by the
