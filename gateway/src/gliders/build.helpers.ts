@@ -42,12 +42,28 @@ const DAYS_EXPR =
 // past date, not just the live one.
 const BUILD_TREE_SQL = `
   WITH RECURSIVE build AS (
+    -- Swappable components assigned directly under the glider.
     SELECT aa.id AS assignment_id, aa.child_asset_id AS asset_id, aa.parent_asset_id,
            aa.start_date, aa.position, 1 AS depth
     FROM asset_assignments aa
     WHERE aa.parent_asset_id = $1
       AND aa.start_date <= COALESCE($2, CURRENT_DATE)
       AND (aa.end_date IS NULL OR aa.end_date > COALESCE($2, CURRENT_DATE))
+    UNION ALL
+    -- The glider's identity-defining Slocum aft section. It's a 1:1 link
+    -- on asset_slocum_aft_section_details.glider_asset_id, not an
+    -- asset_assignments row (see OGDB xxxx_glider_core_aft_section), so
+    -- it's grafted in here as a synthetic depth-1 node: assignment_id is
+    -- NULL (nothing to close/replace -- it's not swappable), start_date
+    -- falls back to the glider's purchase date. Included regardless of
+    -- $2 (asOfDate) -- the aft section IS the glider for its whole life.
+    -- The recursive term below still reaches anything parented under it.
+    SELECT NULL::int AS assignment_id, aft.asset_id, $1 AS parent_asset_id,
+           COALESCE(g.purchase_date, aft.date_manufactured) AS start_date,
+           NULL AS position, 1 AS depth
+    FROM asset_slocum_aft_section_details aft
+    JOIN assets g ON g.id = $1
+    WHERE aft.glider_asset_id = $1
     UNION ALL
     SELECT aa.id, aa.child_asset_id, aa.parent_asset_id, aa.start_date, aa.position, build.depth + 1
     FROM asset_assignments aa
@@ -344,7 +360,10 @@ async function fetchComponentDetails(
 					[c.assetId],
 				);
 				if (result.rows[0]) {
-					const { asset_id, ...fields } = result.rows[0];
+					// glider_asset_id (asset_slocum_aft_section_details) is the
+					// core-section identity link, not a spec field -- it's
+					// already expressed by the row sitting under this glider.
+					const { asset_id, glider_asset_id, ...fields } = result.rows[0];
 					detail = fields;
 				}
 			}
@@ -477,7 +496,14 @@ async function fetchEditHistory(
 
 	const groups: { table: string; ids: number[] }[] = [
 		{ table: "assets", ids: allAssetIds },
-		{ table: "asset_assignments", ids: buildTree.map((c) => c.assignmentId) },
+		{
+			// The core aft section's synthetic build row has assignmentId
+			// null (it's a 1:1 column, not an assignment) -- drop it here.
+			table: "asset_assignments",
+			ids: buildTree
+				.map((c) => c.assignmentId)
+				.filter((id): id is number => id != null),
+		},
 		{ table: "asset_status_history", ids: statusHistory.map((s) => s.id) },
 	];
 

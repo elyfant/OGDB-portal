@@ -54,11 +54,14 @@ export default function GliderCurrentBuild({
 	);
 	const detailByAssetId = new Map(componentDetails.map((d) => [d.assetId, d]));
 
-	function toggle(assignmentId: number) {
+	// Keyed by assetId, not assignmentId -- the core aft section row has no
+	// assignmentId (1:1 identity link, not an assignment) but still expands
+	// to show its detail table.
+	function toggle(assetId: number) {
 		setExpanded((prev) => {
 			const next = new Set(prev);
-			if (next.has(assignmentId)) next.delete(assignmentId);
-			else next.add(assignmentId);
+			if (next.has(assetId)) next.delete(assetId);
+			else next.add(assetId);
 			return next;
 		});
 	}
@@ -99,15 +102,13 @@ export default function GliderCurrentBuild({
 										? formatAssetType(parentType)
 										: null;
 								const detail = detailByAssetId.get(c.assetId);
-								const isOpen = expanded.has(c.assignmentId);
+								const isOpen = expanded.has(c.assetId);
 
 								return (
-									<Fragment key={c.assignmentId}>
+									<Fragment key={c.assetId}>
 										<TableRow
 											hover={!!detail}
-											onClick={
-												detail ? () => toggle(c.assignmentId) : undefined
-											}
+											onClick={detail ? () => toggle(c.assetId) : undefined}
 											sx={detail ? { cursor: "pointer" } : undefined}
 										>
 											<TableCell>

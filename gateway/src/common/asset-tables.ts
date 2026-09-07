@@ -213,9 +213,18 @@ export const CAL_COLUMNS: Record<string, string[]> = {
 // list. Enforced at the gateway layer for the build-change write path;
 // not yet a DB-level constraint (see build-hierarchy.md's write-path
 // validation gap).
+//
+// slocum_aft_section is deliberately absent: a Slocum glider's aft
+// section is its identity, a 1:1 link on
+// asset_slocum_aft_section_details.glider_asset_id, NOT an
+// asset_assignments row (see OGDB migration xxxx_glider_core_aft_section
+// and build.helpers.ts BUILD_TREE_SQL). It can't be added/replaced
+// through the build-change path at all. slocum_end_cap used to parent to
+// slocum_aft_section; it parents to the glider now (end caps swap
+// between gliders, there are spares) -- and the aft section is no longer
+// a reachable assignment node anyway.
 export const VALID_PARENT_TYPES: Record<string, string[]> = {
 	nose_cone: ["glider"],
-	slocum_aft_section: ["glider"],
 	slocum_altimeter: ["glider"],
 	slocum_energy_bay: ["glider"],
 	slocum_forward_section: ["glider"],
@@ -228,5 +237,5 @@ export const VALID_PARENT_TYPES: Record<string, string[]> = {
 	argos_tag: ["glider"],
 	ct_sensor: ["glider", "slocum_payload_bay"],
 	eco_sensor: ["glider", "slocum_payload_bay"],
-	slocum_end_cap: ["slocum_aft_section"],
+	slocum_end_cap: ["glider"],
 };

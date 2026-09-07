@@ -146,6 +146,9 @@ export class MissionsService {
 	// backfill's 88 rows never got mission_id populated (see
 	// docs/design/build-hierarchy.md's "real remaining gaps"), so an asset
 	// with only pre-app assignment history shows no missions here yet.
+	// Exception: a Slocum aft section has no asset_assignments rows at all
+	// (it's a 1:1 identity link on asset_slocum_aft_section_details), so
+	// its deployments are looked up as its glider's -- see the query.
 	async getForAsset(assetId: number): Promise<GliderDeployment[]> {
 		const asset = await this.pool.query("SELECT 1 FROM assets WHERE id = $1", [
 			assetId,
@@ -159,10 +162,17 @@ export class MissionsService {
               nm.std_mission_name AS "stdMissionName", nm.status, nm.site,
               nm.launch_date AS "launchDate", nm.recovery_date AS "recoveryDate",
               nm.dives, nm.distance_km AS "distanceKm"
-       FROM asset_assignments aa
-       JOIN missions m ON m.id = aa.mission_id
-       JOIN norglider_missions nm ON nm.id = m.id
-       WHERE aa.child_asset_id = $1
+       FROM norglider_missions nm
+       JOIN missions m ON m.id = nm.id
+       WHERE m.id IN (
+               SELECT aa.mission_id FROM asset_assignments aa WHERE aa.child_asset_id = $1
+             )
+          -- A Slocum aft section is its glider's identity (1:1 link, no
+          -- asset_assignments row), so its deployments ARE the glider's.
+          OR m.glider_asset_id = (
+               SELECT glider_asset_id FROM asset_slocum_aft_section_details
+               WHERE asset_id = $1
+             )
        ORDER BY nm.launch_date DESC NULLS LAST`,
 			[assetId],
 		);

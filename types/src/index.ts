@@ -599,7 +599,11 @@ export interface CreatedMission {
 }
 
 export interface GliderBuildComponent {
-	assignmentId: number;
+	// null for the Slocum aft section: it's a 1:1 identity link on
+	// asset_slocum_aft_section_details.glider_asset_id, grafted into the
+	// build tree as a synthetic node, not a swappable asset_assignments
+	// row -- so it can't be replaced or removed through the build editor.
+	assignmentId: number | null;
 	assetId: number;
 	parentAssetId: number;
 	assetType: string;

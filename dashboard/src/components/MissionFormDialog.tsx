@@ -40,9 +40,9 @@ import { useEffect, useMemo, useState } from "react";
 
 // Types that can attach directly under a glider -- mirrors gateway's
 // VALID_PARENT_TYPES (common/asset-tables.ts), the glider-child subset
-// only. slocum_end_cap is excluded -- it attaches under
-// slocum_aft_section, not the glider itself, which this dialog's "Add
-// asset" doesn't support (use the glider detail page for that case).
+// only. slocum_aft_section is excluded -- a Slocum's aft section is its
+// identity (a 1:1 link on asset_slocum_aft_section_details, not an
+// assignment), set when the section is matched to its glider, not here.
 const ADDABLE_TO_GLIDER_TYPES = [
 	"ct_sensor",
 	"do_sensor",
@@ -51,8 +51,8 @@ const ADDABLE_TO_GLIDER_TYPES = [
 	"battery",
 	"argos_tag",
 	"nose_cone",
-	"slocum_aft_section",
 	"slocum_forward_section",
+	"slocum_end_cap",
 	"slocum_hull",
 	"slocum_altimeter",
 	"slocum_energy_bay",
@@ -210,8 +210,10 @@ export default function MissionFormDialog({
 		message: string;
 	} | null>(null);
 
+	// assignmentId is always set here: loadBuild filters out the core aft
+	// section (the one component with a null assignmentId).
 	const [buildComponents, setBuildComponents] = useState<
-		GliderBuildComponent[]
+		(GliderBuildComponent & { assignmentId: number })[]
 	>([]);
 	const [buildLoading, setBuildLoading] = useState(false);
 	const [pendingChanges, setPendingChanges] = useState<BuildChange[]>([]);
@@ -242,7 +244,14 @@ export default function MissionFormDialog({
 		setPendingChanges([]);
 		try {
 			const build = await getGliderBuildClient(gliderAssetId);
-			setBuildComponents(build.components);
+			// Drop the core aft section (assignmentId null) -- a Slocum's aft
+			// section is its identity, not a component you replace per mission.
+			setBuildComponents(
+				build.components.filter(
+					(c): c is GliderBuildComponent & { assignmentId: number } =>
+						c.assignmentId != null,
+				),
+			);
 		} catch {
 			setBuildComponents([]);
 		} finally {
@@ -368,7 +377,9 @@ export default function MissionFormDialog({
 		return () => clearTimeout(handle);
 	}, [picker, pickerAssetType, pickerQuery]);
 
-	function openReplacePicker(component: GliderBuildComponent) {
+	function openReplacePicker(
+		component: GliderBuildComponent & { assignmentId: number },
+	) {
 		setPicker({
 			mode: "replace",
 			assignmentId: component.assignmentId,

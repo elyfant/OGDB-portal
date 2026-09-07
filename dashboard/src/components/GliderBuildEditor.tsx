@@ -45,8 +45,11 @@ const SCIENCE_ASSET_TYPES = new Set([
 	"mr_sensor",
 ]);
 
+// slocum_aft_section is absent on purpose: a Slocum's aft section is its
+// identity (a 1:1 link, not a swappable assignment -- see gateway
+// VALID_PARENT_TYPES), so it can't be added or replaced through this
+// editor.
 const ALL_ASSET_TYPES = [
-	"slocum_aft_section",
 	"slocum_forward_section",
 	"slocum_end_cap",
 	"slocum_payload_bay",
@@ -308,10 +311,18 @@ export default function GliderBuildEditor({
 		: "+ Add a component that isn't replacing anything";
 	// The dialog only ever touches assignments it renders -- scope the
 	// component list so the science editor can't reach structural/power rows
-	// (and vice versa).
-	const scopedComponents = isScience
-		? components.filter((c) => SCIENCE_ASSET_TYPES.has(c.assetType))
-		: components.filter((c) => !SCIENCE_ASSET_TYPES.has(c.assetType));
+	// (and vice versa). Components with no assignmentId (the Slocum aft
+	// section, a 1:1 identity link rather than a swappable assignment) are
+	// excluded from both -- they can't be replaced or removed here; they
+	// still show on the read-only Current Build view.
+	const scopedComponents = (
+		isScience
+			? components.filter((c) => SCIENCE_ASSET_TYPES.has(c.assetType))
+			: components.filter((c) => !SCIENCE_ASSET_TYPES.has(c.assetType))
+	).filter(
+		(c): c is GliderBuildComponent & { assignmentId: number } =>
+			c.assignmentId != null,
+	);
 
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
