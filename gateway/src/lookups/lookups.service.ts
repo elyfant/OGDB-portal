@@ -77,7 +77,7 @@ export class LookupsService {
 	// a platform hasn't been NVS-mapped yet.
 	async getPlatforms(): Promise<LookupOption[]> {
 		const result = await this.pool.query(
-			`SELECT p.id, COALESCE(nt.pref_label, p.name || ' ' || p.model) AS name
+			`SELECT p.id, COALESCE(nt.label, p.name || ' ' || p.model) AS name
        FROM platforms p
        LEFT JOIN nvs_terms nt ON nt.id = p.b76_model_id
        ORDER BY name`,
@@ -91,7 +91,7 @@ export class LookupsService {
 	// this is the one place that convention has to be trusted directly.
 	async getSensorModels(): Promise<LookupOption[]> {
 		const result = await this.pool.query(
-			`SELECT id, pref_label AS name FROM nvs_terms
+			`SELECT id, label AS name FROM nvs_terms
        WHERE collection = 'L22' AND NOT deprecated
        ORDER BY name`,
 		);

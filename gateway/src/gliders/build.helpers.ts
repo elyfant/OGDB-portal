@@ -121,7 +121,7 @@ async function fetchModels(
 		.map((c) => c.assetId);
 	if (sensorIds.length) {
 		const result = await pool.query(
-			`SELECT asd.asset_id AS "assetId", t.pref_label AS model, t.uri
+			`SELECT asd.asset_id AS "assetId", t.label AS model, t.uri
        FROM asset_sensor_details asd
        JOIN nvs_terms t ON t.id = asd.l22_model_id
        WHERE asd.asset_id = ANY($1)`,
@@ -194,11 +194,11 @@ async function fetchMeasuredParameters(
 	if (sensorAssetIds.length === 0) return byAsset;
 
 	const result = await pool.query(
-		`SELECT asp.asset_id AS "assetId", t.pref_label AS label, t.uri
+		`SELECT asp.asset_id AS "assetId", t.label AS label, t.uri
      FROM asset_sensor_parameters asp
      JOIN nvs_terms t ON t.id = asp.p01_term_id
      WHERE asp.asset_id = ANY($1)
-     ORDER BY t.pref_label`,
+     ORDER BY t.label`,
 		[sensorAssetIds],
 	);
 	for (const row of result.rows) {

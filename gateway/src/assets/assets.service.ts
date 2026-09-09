@@ -58,9 +58,9 @@ const SELECT_ASSETS = `
     a.serial_number AS "serialNumber",
     at.name AS "assetType",
     atg.name AS "assetTypeGroup",
-    COALESCE(TRIM(p.model), l22.pref_label) AS "assetModel",
-    pm.pref_label AS "platformModelFull",
-    pc.pref_label AS "platformCategory",
+    COALESCE(TRIM(p.model), l22.label) AS "assetModel",
+    pm.label AS "platformModelFull",
+    pc.label AS "platformCategory",
     asd.l22_model_id AS "l22ModelId",
     a.purchase_date AS "purchaseDate",
     a.purchase_value_usd::float8 AS "purchaseValueUsd",
@@ -186,7 +186,7 @@ export class AssetsService {
 
 		if (SENSOR_TYPES.has(assetType)) {
 			const result = await this.pool.query(
-				`SELECT a.id, a.serial_number AS "serialNumber", t.pref_label AS model
+				`SELECT a.id, a.serial_number AS "serialNumber", t.label AS model
          FROM assets a
          JOIN asset_types at ON at.id = a.asset_type_id AND at.name = $1
          LEFT JOIN asset_sensor_details asd ON asd.asset_id = a.id
