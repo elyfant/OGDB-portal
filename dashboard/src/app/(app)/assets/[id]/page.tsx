@@ -207,6 +207,8 @@ export default async function AssetDetailPage({
 				eventTypes={eventTypes}
 				contacts={contacts}
 				canEdit={canEdit}
+				decommissionedDate={asset.decommissionedDate}
+				decommissionReason={asset.decommissionReason}
 			/>
 			{battery && <BatteryDetailsSection battery={battery} />}
 			<CalibrationHistorySection

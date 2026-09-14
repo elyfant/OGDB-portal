@@ -170,6 +170,12 @@ export interface Asset {
 	statusId: number | null;
 	status: AssetStatus | null;
 	statusEffectiveDate: string | null;
+	// Fleet lifecycle, independent of `status` -- same column as
+	// Glider.decommissionedDate above, just also surfaced for a bare
+	// asset now that a glider's retirement can cascade onto its
+	// components (see DecommissionInput.childAssetIds).
+	decommissionedDate: string | null;
+	decommissionReason: string | null;
 }
 
 // The Batteries catalogue row -- assets of type "battery" with their

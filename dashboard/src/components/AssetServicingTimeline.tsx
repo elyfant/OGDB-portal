@@ -6,12 +6,15 @@ import ServicingEventControls, {
 	type ServicingEventControlsHandle,
 } from "@/components/ServicingEventControls";
 import ServicingHistoryTable from "@/components/ServicingHistoryTable";
+import { formatDate } from "@/lib/format";
 import type { TimelineEvent } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type {
 	AssetRmaSummary,
@@ -35,6 +38,8 @@ export default function AssetServicingTimeline({
 	eventTypes,
 	contacts,
 	canEdit,
+	decommissionedDate,
+	decommissionReason,
 }: {
 	assetId: number;
 	events: TimelineEvent[];
@@ -43,11 +48,31 @@ export default function AssetServicingTimeline({
 	eventTypes: ServicingEventTypeOption[];
 	contacts: LookupOption[];
 	canEdit: boolean;
+	// Read-only display only -- unlike GliderTimelineTab's `lifecycle`,
+	// this doesn't unlock a Decommission/Return-to-service action here.
+	// A bare asset's decommissioned_date is normally set as a side effect
+	// of retiring the glider it was attached to (the "retire with the
+	// glider" cascade), not edited on its own page.
+	decommissionedDate: string | null;
+	decommissionReason: string | null;
 }) {
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);
 
 	return (
 		<Box>
+			{decommissionedDate && (
+				<Tooltip
+					title={decommissionReason ?? ""}
+					disableHoverListener={!decommissionReason}
+				>
+					<Chip
+						size="small"
+						variant="outlined"
+						label={`Retired ${formatDate(decommissionedDate)}`}
+						sx={{ mb: 2 }}
+					/>
+				</Tooltip>
+			)}
 			<ServicingEventControls
 				ref={controlsRef}
 				assetId={assetId}

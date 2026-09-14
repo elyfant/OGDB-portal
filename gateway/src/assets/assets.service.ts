@@ -67,7 +67,15 @@ const SELECT_ASSETS = `
     a.purchase_value_usd::float8 AS "purchaseValueUsd",
     aso.id AS "statusId",
     aso.name AS status,
-    cas.effective_date AS "statusEffectiveDate"
+    cas.effective_date AS "statusEffectiveDate",
+    -- Fleet lifecycle -- same column as Glider.decommissionedDate, just
+    -- not surfaced for a bare asset until now. Set directly
+    -- (setDecommission applies to any asset type) or as a side effect of
+    -- retiring the glider this was attached to and NOT excluding it from
+    -- the "retire with the glider" cascade -- see
+    -- AssetsService.setDecommission's childAssetIds handling.
+    a.decommissioned_date AS "decommissionedDate",
+    a.decommission_reason AS "decommissionReason"
   FROM assets a
   JOIN asset_types at ON at.id = a.asset_type_id
   JOIN asset_type_groups atg ON atg.id = at.group_id
