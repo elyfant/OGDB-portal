@@ -3,12 +3,12 @@ import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import KeyFiles from "@/components/KeyFiles";
 import MissionFilesEditor from "@/components/MissionFilesEditor";
-import { siteToArea } from "@/components/mission-stats/site-areas";
 import MissionTrackMapLoader from "@/components/MissionTrackMapLoader";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import RegionIcon from "@/components/RegionIcon";
 import SciencePayloadTable from "@/components/SciencePayloadTable";
 import StatTile from "@/components/StatTile";
+import { siteToArea } from "@/components/mission-stats/site-areas";
 import {
 	getContacts,
 	getCruises,
@@ -152,7 +152,9 @@ export default async function MissionDetailPage({
 					tracks={tracks}
 					platform={platform}
 					deployment={deployment}
+					deploymentDate={mission.launchDate}
 					recovery={recovery}
+					recoveryDate={mission.recoveryDate}
 				/>
 			</Box>
 
@@ -193,7 +195,8 @@ export default async function MissionDetailPage({
 						)}
 					</Box>
 					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-						{formatDate(mission.launchDate)} – {formatDate(mission.recoveryDate)}
+						{formatDate(mission.launchDate)} –{" "}
+						{formatDate(mission.recoveryDate)}
 					</Typography>
 				</Box>
 				<MuiLink

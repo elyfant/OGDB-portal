@@ -543,6 +543,8 @@ export interface MissionTrackPoint {
 	latitude: number;
 	longitude: number;
 	utc: string;
+	temperature: number | null;
+	salinity: number | null;
 }
 
 // A simple id/name reference option -- projects, sites, institutes,

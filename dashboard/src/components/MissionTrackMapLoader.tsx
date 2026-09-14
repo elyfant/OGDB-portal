@@ -1,8 +1,8 @@
 "use client";
 
-import type { MissionTrackPoint } from "@ogdb/types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import type { MissionTrackPoint } from "@ogdb/types";
 import dynamic from "next/dynamic";
 
 const MissionTrackMap = dynamic(() => import("./MissionTrackMap"), {
@@ -33,12 +33,16 @@ export default function MissionTrackMapLoader({
 	tracks,
 	platform,
 	deployment,
+	deploymentDate,
 	recovery,
+	recoveryDate,
 }: {
 	tracks: MissionTrackPoint[];
 	platform: "slocum" | "seaglider" | null;
 	deployment: LatLon | null;
+	deploymentDate: string | null;
 	recovery: LatLon | null;
+	recoveryDate: string | null;
 }) {
 	if (MAP_DISABLED) {
 		return (
@@ -63,7 +67,9 @@ export default function MissionTrackMapLoader({
 			tracks={tracks}
 			platform={platform}
 			deployment={deployment}
+			deploymentDate={deploymentDate}
 			recovery={recovery}
+			recoveryDate={recoveryDate}
 		/>
 	);
 }

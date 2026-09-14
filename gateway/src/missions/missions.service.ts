@@ -270,7 +270,7 @@ export class MissionsService {
 	async getTracks(id: number): Promise<MissionTrackPoint[]> {
 		await this.findOne(id);
 		const result = await this.pool.query(
-			`SELECT latitude, longitude, utc
+			`SELECT latitude, longitude, utc, temperature, salinity
        FROM tracks
        WHERE missions_id = $1
        ORDER BY utc ASC`,
