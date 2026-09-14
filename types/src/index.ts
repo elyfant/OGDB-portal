@@ -776,6 +776,14 @@ export interface ServicingEventTypeOption {
 export interface DecommissionInput {
 	decommissionedDate: string | null;
 	reason?: string | null;
+	// Retiring only (ignored on return-to-service). The reviewed set of
+	// this glider's currently attached components that retire WITH it
+	// (decommissioned, assignment left open). Anything else the live
+	// build tree contains is freed up instead (not decommissioned,
+	// assignment closed). `[]` means "free up everything"; omit entirely
+	// to skip build-tree handling. Server-validated against the live
+	// build tree either way.
+	childAssetIds?: number[];
 }
 
 // One servicing event for one asset -- factory servicing, transit, or

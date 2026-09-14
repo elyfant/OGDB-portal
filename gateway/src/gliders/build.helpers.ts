@@ -88,7 +88,11 @@ const BUILD_TREE_SQL = `
   ORDER BY build.depth, at.name, a.serial_number
 `;
 
-async function fetchBuildTree(
+// Exported for AssetsService.setDecommission -- validating a "retire
+// these components along with the glider" request against the glider's
+// actual live build tree, so a stale/tampered client request can't
+// decommission something that isn't (or is no longer) really attached.
+export async function fetchBuildTree(
 	pool: Pool,
 	gliderAssetId: number,
 	asOfDate?: string | null,

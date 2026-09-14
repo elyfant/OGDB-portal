@@ -2,12 +2,15 @@
 
 import {
 	decommissionAsset,
+	getGliderBuildClient,
 	recordServicingEvent,
 	updateServicingEvent,
 } from "@/lib/api-client";
+import { formatAssetType } from "@/lib/format";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -18,6 +21,7 @@ import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type {
+	GliderBuildComponent,
 	LookupOption,
 	ServicingEvent,
 	ServicingEventType,
@@ -120,6 +124,19 @@ export default function AddServicingEventDialog({
 		message: string;
 	} | null>(null);
 
+	// The glider's currently attached components, offered as a "retire
+	// these too" checklist once "Retired" is picked -- all checked by
+	// default, opt out per row (e.g. keep a science sensor in service for
+	// reuse elsewhere). Fetched lazily rather than on every dialog open,
+	// since most Add-event visits never touch decommission at all.
+	const [buildComponents, setBuildComponents] = useState<
+		GliderBuildComponent[]
+	>([]);
+	const [buildLoading, setBuildLoading] = useState(false);
+	const [excludedChildIds, setExcludedChildIds] = useState<Set<number>>(
+		new Set(),
+	);
+
 	// Re-seeds whenever the dialog opens (either fresh, or onto a
 	// different/updated event to edit) -- keying on open+initialEvent?.id
 	// avoids re-seeding mid-edit on unrelated parent re-renders.
@@ -137,6 +154,64 @@ export default function AddServicingEventDialog({
 	const isTerminal = state.eventType === TERMINAL_EVENT;
 	const isMissing = state.eventType === "missing";
 	const isLifecycleAction = isDecommission || isReturn;
+
+	useEffect(() => {
+		if (!isDecommission) return;
+		let cancelled = false;
+		setBuildLoading(true);
+		getGliderBuildClient(assetId)
+			.then((build) => {
+				if (cancelled) return;
+				setBuildComponents(build.components);
+				setExcludedChildIds(new Set());
+			})
+			.catch(() => {
+				if (!cancelled) setBuildComponents([]);
+			})
+			.finally(() => {
+				if (!cancelled) setBuildLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [isDecommission, assetId]);
+
+	// Everything downstream of an asset in the build tree (by
+	// parentAssetId, e.g. a CT sensor nested under a payload bay) --
+	// toggling a component carries its whole subtree with it, so you
+	// can't end up retiring a sensor "with the glider" while the payload
+	// bay that physically holds it is being freed up for reuse.
+	function descendantIds(rootId: number): number[] {
+		const childrenOf = new Map<number, number[]>();
+		for (const c of buildComponents) {
+			if (c.parentAssetId == null) continue;
+			const list = childrenOf.get(c.parentAssetId) ?? [];
+			list.push(c.assetId);
+			childrenOf.set(c.parentAssetId, list);
+		}
+		const result: number[] = [];
+		const stack = [rootId];
+		while (stack.length) {
+			const current = stack.pop();
+			for (const child of childrenOf.get(current as number) ?? []) {
+				result.push(child);
+				stack.push(child);
+			}
+		}
+		return result;
+	}
+
+	function toggleChild(childAssetId: number) {
+		setExcludedChildIds((prev) => {
+			const next = new Set(prev);
+			const excluding = !next.has(childAssetId);
+			for (const id of [childAssetId, ...descendantIds(childAssetId)]) {
+				if (excluding) next.add(id);
+				else next.delete(id);
+			}
+			return next;
+		});
+	}
 
 	async function handleSave() {
 		setError(null);
@@ -164,16 +239,37 @@ export default function AddServicingEventDialog({
 		}
 
 		if (isDecommission) {
+			// Checked = retires with the glider (decommissioned, stays
+			// assigned). Everything else currently attached is freed up
+			// instead (not decommissioned, unassigned) -- see
+			// DecommissionInput.childAssetIds. Always sent as an array (even
+			// empty), never omitted, so the gateway knows a build tree was
+			// actually reviewed here.
+			const retiredWithGlider = buildComponents
+				.map((c) => c.assetId)
+				.filter((componentId) => !excludedChildIds.has(componentId));
+			const freedUp = buildComponents.filter(
+				(c) => excludedChildIds.has(c.assetId) && c.assignmentId != null,
+			).length;
 			setSaving(true);
 			try {
 				await decommissionAsset(assetId, {
 					decommissionedDate: state.startDate,
 					reason: state.details.trim() || null,
+					childAssetIds: retiredWithGlider,
 				});
 				onClose();
+				const parts: string[] = [];
+				if (retiredWithGlider.length)
+					parts.push(
+						`${retiredWithGlider.length} component${retiredWithGlider.length === 1 ? "" : "s"} retired with it`,
+					);
+				if (freedUp) parts.push(`${freedUp} freed up for reuse`);
 				setBanner({
 					severity: "success",
-					message: "Glider retired from fleet.",
+					message: parts.length
+						? `Glider retired from fleet — ${parts.join(", ")}.`
+						: "Glider retired from fleet.",
 				});
 			} catch (err) {
 				setBanner({
@@ -326,6 +422,89 @@ export default function AddServicingEventDialog({
 							No timeline event is logged — use a “Went missing” or “Destroyed”
 							event instead if something actually happened to it.
 						</Alert>
+					)}
+
+					{isDecommission && buildLoading && (
+						<Typography variant="body2" color="text.disabled">
+							Loading current build…
+						</Typography>
+					)}
+
+					{isDecommission && !buildLoading && buildComponents.length > 0 && (
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+							<Box
+								sx={{
+									display: "flex",
+									justifyContent: "space-between",
+									alignItems: "center",
+								}}
+							>
+								<Typography variant="body2" color="text.secondary">
+									Currently attached components — checked ones retire with the
+									glider; unchecked ones are freed up (unassigned, kept in
+									service) for reuse elsewhere:
+								</Typography>
+								<Button
+									size="small"
+									onClick={() =>
+										setExcludedChildIds((prev) =>
+											prev.size === 0
+												? new Set(buildComponents.map((c) => c.assetId))
+												: new Set(),
+										)
+									}
+								>
+									{excludedChildIds.size === 0
+										? "Free up all instead"
+										: "Retire all instead"}
+								</Button>
+							</Box>
+							<Box
+								sx={{
+									border: "1px solid",
+									borderColor: "divider",
+									borderRadius: 1,
+									maxHeight: 220,
+									overflowY: "auto",
+								}}
+							>
+								{buildComponents.map((c) => {
+									const excluded = excludedChildIds.has(c.assetId);
+									return (
+										<Box
+											key={c.assetId}
+											sx={{
+												display: "flex",
+												alignItems: "center",
+												gap: 1,
+												pl: (c.depth - 1) * 2,
+												pr: 1,
+											}}
+										>
+											<Checkbox
+												size="small"
+												checked={!excluded}
+												onChange={() => toggleChild(c.assetId)}
+											/>
+											<Typography variant="body2" sx={{ fontSize: 13 }}>
+												{formatAssetType(c.assetType)}
+												{c.serialNumber ? ` · SN ${c.serialNumber}` : ""}
+												{c.position ? ` (${c.position})` : ""}
+											</Typography>
+											{excluded && (
+												<Typography
+													variant="caption"
+													color="text.secondary"
+													sx={{ fontStyle: "italic" }}
+												>
+													freed for reuse
+												</Typography>
+											)}
+										</Box>
+									);
+								})}
+							</Box>
+						</Box>
 					)}
 
 					{!isLifecycleAction && (

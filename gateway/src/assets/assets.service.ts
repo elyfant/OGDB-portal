@@ -20,6 +20,7 @@ import {
 } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
 import { DocumentsService } from "../documents/documents.service";
+import { fetchBuildTree } from "../gliders/build.helpers";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
@@ -282,6 +283,31 @@ export class AssetsService {
 	// is derived, not set). A date retires the asset; null returns it to
 	// service. Applies to any asset; only gliders surface it in the UI
 	// today. See docs/design/derived-glider-status.md.
+	//
+	// dto.childAssetIds (retiring only, ignored on return-to-service) is
+	// the reviewed set of this glider's currently attached components that
+	// retire WITH it: decommissioned alongside the glider, same
+	// date/reason, but their asset_assignments row is left OPEN on
+	// purpose -- for most of a glider's life its parts never move, so that
+	// open row is the useful historical record of "this was the final
+	// build", not something to tidy away.
+	//
+	// Everything else the live build tree actually contains -- present,
+	// but NOT in childAssetIds -- is the opposite case: a part being
+	// pulled off this glider for reuse elsewhere (e.g. gna's do_sensor and
+	// eco_sensor). Those are NOT decommissioned, and their assignment IS
+	// closed (end_date = the decommission date), because leaving it open
+	// would keep them looking "still attached to a retired glider" and
+	// block reassigning them anywhere else.
+	//
+	// childAssetIds is validated against the live build tree
+	// (fetchBuildTree, same query the build editor uses) rather than
+	// trusted as-is -- a non-glider asset has an empty build tree, so this
+	// whole block is naturally a no-op for anything that isn't one.
+	// Distinguishing "no childAssetIds sent" (skip all of this -- e.g. a
+	// bare asset with no build) from "childAssetIds: []" (a glider whose
+	// tree really is empty, or where nothing at all should stay attached)
+	// is why this checks `!== undefined` rather than truthiness.
 	async setDecommission(
 		id: number,
 		dto: SetDecommissionDto,
@@ -289,13 +315,54 @@ export class AssetsService {
 	): Promise<Asset> {
 		await this.findOne(id);
 		const date = dto.decommissionedDate ?? null;
-		await this.pool.query(
-			`UPDATE assets
-         SET decommissioned_date = $2, decommission_reason = $3,
-             updated_at = now(), changed_by = $4
-       WHERE id = $1`,
-			[id, date, date ? (dto.reason ?? null) : null, userId],
-		);
+		const reason = date ? (dto.reason ?? null) : null;
+
+		let retainIds: number[] = [];
+		let releaseAssignmentIds: number[] = [];
+		if (date && dto.childAssetIds !== undefined) {
+			const tree = await fetchBuildTree(this.pool, id);
+			const attached = new Set(tree.map((c) => c.assetId));
+			retainIds = dto.childAssetIds.filter((childId) => attached.has(childId));
+			const retainSet = new Set(retainIds);
+			releaseAssignmentIds = tree
+				.filter((c) => !retainSet.has(c.assetId) && c.assignmentId != null)
+				.map((c) => c.assignmentId as number);
+		}
+
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+			await client.query(
+				`UPDATE assets
+           SET decommissioned_date = $2, decommission_reason = $3,
+               updated_at = now(), changed_by = $4
+         WHERE id = $1`,
+				[id, date, reason, userId],
+			);
+			if (retainIds.length) {
+				await client.query(
+					`UPDATE assets
+             SET decommissioned_date = $2, decommission_reason = $3,
+                 updated_at = now(), changed_by = $4
+           WHERE id = ANY($1)`,
+					[retainIds, date, reason, userId],
+				);
+			}
+			if (releaseAssignmentIds.length) {
+				await client.query(
+					`UPDATE asset_assignments
+             SET end_date = $2, updated_at = now(), changed_by = $3
+           WHERE id = ANY($1) AND end_date IS NULL`,
+					[releaseAssignmentIds, date, userId],
+				);
+			}
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
 		return this.findOne(id);
 	}
 
