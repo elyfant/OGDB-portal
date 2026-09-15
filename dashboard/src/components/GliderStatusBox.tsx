@@ -16,6 +16,22 @@ const SOURCE_LABEL: Record<string, string> = {
 	default: "nothing logged — assumed in the lab",
 };
 
+// "Lab" is the derived-status fallback whenever there's no open mission
+// and no open qualifying service event -- it's a guess, not a fact, so
+// the "nothing logged" wording is accurate for a glider that's just
+// sitting unused. It stops being accurate once the asset is retired
+// *with a reason on record* (decommissionedDate/-Reason): something
+// real IS logged, it's just not one of the events this derivation looks
+// at (missions/service events, not decommission). Saying "nothing
+// logged" one line above "Retired ... <reason>" reads as a flat
+// contradiction, so this bucket gets its own wording instead.
+const RETIRED_DEFAULT_LABEL = "no activity logged since retirement";
+
+function sourceLabel(source: string | null, isRetired: boolean): string {
+	if (source === "default" && isRetired) return RETIRED_DEFAULT_LABEL;
+	return SOURCE_LABEL[source ?? "default"];
+}
+
 // Operational status is derived from the glider's timeline; fleet
 // lifecycle (retired or not) is a separate axis shown alongside. See
 // docs/design/derived-glider-status.md.
@@ -56,12 +72,12 @@ export default function GliderStatusBox({
 							{daysSince(statusSince) === 1 ? "day" : "days"})
 						</>
 					) : (
-						SOURCE_LABEL[statusSource ?? "default"]
+						sourceLabel(statusSource, !!decommissionedDate)
 					)}
 				</Typography>
 				{statusSince && statusSource && SOURCE_LABEL[statusSource] && (
 					<Typography variant="caption" color="text.disabled">
-						{SOURCE_LABEL[statusSource]}
+						{sourceLabel(statusSource, !!decommissionedDate)}
 					</Typography>
 				)}
 				{decommissionedDate && (
