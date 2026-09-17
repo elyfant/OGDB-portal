@@ -28,6 +28,7 @@ const INLINE_CONTENT_TYPES: Record<string, string> = {
 	".cfg": "text/plain; charset=utf-8",
 	".ini": "text/plain; charset=utf-8",
 	".m": "text/plain; charset=utf-8",
+	".mi": "text/plain; charset=utf-8",
 	".md": "text/plain; charset=utf-8",
 	".csv": "text/csv; charset=utf-8",
 	".tsv": "text/tab-separated-values; charset=utf-8",

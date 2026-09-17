@@ -25,7 +25,7 @@ import { useRef, useState } from "react";
 // human-readable line below the picker. The gateway is the real
 // gatekeeper; this just steers the file dialog.
 const ACCEPT =
-	".txt,.text,.asc,.ascii,.dat,.log,.cfg,.ini,.m,.md,.csv,.tsv,.json,.xml,.yaml,.yml,.pdf,.png,.jpg,.jpeg,.gif,.webp";
+	".txt,.text,.asc,.ascii,.dat,.log,.cfg,.ini,.m,.mi,.md,.csv,.tsv,.json,.xml,.yaml,.yml,.pdf,.png,.jpg,.jpeg,.gif,.webp";
 
 export default function MissionFilesEditor({
 	missionId,

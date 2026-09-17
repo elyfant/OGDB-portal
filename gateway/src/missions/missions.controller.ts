@@ -35,6 +35,9 @@ const ALLOWED_MISSION_FILE_EXTENSIONS = new Set([
 	".cfg",
 	".ini",
 	".m",
+	// Slocum mission-initialization file (autoexec.mi) -- plain ascii,
+	// same shape as the other glider config/log extensions above.
+	".mi",
 	".md",
 	".csv",
 	".tsv",
