@@ -43,6 +43,45 @@ const SENSOR_TYPES = new Set([
 	"mr_sensor",
 ]);
 
+// Turns a raw pg driver error from AssetsService.create's inserts into
+// something an editor/admin can actually act on, instead of NestJS's
+// default catch-all "Internal server error" (which hides the real cause
+// from the client entirely -- see err.detail/err.constraint, which pg
+// populates from Postgres's own wire-protocol error fields).
+//
+// 23505 on assets_pkey specifically means the id sequence has fallen
+// behind the table's real max id (assets has no other unique
+// constraint -- see erd_dump.sql) -- almost always the result of a
+// migration/import that inserted explicit ids without a matching
+// setval(). Not something the user did wrong, so the message says so
+// and gives the admin the exact fix rather than "try again".
+function mapCreateAssetError(err: unknown): Error {
+	if (!err || typeof err !== "object" || !("code" in err)) {
+		return err instanceof Error ? err : new Error(String(err));
+	}
+	const pgErr = err as { code: string; detail?: string; constraint?: string };
+	if (pgErr.code === "23505") {
+		if (pgErr.constraint === "assets_pkey") {
+			return new ConflictException(
+				"Couldn't create the asset: its auto-generated ID collided with one already in the table. " +
+					"The assets table's ID sequence has fallen behind its real max id (usually from a bulk " +
+					"import that inserted rows with explicit ids). Fix: run " +
+					"\"SELECT setval('assets_id_seq', (SELECT MAX(id) FROM assets));\" against the database, " +
+					"then retry -- this isn't something you can fix by changing the form.",
+			);
+		}
+		return new ConflictException(
+			`Couldn't create the asset: a uniqueness constraint was violated${pgErr.detail ? ` (${pgErr.detail})` : ""}.`,
+		);
+	}
+	if (pgErr.code === "23503") {
+		return new BadRequestException(
+			`Couldn't create the asset: one of the referenced records (institute, sensor model, etc.) doesn't exist${pgErr.detail ? ` (${pgErr.detail})` : ""}.`,
+		);
+	}
+	return err instanceof Error ? err : new Error(String(err));
+}
+
 // Name only resolves for gliders right now (via asset_glider_details ->
 // platforms). assetModel resolves for gliders (platforms.model) and
 // science sensors (asset_sensor_details.l22_model_id's NVS label) --
@@ -396,66 +435,75 @@ export class AssetsService {
 			);
 		}
 
-		const result = await this.pool.query(
-			`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value_usd, institute_id, changed_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id`,
-			[
-				dto.assetTypeId,
-				dto.serialNumber ?? null,
-				dto.notes ?? null,
-				dto.purchaseDate ?? null,
-				dto.purchaseValueUsd ?? null,
-				dto.instituteId ?? null,
-				userId,
-			],
-		);
-		const assetId = result.rows[0].id;
-
-		// New gear sits in the lab before it's deployed -- give every
-		// asset a real starting status rather than leaving it unset (the
-		// same asset_status_history insert setStatus() uses).
-		await this.pool.query(
-			`INSERT INTO asset_status_history (asset_id, status_id, changed_by)
-       SELECT $1, id, $2 FROM asset_status_options WHERE name = 'lab'`,
-			[assetId, userId],
-		);
-
-		// Science sensors only -- ignored for every other type, even if
-		// somehow sent (the create form only shows/sends this field once
-		// a sensor asset type is selected).
-		if (dto.l22ModelId != null && SENSOR_TYPES.has(typeResult.rows[0].name)) {
-			await this.pool.query(
-				`INSERT INTO asset_sensor_details (asset_id, l22_model_id)
-         VALUES ($1, $2)
-         ON CONFLICT (asset_id) DO UPDATE SET l22_model_id = EXCLUDED.l22_model_id`,
-				[assetId, dto.l22ModelId],
+		let assetId: number;
+		try {
+			const result = await this.pool.query(
+				`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value_usd, institute_id, changed_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id`,
+				[
+					dto.assetTypeId,
+					dto.serialNumber ?? null,
+					dto.notes ?? null,
+					dto.purchaseDate ?? null,
+					dto.purchaseValueUsd ?? null,
+					dto.instituteId ?? null,
+					userId,
+				],
 			);
-		}
+			assetId = result.rows[0].id;
 
-		// Batteries only -- same "ignored for any other type" contract as
-		// the sensor block above. asset_battery_details holds the per-unit
-		// model + manufacture date; weight is the first row of the
-		// append-only asset_battery_measurements history (that table is a
-		// re-measured-over-time record, not a flat column).
-		if (typeResult.rows[0].name === "battery") {
-			if (dto.batteryModelId != null || dto.dateOfManufacture != null) {
+			// New gear sits in the lab before it's deployed -- give every
+			// asset a real starting status rather than leaving it unset (the
+			// same asset_status_history insert setStatus() uses).
+			await this.pool.query(
+				`INSERT INTO asset_status_history (asset_id, status_id, changed_by)
+         SELECT $1, id, $2 FROM asset_status_options WHERE name = 'lab'`,
+				[assetId, userId],
+			);
+
+			// Science sensors only -- ignored for every other type, even if
+			// somehow sent (the create form only shows/sends this field once
+			// a sensor asset type is selected).
+			if (dto.l22ModelId != null && SENSOR_TYPES.has(typeResult.rows[0].name)) {
 				await this.pool.query(
-					`INSERT INTO asset_battery_details (asset_id, battery_model_id, date_of_manufacture)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (asset_id) DO UPDATE SET
-             battery_model_id = EXCLUDED.battery_model_id,
-             date_of_manufacture = EXCLUDED.date_of_manufacture`,
-					[assetId, dto.batteryModelId ?? null, dto.dateOfManufacture ?? null],
+					`INSERT INTO asset_sensor_details (asset_id, l22_model_id)
+           VALUES ($1, $2)
+           ON CONFLICT (asset_id) DO UPDATE SET l22_model_id = EXCLUDED.l22_model_id`,
+					[assetId, dto.l22ModelId],
 				);
 			}
-			if (dto.weight != null) {
-				await this.pool.query(
-					`INSERT INTO asset_battery_measurements (asset_id, weight, changed_by)
-           VALUES ($1, $2, $3)`,
-					[assetId, dto.weight, userId],
-				);
+
+			// Batteries only -- same "ignored for any other type" contract as
+			// the sensor block above. asset_battery_details holds the per-unit
+			// model + manufacture date; weight is the first row of the
+			// append-only asset_battery_measurements history (that table is a
+			// re-measured-over-time record, not a flat column).
+			if (typeResult.rows[0].name === "battery") {
+				if (dto.batteryModelId != null || dto.dateOfManufacture != null) {
+					await this.pool.query(
+						`INSERT INTO asset_battery_details (asset_id, battery_model_id, date_of_manufacture)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (asset_id) DO UPDATE SET
+               battery_model_id = EXCLUDED.battery_model_id,
+               date_of_manufacture = EXCLUDED.date_of_manufacture`,
+						[
+							assetId,
+							dto.batteryModelId ?? null,
+							dto.dateOfManufacture ?? null,
+						],
+					);
+				}
+				if (dto.weight != null) {
+					await this.pool.query(
+						`INSERT INTO asset_battery_measurements (asset_id, weight, changed_by)
+             VALUES ($1, $2, $3)`,
+						[assetId, dto.weight, userId],
+					);
+				}
 			}
+		} catch (err) {
+			throw mapCreateAssetError(err);
 		}
 
 		return this.findOne(assetId);
