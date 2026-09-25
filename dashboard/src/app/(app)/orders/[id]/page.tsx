@@ -53,11 +53,15 @@ export default async function RmaDetailPage({
 	const currentStage = latestEvent?.eventType ?? "opened";
 	const open = currentStage !== "closed";
 
-	const name = rma.rmaNumber ?? `RMA ${rma.id}`;
+	const name = rma.rmaNumber ?? `Order ${rma.id}`;
 
 	return (
 		<Box>
-			<PageBreadcrumb catalogue="RMAs" catalogueHref="/rmas" current={name} />
+			<PageBreadcrumb
+				catalogue="Orders"
+				catalogueHref="/orders"
+				current={name}
+			/>
 
 			<Box
 				sx={{
@@ -69,7 +73,7 @@ export default async function RmaDetailPage({
 					mb: 3,
 				}}
 			>
-				<Typography variant="h5">RMA: {name}</Typography>
+				<Typography variant="h5">Order: {name}</Typography>
 				<Chip
 					label={`${formatRmaStage(currentStage)}${open ? "" : " (closed)"}`}
 					color={open ? "warning" : "success"}
@@ -85,7 +89,7 @@ export default async function RmaDetailPage({
 					mb: 1.5,
 				}}
 			>
-				<Typography variant="h6">About RMA</Typography>
+				<Typography variant="h6">About order</Typography>
 				{canEdit && (
 					<RmaFormDialog mode="edit" rma={rma} manufacturers={manufacturers} />
 				)}

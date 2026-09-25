@@ -21,7 +21,7 @@ export function formatRmaStage(stage: string): string {
 export const RMA_COLUMNS: ColumnDef<RmaCatalogueRow>[] = [
 	{
 		key: "rmaNumber",
-		label: "RMA #",
+		label: "Order/RMA #",
 		kind: "string",
 		defaultVisible: true,
 	},

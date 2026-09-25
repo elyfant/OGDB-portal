@@ -42,7 +42,7 @@ export default function AssetRmaHistoryTable({
 				</TableHead>
 				<TableBody>
 					{rmas.map((r) => (
-						<ClickableTableRow key={r.rmaId} href={`/rmas/${r.rmaId}`}>
+						<ClickableTableRow key={r.rmaId} href={`/orders/${r.rmaId}`}>
 							<TableCell>{r.rmaNumber ?? `RMA ${r.rmaId}`}</TableCell>
 							<TableCell>{r.reason}</TableCell>
 							<TableCell>{formatDate(r.openedDate)}</TableCell>

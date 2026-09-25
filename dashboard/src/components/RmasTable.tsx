@@ -17,9 +17,9 @@ export default function RmasTable({ rmas }: { rmas: RmaCatalogueRow[] }) {
 			rows={rows}
 			columns={RMA_COLUMNS}
 			getRowId={(r) => r.id}
-			getRowHref={(r) => `/rmas/${r.id}`}
+			getRowHref={(r) => `/orders/${r.id}`}
 			defaultSort={{ key: "openedDate", direction: "desc" }}
-			csvFileNameBase="rmas"
+			csvFileNameBase="orders"
 			toolbarRight={
 				<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
 					<FormControlLabel

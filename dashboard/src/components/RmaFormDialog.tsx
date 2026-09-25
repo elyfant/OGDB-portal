@@ -104,11 +104,11 @@ export default function RmaFormDialog(props: Props) {
 						});
 			closeDialog();
 			if (mode === "create") {
-				router.push(`/rmas/${rma.id}`);
+				router.push(`/orders/${rma.id}`);
 			}
 			setBanner({
 				severity: "success",
-				message: mode === "edit" ? "RMA updated." : "RMA created.",
+				message: mode === "edit" ? "Order updated." : "Order created.",
 			});
 		} catch (err) {
 			setBanner({
@@ -134,11 +134,13 @@ export default function RmaFormDialog(props: Props) {
 				}
 				onClick={handleOpen}
 			>
-				{mode === "edit" ? "Edit RMA" : "New RMA"}
+				{mode === "edit" ? "Edit order" : "New order"}
 			</Button>
 
 			<Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
-				<DialogTitle>{mode === "edit" ? "Edit RMA" : "New RMA"}</DialogTitle>
+				<DialogTitle>
+					{mode === "edit" ? "Edit order" : "New order"}
+				</DialogTitle>
 				<DialogContent
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 2 }}
@@ -167,7 +169,7 @@ export default function RmaFormDialog(props: Props) {
 								))}
 							</TextField>
 						</Field>
-						<Field label="RMA number">
+						<Field label="Order/RMA number">
 							<TextField
 								size="small"
 								fullWidth
@@ -197,7 +199,7 @@ export default function RmaFormDialog(props: Props) {
 								fullWidth
 								multiline
 								minRows={2}
-								placeholder="What's this RMA for, who requested it, which repairer..."
+								placeholder="What's this order for, who requested it, which repairer..."
 								value={form.notes}
 								onChange={(e) =>
 									setForm((s) => ({ ...s, notes: e.target.value }))
@@ -208,7 +210,7 @@ export default function RmaFormDialog(props: Props) {
 
 					{mode === "create" && (
 						<Typography variant="caption" color="text.secondary">
-							Assets are linked from the RMA's own page after it's created.
+							Assets are linked from the order's own page after it's created.
 						</Typography>
 					)}
 
@@ -227,7 +229,7 @@ export default function RmaFormDialog(props: Props) {
 							? "Saving…"
 							: mode === "edit"
 								? "Save changes"
-								: "Create RMA"}
+								: "Create order"}
 					</Button>
 				</DialogActions>
 			</Dialog>

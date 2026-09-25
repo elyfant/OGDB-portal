@@ -60,14 +60,11 @@ const NAV_GROUPS = [
 		],
 	},
 	{
-		label: "Calibrations",
+		label: "Workshop",
 		items: [
 			{ label: "Calibrations", href: "/calibrations", icon: SensorsIcon },
+			{ label: "Orders", href: "/orders", icon: LocalShippingIcon },
 		],
-	},
-	{
-		label: "RMAs",
-		items: [{ label: "RMAs", href: "/rmas", icon: LocalShippingIcon }],
 	},
 ];
 

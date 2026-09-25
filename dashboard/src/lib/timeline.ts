@@ -203,7 +203,7 @@ export function rmaToTimelineEvent(summary: AssetRmaSummary): TimelineEvent {
 		startDate: summary.openedDate,
 		endDate: summary.closedDate,
 		instant: false,
-		href: `/rmas/${summary.rmaId}`,
+		href: `/orders/${summary.rmaId}`,
 	};
 }
 

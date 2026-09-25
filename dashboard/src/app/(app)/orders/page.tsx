@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
-export default async function RmasPage() {
+export default async function OrdersPage() {
 	const [rmas, manufacturers, user] = await Promise.all([
 		getRmas(),
 		getManufacturers(),
@@ -23,14 +23,14 @@ export default async function RmasPage() {
 					mb: 2,
 				}}
 			>
-				<Typography variant="h5">RMAs</Typography>
+				<Typography variant="h5">Orders</Typography>
 				{canEdit && (
 					<RmaFormDialog mode="create" manufacturers={manufacturers} />
 				)}
 			</Box>
 			<Typography variant="subtitle1" color="text.secondary">
-				Every manufacturer RMA case, its current stage, and the assets it
-				covers. Click on an RMA to view its full history.
+				Every manufacturer RMA or order case, its current stage, and the assets
+				it covers. Click on an order to view its full history.
 			</Typography>
 			<RmasTable rmas={rmas} />
 		</Box>
