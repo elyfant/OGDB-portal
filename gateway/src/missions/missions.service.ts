@@ -6,6 +6,7 @@ import type {
 	Mission,
 	MissionFile,
 	MissionFilesSaveResult,
+	MissionMapEntry,
 	MissionTrackPoint,
 	MissionsLeaderboard,
 	MissionsSummary,
@@ -275,6 +276,39 @@ export class MissionsService {
        WHERE missions_id = $1
        ORDER BY utc ASC`,
 			[id],
+		);
+		return result.rows;
+	}
+
+	// Every mission plus its whole track in one round trip, for the
+	// fleet-wide Map page. LEFT JOIN LATERAL rather than a plain join +
+	// GROUP BY: the subquery runs once per mission against the
+	// tracks.missions_id index and aggregates just that mission's rows,
+	// and LEFT keeps missions with no tracks yet (they come back with
+	// track = []) so the map can still list them.
+	async getMapEntries(): Promise<MissionMapEntry[]> {
+		const result = await this.pool.query(
+			`SELECT
+         nm.id,
+         nm.mission_number AS "missionNumber",
+         nm.mission_name AS "missionName",
+         nm.std_mission_name AS "stdMissionName",
+         nm.status,
+         nm.glider,
+         nm.platform,
+         nm.project,
+         nm.site,
+         nm.launch_date AS "launchDate",
+         nm.recovery_date AS "recoveryDate",
+         nm.end_date_science AS "endDateScience",
+         COALESCE(t.track, '[]'::json) AS track
+       FROM norglider_missions nm
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_array(latitude, longitude) ORDER BY utc) AS track
+         FROM tracks
+         WHERE missions_id = nm.id
+       ) t ON true
+       ORDER BY nm.launch_date DESC NULLS LAST`,
 		);
 		return result.rows;
 	}

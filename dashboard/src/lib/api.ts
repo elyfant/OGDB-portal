@@ -17,6 +17,7 @@ import type {
 	LookupOption,
 	Mission,
 	MissionFile,
+	MissionMapEntry,
 	MissionTrackPoint,
 	MissionsLeaderboard,
 	MissionsSummary,
@@ -254,6 +255,14 @@ export async function getMission(id: number): Promise<Mission | null> {
 	if (res.status === 404) return null;
 	if (!res.ok) {
 		throw new Error(`Failed to fetch mission ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getMissionMapEntries(): Promise<MissionMapEntry[]> {
+	const res = await apiFetch("/missions/map");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch mission map entries: ${res.status}`);
 	}
 	return res.json();
 }

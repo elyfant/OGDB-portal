@@ -106,7 +106,12 @@ export class MissionsController {
 		return this.missions.getLeaderboard();
 	}
 
-	// Must come after the static "summary"/"leaderboard" routes above —
+	@Get("map")
+	getMapEntries() {
+		return this.missions.getMapEntries();
+	}
+
+	// Must come after the static "summary"/"leaderboard"/"map" routes above —
 	// otherwise :id would swallow those paths first.
 	@Get(":id")
 	findOne(@Param("id", ParseIntPipe) id: number) {

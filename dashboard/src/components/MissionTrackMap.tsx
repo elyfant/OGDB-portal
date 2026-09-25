@@ -20,14 +20,14 @@ import {
 	useMap,
 } from "react-leaflet";
 
-const OCEAN_TILE_URL =
+export const OCEAN_TILE_URL =
 	"https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}";
-const OCEAN_ATTRIBUTION =
+export const OCEAN_ATTRIBUTION =
 	"Esri, GEBCO, NOAA, National Geographic, DeLorme, HERE, Geonames.org, and other contributors";
 
-const IMAGERY_TILE_URL =
+export const IMAGERY_TILE_URL =
 	"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-const IMAGERY_ATTRIBUTION = "Esri, Maxar, Earthstar Geographics";
+export const IMAGERY_ATTRIBUTION = "Esri, Maxar, Earthstar Geographics";
 
 // Every 5th fix gets a small waypoint dot -- the full-resolution line is
 // cheap to draw (a mission tops out around a few thousand points), the
@@ -40,9 +40,9 @@ const WAYPOINT_STRIDE = 5;
 // stored alongside a fix -- so the popup labels each fix by its position
 // in this returned sequence ("Surfacing #n") rather than claiming it's
 // the glider's actual onboard dive count.
-const FIT_BOUNDS_OPTIONS: L.FitBoundsOptions = { padding: [24, 24] };
+export const FIT_BOUNDS_OPTIONS: L.FitBoundsOptions = { padding: [24, 24] };
 
-const TOOLTIP_BOX_SX = {
+export const TOOLTIP_BOX_SX = {
 	backgroundColor: "#0d2745",
 	color: "#fff",
 	fontSize: "0.8rem",
@@ -96,7 +96,7 @@ function buildGliderIcon(
 // vanilla Leaflet control (the same pattern Leaflet itself uses for
 // zoom/scale) in a component that adds/removes it via useMap(). Sits in
 // the same corner as the default zoom control and stacks below it.
-function ResetViewControl({
+export function ResetViewControl({
 	bounds,
 }: {
 	bounds: [number, number][];

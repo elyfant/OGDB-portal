@@ -553,6 +553,29 @@ export interface MissionTrackPoint {
 	salinity: number | null;
 }
 
+// One mission as the fleet-wide Map page needs it: just enough to
+// label, filter and link it, plus its whole track as bare [lat, lon]
+// pairs. Pairs rather than MissionTrackPoint objects because this
+// endpoint returns every mission's track at once -- dropping the
+// repeated keys and the per-fix utc/temp/sal the map never shows keeps
+// the payload several times smaller. `track` is [] for a mission with
+// no rows in `tracks` yet, so the map can still list it.
+export interface MissionMapEntry {
+	id: number;
+	missionNumber: number | null;
+	missionName: string | null;
+	stdMissionName: string | null;
+	status: string | null;
+	glider: string | null;
+	platform: string | null;
+	project: string | null;
+	site: string | null;
+	launchDate: string | null;
+	recoveryDate: string | null;
+	endDateScience: string | null;
+	track: [number, number][];
+}
+
 // A simple id/name reference option -- projects, sites, institutes,
 // contacts. Shared shape since every lookup dropdown in the Add Mission
 // dialog renders identically regardless of which table backs it.
