@@ -86,11 +86,18 @@ export default function ChampionshipCard({
 		</Paper>
 	);
 
+	// The row's flex layout already stretches this wrapper to the tallest
+	// card beside it; making the wrapper itself a flex container passes
+	// that height on to the Paper, so cards with an extra detail line
+	// (e.g. Longest deployment's mission name) don't leave their
+	// neighbours shorter.
+	const wrapperSx = { flex: "1 1 260px", display: "flex" };
+
 	if (!href) {
-		return <Box sx={{ flex: "1 1 260px" }}>{card}</Box>;
+		return <Box sx={wrapperSx}>{card}</Box>;
 	}
 	return (
-		<Box sx={{ flex: "1 1 260px" }}>
+		<Box sx={wrapperSx}>
 			<Tooltip title={tooltip ?? ""}>{card}</Tooltip>
 		</Box>
 	);
