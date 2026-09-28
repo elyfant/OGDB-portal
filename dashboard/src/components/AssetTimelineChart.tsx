@@ -27,6 +27,9 @@ const CONTENT_LEFT = 160;
 const CONTENT_RIGHT = 24;
 
 const PX_PER_DAY = 0.6;
+// Roughly one body2 line -- the closest two year labels can sit without
+// their text overlapping.
+const YEAR_LABEL_MIN_GAP = 24;
 const MIN_SPAN_HEIGHT = 56;
 const MIN_MARKER_HEIGHT = 40;
 // A generous, fixed reservation for an expanded card's notes -- bounded
@@ -97,6 +100,18 @@ function layout(events: TimelineEvent[], expandedIds: Set<string>) {
 	const years = [];
 	for (let y = minYear; y <= maxYear; y++) {
 		years.push({ year: y, top: toY(new Date(Date.UTC(y, 0, 1)).getTime()) });
+	}
+	// The first year's 1 January is almost always before the first event
+	// (minTime), which gives it a negative top -- rendered above the chart,
+	// over the page's tabs. Pin it to the top instead, level with the first
+	// event. If the next year's label starts right after (first event in
+	// late December), pinning would overlap the two, so drop the first.
+	if (years.length > 0 && years[0].top < 0) {
+		if (years.length > 1 && years[1].top < YEAR_LABEL_MIN_GAP) {
+			years.shift();
+		} else {
+			years[0].top = 0;
+		}
 	}
 
 	return { rows, years, height: cursor };
