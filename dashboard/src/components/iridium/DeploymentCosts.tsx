@@ -1,19 +1,23 @@
 "use client";
 
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Box from "@mui/material/Box";
+import Checkbox from "@mui/material/Checkbox";
 import Divider from "@mui/material/Divider";
-import MuiLink from "@mui/material/Link";
+import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import type { IridiumMissionCost, IridiumMonthlyCost } from "@ogdb/types";
+import type { IridiumGliderMonth, IridiumMissionCost } from "@ogdb/types";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
 	MIN_REFERENCE_DAYS,
+	type Overhead,
 	PLATFORMS,
 	PLATFORM_LABEL,
 	type Platform,
@@ -22,7 +26,7 @@ import {
 	formatMonth,
 	formatNok0,
 	formatUsd0,
-	overheadPerMonth,
+	overheadPerGlider,
 	perDeployedMonth,
 	perMonthUsd,
 	referenceMissions,
@@ -30,72 +34,151 @@ import {
 
 type RefCount = 5 | 10 | "all";
 
-function RangeLine({ r }: { r: Range }) {
+function MissionRow({
+	mission,
+	selected,
+	overheadUsd,
+	onToggle,
+}: {
+	mission: IridiumMissionCost;
+	selected: boolean;
+	overheadUsd: number;
+	onToggle: () => void;
+}) {
+	const color = selected ? "text.primary" : "text.disabled";
 	return (
-		<Typography variant="body2" color="text.secondary">
-			range {formatUsd0(r.min)} to {formatUsd0(r.max)}
-		</Typography>
+		<Box
+			onClick={onToggle}
+			sx={{
+				display: "flex",
+				alignItems: "center",
+				gap: 0.5,
+				mx: -1,
+				px: 0.5,
+				borderRadius: 1,
+				cursor: "pointer",
+				"&:hover": { bgcolor: "action.hover" },
+			}}
+		>
+			<Checkbox
+				size="small"
+				checked={selected}
+				onClick={(e) => e.stopPropagation()}
+				onChange={onToggle}
+				sx={{ p: 0.5 }}
+				slotProps={{
+					input: {
+						"aria-label": `Use ${mission.stdMissionName} in the estimate`,
+					},
+				}}
+			/>
+			<Typography
+				variant="body2"
+				noWrap
+				sx={{
+					flex: 1,
+					color,
+					textDecoration: selected ? "none" : "line-through",
+				}}
+			>
+				{mission.stdMissionName}
+			</Typography>
+			<Typography
+				variant="body2"
+				noWrap
+				sx={{ color: selected ? "text.secondary" : "text.disabled" }}
+			>
+				{Math.round(mission.durationDays)} d ·{" "}
+				{formatUsd0(perMonthUsd(mission, overheadUsd))}/mo
+			</Typography>
+			<Tooltip title="Open mission">
+				<IconButton
+					size="small"
+					component={Link}
+					href={`/missions/${mission.missionId}`}
+					onClick={(e: React.MouseEvent) => e.stopPropagation()}
+					aria-label={`Open ${mission.stdMissionName}`}
+				>
+					<OpenInNewIcon sx={{ fontSize: 16 }} />
+				</IconButton>
+			</Tooltip>
+		</Box>
 	);
 }
 
 function PlatformCard({
 	platform,
 	refs,
+	excluded,
+	onToggle,
+	overhead,
 	usdNok,
 }: {
 	platform: Platform;
 	refs: IridiumMissionCost[];
+	excluded: Set<number>;
+	onToggle: (missionId: number) => void;
+	overhead: Overhead | null;
 	usdNok: number | null;
 }) {
-	const perMonth = perDeployedMonth(refs);
+	const overheadUsd = overhead?.usd ?? 0;
+	const used = refs.filter((m) => !excluded.has(m.missionId));
+	const perMonth = perDeployedMonth(used, overheadUsd);
 	return (
 		<Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
 			<Typography variant="overline" color="text.secondary">
-				{PLATFORM_LABEL[platform]} · per deployed month
+				{PLATFORM_LABEL[platform]} · per deployed month*
 			</Typography>
-			{perMonth ? (
-				<>
-					<Typography variant="h4" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-						{formatUsd0(perMonth.median)}
-					</Typography>
-					<Typography variant="body2" color="text.secondary">
-						median · ≈ {formatNok0(perMonth.median, usdNok)}
-					</Typography>
-					<RangeLine r={perMonth} />
-					<Divider sx={{ my: 1.5 }} />
-					<Typography variant="caption" color="text.secondary">
-						Based on these {refs.length} missions:
-					</Typography>
-					{refs.map((m) => (
-						<Box
-							key={m.missionId}
-							sx={{
-								display: "flex",
-								justifyContent: "space-between",
-								gap: 1,
-								py: 0.25,
-							}}
-						>
-							<MuiLink
-								component={Link}
-								href={`/missions/${m.missionId}`}
-								variant="body2"
-								underline="hover"
-								noWrap
-							>
-								{m.stdMissionName}
-							</MuiLink>
-							<Typography variant="body2" color="text.secondary" noWrap>
-								{Math.round(m.durationDays)} d · {formatUsd0(perMonthUsd(m))}
-								/mo
-							</Typography>
-						</Box>
-					))}
-				</>
-			) : (
+			{refs.length === 0 ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
 					No recovered, fully invoiced {PLATFORM_LABEL[platform]} missions yet.
 				</Typography>
+			) : (
+				<>
+					{perMonth ? (
+						<>
+							<Typography
+								variant="h4"
+								sx={{ fontWeight: 600, lineHeight: 1.2 }}
+							>
+								{formatUsd0(perMonth.median)}
+							</Typography>
+							<Typography variant="body2" color="text.secondary">
+								median · ≈ {formatNok0(perMonth.median, usdNok)} · range{" "}
+								{formatUsd0(perMonth.min)} to {formatUsd0(perMonth.max)}
+							</Typography>
+						</>
+					) : (
+						<Typography variant="body2" color="warning.main" sx={{ my: 1 }}>
+							Select at least one mission.
+						</Typography>
+					)}
+					<Divider sx={{ my: 1.5 }} />
+					<Typography variant="caption" color="text.secondary">
+						Using {used.length} of {refs.length} missions. Click one to leave it
+						out.
+					</Typography>
+					{refs.map((m) => (
+						<MissionRow
+							key={m.missionId}
+							mission={m}
+							selected={!excluded.has(m.missionId)}
+							overheadUsd={overheadUsd}
+							onToggle={() => onToggle(m.missionId)}
+						/>
+					))}
+					<Typography
+						variant="caption"
+						color="text.secondary"
+						component="p"
+						sx={{ mt: 1 }}
+					>
+						* Airtime and line rental while deployed, plus the mission's
+						pre-launch testing spread over its days in the water, plus one{" "}
+						{PLATFORM_LABEL[platform]}'s overhead
+						{overhead ? ` (${formatUsd0(overhead.usd)}/month)` : ""}.
+					</Typography>
+				</>
 			)}
 		</Paper>
 	);
@@ -103,16 +186,19 @@ function PlatformCard({
 
 export default function DeploymentCosts({
 	missions,
-	monthly,
+	gliderMonths,
 	usdNok,
 }: {
 	missions: IridiumMissionCost[];
-	monthly: IridiumMonthlyCost[];
+	gliderMonths: IridiumGliderMonth[];
 	usdNok: number | null;
 }) {
 	const [refCount, setRefCount] = useState<RefCount>(5);
 	const [platform, setPlatform] = useState<Platform>("seaglider");
 	const [days, setDays] = useState("90");
+	// Missions the user has clicked out. Kept across 5/10/All switches, so
+	// widening the list doesn't bring back a mission they rejected.
+	const [excluded, setExcluded] = useState<Set<number>>(new Set());
 
 	const count = refCount === "all" ? null : refCount;
 	const refs = useMemo(
@@ -122,12 +208,29 @@ export default function DeploymentCosts({
 			) as Record<Platform, IridiumMissionCost[]>,
 		[missions, count],
 	);
-	const overhead = useMemo(() => overheadPerMonth(monthly), [monthly]);
+	const overhead = useMemo(
+		() =>
+			Object.fromEntries(
+				PLATFORMS.map((p) => [p, overheadPerGlider(gliderMonths, p)]),
+			) as Record<Platform, Overhead | null>,
+		[gliderMonths],
+	);
+
+	function toggle(missionId: number) {
+		setExcluded((prev) => {
+			const next = new Set(prev);
+			if (!next.delete(missionId)) next.add(missionId);
+			return next;
+		});
+	}
+
+	const used = refs[platform].filter((m) => !excluded.has(m.missionId));
 	const nDays = Number(days);
 	const est =
 		Number.isFinite(nDays) && nDays > 0
-			? estimate(refs[platform], nDays, overhead?.usd ?? 0)
+			? estimate(used, nDays, overhead[platform]?.usd ?? 0)
 			: null;
+	const oh = overhead[platform];
 
 	return (
 		<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
@@ -175,7 +278,15 @@ export default function DeploymentCosts({
 				}}
 			>
 				{PLATFORMS.map((p) => (
-					<PlatformCard key={p} platform={p} refs={refs[p]} usdNok={usdNok} />
+					<PlatformCard
+						key={p}
+						platform={p}
+						refs={refs[p]}
+						excluded={excluded}
+						onToggle={toggle}
+						overhead={overhead[p]}
+						usdNok={usdNok}
+					/>
 				))}
 
 				<Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
@@ -212,12 +323,7 @@ export default function DeploymentCosts({
 					{est ? (
 						<>
 							<EstimateRow
-								label="Mission + pre-launch testing"
-								r={est.raw}
-								usdNok={usdNok}
-							/>
-							<EstimateRow
-								label={`Including fleet overhead (+${formatUsd0(est.overheadUsd)} for ${est.months} month${est.months === 1 ? "" : "s"})`}
+								label="Mission"
 								r={est.withOverhead}
 								usdNok={usdNok}
 							/>
@@ -227,19 +333,24 @@ export default function DeploymentCosts({
 								component="p"
 								sx={{ mt: 1.5 }}
 							>
-								Each of the {refs[platform].length} reference missions' in-water
-								cost per day × {Math.round(nDays)} days, plus its own pre-launch
-								testing: the median, and the range across them.
-								{overhead &&
-									` Overhead is the fleet's idle SIM rental and idle airtime, ${formatUsd0(overhead.usd)}/month on average over ${formatMonth(overhead.from)}–${formatMonth(overhead.to)}, for the mission's length rounded up to whole months.`}{" "}
+								Each selected mission's in-water cost per day ×{" "}
+								{Math.round(nDays)} days, plus its own pre-launch testing, plus
+								overhead ({formatUsd0(oh?.usd ?? 0)}/month × {est.months} month
+								{est.months === 1 ? "" : "s"} = {formatUsd0(est.overheadUsd)}):
+								the median, and the range across the {used.length} selected{" "}
+								{PLATFORM_LABEL[platform]} missions.
+								{oh &&
+									` Overhead is a ${PLATFORM_LABEL[platform]}'s line rental and airtime not charged to any mission, ${formatUsd0(oh.usd)}/month on average across ${oh.gliders} gliders over ${formatMonth(oh.from)}–${formatMonth(oh.to)}, for the mission's length rounded up to whole months.`}{" "}
 								Missions under {MIN_REFERENCE_DAYS} days or with un-invoiced
-								months are left out. NOK at the latest month's rate.
+								months are never used. NOK at the latest month's rate.
 							</Typography>
 						</>
 					) : (
 						nDays > 0 && (
 							<Typography variant="body2" color="text.secondary">
-								No reference missions for {PLATFORM_LABEL[platform]} yet.
+								{refs[platform].length === 0
+									? `No reference missions for ${PLATFORM_LABEL[platform]} yet.`
+									: `Select at least one ${PLATFORM_LABEL[platform]} mission.`}
 							</Typography>
 						)
 					)}

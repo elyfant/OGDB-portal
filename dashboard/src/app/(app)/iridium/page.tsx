@@ -62,7 +62,11 @@ export default async function IridiumPage() {
 			</Box>
 
 			<ThingsToCheck warnings={run.warnings} />
-			<DeploymentCosts missions={missions} monthly={monthly} usdNok={usdNok} />
+			<DeploymentCosts
+				missions={missions}
+				gliderMonths={gliderMonths}
+				usdNok={usdNok}
+			/>
 			<GliderLatestMonth rows={gliderMonths} lastMonth={run.lastMonth} />
 			<IridiumMissionsTable missions={missions} />
 			<FleetOverview monthly={monthly} />

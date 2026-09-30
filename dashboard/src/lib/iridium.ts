@@ -1,4 +1,4 @@
-import type { IridiumMissionCost, IridiumMonthlyCost } from "@ogdb/types";
+import type { IridiumGliderMonth, IridiumMissionCost } from "@ogdb/types";
 
 // How the Iridium page turns past missions into "what will the next one
 // cost?". Pure functions over the gateway's data, kept apart from the UI
@@ -18,8 +18,6 @@ export const PLATFORM_LABEL: Record<string, string> = {
 	slocum: "Slocum",
 	unassigned: "Unassigned",
 };
-
-const OVERHEAD_CATEGORIES = new Set(["idle_usage", "idle_rental"]);
 
 /** Usage + line rental while deployed; no pre-launch / after-recovery. */
 export function inMissionUsd(m: IridiumMissionCost): number {
@@ -72,36 +70,57 @@ function range(values: number[]): Range | null {
 }
 
 /** In-mission cost per deployed month, one value per reference mission. */
-export function perMonthUsd(m: IridiumMissionCost): number {
-	return (inMissionUsd(m) / m.durationDays) * AVG_MONTH_DAYS;
-}
-
-export function perDeployedMonth(refs: IridiumMissionCost[]): Range | null {
-	return range(refs.map(perMonthUsd));
+export interface Overhead {
+	/** One glider's idle cost per month, USD. */
+	usd: number;
+	/** Gliders it's averaged over. */
+	gliders: number;
+	from: string; // "YYYY-MM"
+	to: string;
 }
 
 /**
- * Fleet overhead: what the SIMs cost when no mission is using them (idle
- * line rental + idle airtime, both accounts, unassigned devices included),
- * averaged over the last `months` invoiced months.
+ * One glider's overhead: what a glider of this platform costs per month in
+ * line rental and airtime that no mission is charged for, averaged over
+ * every glider-month in `rows` (the last 12 invoiced months). Devices that
+ * match no glider aren't any glider's cost, so they're left out.
  */
-export function overheadPerMonth(
-	monthly: IridiumMonthlyCost[],
-	months = 12,
-): { usd: number; from: string; to: string } | null {
-	const byMonth = new Map<string, number>();
-	for (const r of monthly) {
-		if (!OVERHEAD_CATEGORIES.has(r.category)) continue;
-		byMonth.set(r.month, (byMonth.get(r.month) ?? 0) + r.usd);
-	}
-	const recent = [...byMonth.keys()].sort().slice(-months);
-	if (recent.length === 0) return null;
-	const total = recent.reduce((sum, m) => sum + (byMonth.get(m) ?? 0), 0);
+export function overheadPerGlider(
+	rows: IridiumGliderMonth[],
+	platform: Platform,
+): Overhead | null {
+	const own = rows.filter((r) => r.platform === platform);
+	if (own.length === 0) return null;
+	const idle = own.reduce((sum, r) => sum + (r.usd - r.missionUsd), 0);
+	const months = own.map((r) => r.month).sort();
 	return {
-		usd: total / recent.length,
-		from: recent[0],
-		to: recent[recent.length - 1],
+		usd: idle / own.length,
+		gliders: new Set(own.map((r) => r.gliderAssetId)).size,
+		from: months[0],
+		to: months[months.length - 1],
 	};
+}
+
+/**
+ * All-in cost per deployed month for one mission: its usage + rental plus
+ * its pre-launch testing, spread over its days in the water, plus one
+ * glider's overhead for the month.
+ */
+export function perMonthUsd(
+	m: IridiumMissionCost,
+	overheadUsd: number,
+): number {
+	return (
+		((inMissionUsd(m) + m.beforeLaunchUsd) / m.durationDays) * AVG_MONTH_DAYS +
+		overheadUsd
+	);
+}
+
+export function perDeployedMonth(
+	refs: IridiumMissionCost[],
+	overheadUsd: number,
+): Range | null {
+	return range(refs.map((m) => perMonthUsd(m, overheadUsd)));
 }
 
 export interface Estimate {
@@ -110,7 +129,7 @@ export interface Estimate {
 	/** Whole months the mission runs, rounded up. */
 	months: number;
 	overheadUsd: number;
-	/** raw + fleet overhead for `months`. */
+	/** raw + one glider's overhead for `months`. */
 	withOverhead: Range;
 }
 
