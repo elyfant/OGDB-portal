@@ -14,6 +14,11 @@ import type {
 	GliderBuild,
 	GliderBuildComponent,
 	GliderDeployment,
+	IridiumGliderMonth,
+	IridiumMissionCost,
+	IridiumMissionDetail,
+	IridiumMonthlyCost,
+	IridiumSummary,
 	LookupOption,
 	Mission,
 	MissionFile,
@@ -441,3 +446,23 @@ export async function getAssetRmas(
 	}
 	return res.json();
 }
+
+// --- Iridium airtime costs (read-only; see gateway/src/iridium) ---
+
+async function getIridium<T>(path: string): Promise<T> {
+	const res = await apiFetch(`/iridium${path}`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch iridium ${path}: ${res.status}`);
+	}
+	return res.json();
+}
+
+export const getIridiumSummary = () => getIridium<IridiumSummary>("/summary");
+export const getIridiumMissions = () =>
+	getIridium<IridiumMissionCost[]>("/missions");
+export const getIridiumMission = (missionId: number) =>
+	getIridium<IridiumMissionDetail>(`/missions/${missionId}`);
+export const getIridiumMonthly = () =>
+	getIridium<IridiumMonthlyCost[]>("/monthly");
+export const getIridiumGliderMonths = () =>
+	getIridium<IridiumGliderMonth[]>("/gliders/monthly");

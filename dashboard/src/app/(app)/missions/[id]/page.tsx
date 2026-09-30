@@ -8,6 +8,7 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import RegionIcon from "@/components/RegionIcon";
 import SciencePayloadTable from "@/components/SciencePayloadTable";
 import StatTile from "@/components/StatTile";
+import MissionIridiumSection from "@/components/iridium/MissionIridiumSection";
 import { siteToArea } from "@/components/mission-stats/site-areas";
 import {
 	getContacts,
@@ -16,6 +17,7 @@ import {
 	getGliderBuild,
 	getGliders,
 	getInstitutes,
+	getIridiumMission,
 	getMission,
 	getMissionFiles,
 	getMissionSciencePayload,
@@ -102,6 +104,7 @@ export default async function MissionDetailPage({
 		contacts,
 		institutes,
 		cruises,
+		iridium,
 	] = await Promise.all([
 		// Kept live (not date-scoped) -- GliderBuildEditor's replace/remove
 		// actions operate on whichever assignment is currently open, not
@@ -122,6 +125,7 @@ export default async function MissionDetailPage({
 		getContacts(),
 		getInstitutes(),
 		getCruises(),
+		getIridiumMission(mission.id),
 	]);
 
 	const name =
@@ -491,6 +495,13 @@ export default async function MissionDetailPage({
 						</Table>
 					</TableContainer>
 				</Box>
+			</Box>
+
+			<Box sx={{ mb: 4 }}>
+				<Typography variant="h6" sx={{ mb: 1.5 }}>
+					Iridium airtime
+				</Typography>
+				<MissionIridiumSection detail={iridium} />
 			</Box>
 
 			<Box>

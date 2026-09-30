@@ -1131,3 +1131,94 @@ export interface CreateCruiseInput {
 	startPort?: string | null;
 	endPort?: string | null;
 }
+
+// --- Iridium airtime costs ------------------------------------------
+// Read-only, from OGDB's iridium_* views (migration xxxx_iridium_costs),
+// filled monthly by norgliders-utils/iridium-costs `push`. USD is what
+// Metocean billed; NOK is an estimate at Norges Bank's monthly average.
+
+export type IridiumCategory =
+	| "mission_usage"
+	| "mission_rental"
+	| "after_recovery"
+	| "before_launch"
+	| "idle_usage"
+	| "idle_rental";
+
+export interface IridiumSummary {
+	/** null until the first push. */
+	lastRun: {
+		runAt: string;
+		toolVersion: string;
+		invoicesRead: number;
+		firstMonth: string | null; // "YYYY-MM"
+		lastMonth: string | null; // "YYYY-MM"
+		totalUsd: number;
+		warnings: string[];
+	} | null;
+	totalNok: number | null;
+	/** USD/NOK for the latest invoiced month, for converting estimates. */
+	latestRate: { month: string; usdNok: number } | null;
+}
+
+export interface IridiumMissionCost {
+	missionId: number;
+	missionNumber: number;
+	stdMissionName: string;
+	status: string | null;
+	gliderAssetId: number | null;
+	gliderName: string | null;
+	platform: string | null;
+	launchDate: string;
+	recoveryDate: string | null;
+	durationDays: number;
+	missionMonths: number;
+	invoicedMonths: number;
+	/** false = months without an invoice, so the total is too low (†). */
+	fullyInvoiced: boolean;
+	missionUsageUsd: number;
+	missionRentalUsd: number;
+	afterRecoveryUsd: number;
+	beforeLaunchUsd: number;
+	totalUsd: number;
+	totalNok: number | null;
+	usdPerDay: number | null;
+	/** "YYYY-MM" months with >= $1 of airtime after recovery / before launch. */
+	leftOnMonths: string[];
+	preLaunchMonths: string[];
+}
+
+/** Fleet totals per month, platform and category (both accounts). */
+export interface IridiumMonthlyCost {
+	month: string; // "YYYY-MM"
+	platform: string; // "slocum" | "seaglider" | "unassigned"
+	category: IridiumCategory;
+	usd: number;
+	nok: number | null;
+}
+
+/** One glider's cost in one month (last 12 invoiced months). */
+export interface IridiumGliderMonth {
+	gliderAssetId: number;
+	gliderName: string;
+	platform: string;
+	month: string; // "YYYY-MM"
+	usd: number;
+	/** The part charged to a mission (usage, rental, before/after). */
+	missionUsd: number;
+}
+
+/** One mission's cost in one month, by category. */
+export interface IridiumMissionMonth {
+	month: string; // "YYYY-MM"
+	missionUsageUsd: number;
+	missionRentalUsd: number;
+	beforeLaunchUsd: number;
+	afterRecoveryUsd: number;
+}
+
+export interface IridiumMissionDetail {
+	/** null if the mission ended before the invoice record starts. */
+	cost: IridiumMissionCost | null;
+	months: IridiumMissionMonth[];
+}

@@ -10,6 +10,7 @@ import LightModeIcon from "@mui/icons-material/LightMode";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import MapIcon from "@mui/icons-material/Map";
 import RouteIcon from "@mui/icons-material/Route";
+import SatelliteAltIcon from "@mui/icons-material/SatelliteAlt";
 import SensorsIcon from "@mui/icons-material/Sensors";
 import TopicIcon from "@mui/icons-material/Topic";
 import WidgetsIcon from "@mui/icons-material/Widgets";
@@ -64,6 +65,7 @@ const NAV_GROUPS = [
 		items: [
 			{ label: "Calibrations", href: "/calibrations", icon: SensorsIcon },
 			{ label: "Orders", href: "/orders", icon: LocalShippingIcon },
+			{ label: "Iridium", href: "/iridium", icon: SatelliteAltIcon },
 		],
 	},
 ];

@@ -12,6 +12,7 @@ import { DatasetsModule } from "./datasets/datasets.module";
 import { DbModule } from "./db/db.module";
 import { DocumentsModule } from "./documents/documents.module";
 import { GlidersModule } from "./gliders/gliders.module";
+import { IridiumModule } from "./iridium/iridium.module";
 import { LookupsModule } from "./lookups/lookups.module";
 import { MissionsModule } from "./missions/missions.module";
 import { ProcessingPackagesModule } from "./processing-packages/processing-packages.module";
@@ -35,6 +36,7 @@ import { UsersModule } from "./users/users.module";
 		UsersModule,
 		ProcessingPackagesModule,
 		RmasModule,
+		IridiumModule,
 	],
 	providers: [
 		{ provide: APP_GUARD, useClass: JwtAuthGuard },
