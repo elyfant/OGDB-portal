@@ -15,6 +15,19 @@ import { PG_POOL } from "./db.constants";
 // any query, not just the ones this session touched.
 types.setTypeParser(1082, (value: string) => value);
 
+// Same trap for TIMESTAMP WITHOUT TIME ZONE (oid 1114) -- missions'
+// launch_date / end_date_science / recovery_date. pg's default parser
+// reads the wire value as *local* time, so in Europe/Oslo midnight
+// 2016-11-09 serialises as "2016-11-08T23:00:00.000Z"; the edit form keeps
+// the date part, and every save moved the mission's dates back a day
+// (seen on mission 25 against ogdb-test). OGDB stores these as UTC
+// wall-clock values, so parse them as UTC. Production's container already
+// runs in UTC, where this is a no-op -- it makes local dev match prod.
+types.setTypeParser(
+	1114,
+	(value: string) => new Date(`${value.replace(" ", "T")}Z`),
+);
+
 @Global()
 @Module({
 	imports: [ConfigModule],
