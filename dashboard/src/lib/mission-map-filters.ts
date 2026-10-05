@@ -101,16 +101,16 @@ export function missionMapLabel(m: MissionMapEntry): string {
 // what's listed around it; with ~120 missions and 10 colours, repeats
 // are expected.
 const TRACK_COLORS = [
-	"#FF5733",
-	"#C70039",
-	"#FFC300",
-	"#DAF7A6",
-	"#33FFBD",
-	"#900C3F",
-	"#581845",
-	"#F39C12",
-	"#1ABC9C",
-	"#8E44AD",
+	"#F5CBA0",
+	"#D5B7E6",
+	"#A2D8C0",
+	"#FFFFFF",
+	"#E8E4D6",
+	"#B0E0E6",
+	"#FFE4E1",
+	"#FFEFD5",
+	"#F7F3EA",
+	"#C3CED6",
 ];
 
 export function trackColor(id: number): string {

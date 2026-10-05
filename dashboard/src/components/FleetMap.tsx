@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
 	LayersControl,
 	MapContainer,
+	Pane,
 	Polyline,
 	Popup,
 	ScaleControl,
@@ -53,6 +54,19 @@ const INITIAL_FIT_OPTIONS: L.FitBoundsOptions = { padding: [0, 0] };
 // renderer's `tolerance` widens each line's hover/click target by this
 // many pixels either side so a 3px line is still easy to hit.
 const HOVER_TOLERANCE_PX = 6;
+
+// The track palette is pastel, which nearly vanishes on the pale Ocean
+// basemap, so every track gets a dark outline drawn underneath it: the
+// coloured line plus this many px either side. The outlines live in their
+// own pane, stacked just below Leaflet's overlayPane (z-index 400) where
+// the coloured lines are, so every outline sits under every colour --
+// a mission switched back on later can't have its outline drawn over
+// its neighbours' colours.
+const OUTLINE_COLOR = "#1f2a33";
+const OUTLINE_EXTRA_PX = 2;
+const OUTLINE_PANE = "trackOutlines";
+const TRACK_WEIGHT = 3;
+const HIGHLIGHT_WEIGHT = 5;
 
 // `seq` counts clicks, so each click remounts the Popup fresh (it's the
 // Popup's key) and a stale Popup's "remove" event can't clear a newer
@@ -141,6 +155,9 @@ export default function FleetMap({
 				bounds={initialBounds}
 				boundsOptions={INITIAL_FIT_OPTIONS}
 				renderer={renderer}
+				// Lets the outline pane's own renderer (which Leaflet creates
+				// per pane) be a canvas too, instead of falling back to SVG.
+				preferCanvas
 				style={{ height: "100%", width: "100%" }}
 				scrollWheelZoom
 			>
@@ -156,14 +173,39 @@ export default function FleetMap({
 					</LayersControl.BaseLayer>
 				</LayersControl>
 
+				<Pane name={OUTLINE_PANE} style={{ zIndex: 399 }}>
+					{drawn.map((m) => {
+						const highlighted = hoveredId === m.id || selected?.id === m.id;
+						return (
+							<Polyline
+								key={m.id}
+								positions={m.track}
+								interactive={false}
+								pathOptions={{
+									color: OUTLINE_COLOR,
+									weight:
+										(highlighted ? HIGHLIGHT_WEIGHT : TRACK_WEIGHT) +
+										2 * OUTLINE_EXTRA_PX,
+									opacity: 0.7,
+								}}
+							/>
+						);
+					})}
+				</Pane>
+
 				{drawn.map((m) => (
 					<Polyline
 						key={m.id}
 						positions={m.track}
 						pathOptions={{
 							color: trackColor(m.id),
-							weight: hoveredId === m.id || selected?.id === m.id ? 5 : 3,
-							opacity: 0.85,
+							weight:
+								hoveredId === m.id || selected?.id === m.id
+									? HIGHLIGHT_WEIGHT
+									: TRACK_WEIGHT,
+							// Fully opaque: at 0.85 the dark outline beneath
+							// would muddy the pastels.
+							opacity: 1,
 						}}
 						eventHandlers={{
 							// Hover only highlights -- raised to the top so a
