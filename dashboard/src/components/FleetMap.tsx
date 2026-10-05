@@ -27,7 +27,6 @@ import {
 } from "react-leaflet";
 import FleetMapPanel from "./FleetMapPanel";
 import {
-	FIT_BOUNDS_OPTIONS,
 	IMAGERY_ATTRIBUTION,
 	IMAGERY_TILE_URL,
 	OCEAN_ATTRIBUTION,
@@ -35,10 +34,18 @@ import {
 	ResetViewControl,
 } from "./MissionTrackMap";
 
-// Where the map opens when no mission has a track yet -- roughly the
-// Norwegian shelf, where the fleet works.
-const FALLBACK_CENTER: [number, number] = [64, 6];
-const FALLBACK_ZOOM = 5;
+// The map opens framed on this latitude band -- the fleet's working area
+// from the southern Norwegian shelf up past Svalbard -- rather than on
+// whatever box the tracks happen to make. Longitude still follows the
+// tracks (falling back to FALLBACK_WEST/EAST when none have one yet),
+// so the band is centred on where the gliders have actually been.
+const INITIAL_SOUTH = 58.0;
+const INITIAL_NORTH = 82.5;
+const FALLBACK_WEST = -30;
+const FALLBACK_EAST = 30;
+// No padding on the opening fit, so the band's edges land at the
+// window's edges rather than 24px inside them.
+const INITIAL_FIT_OPTIONS: L.FitBoundsOptions = { padding: [0, 0] };
 
 // With every mission on screen, one invisible hover marker per fix (the
 // mission page's approach) would mean tens of thousands of DOM nodes.
@@ -47,7 +54,10 @@ const FALLBACK_ZOOM = 5;
 // many pixels either side so a 3px line is still easy to hit.
 const HOVER_TOLERANCE_PX = 6;
 
-type Hovered = { id: number; latlng: L.LatLng };
+// `seq` counts clicks, so each click remounts the Popup fresh (it's the
+// Popup's key) and a stale Popup's "remove" event can't clear a newer
+// selection -- even a second click on the same track.
+type Selected = { id: number; latlng: L.LatLng; seq: number };
 
 // The two corners of the box around every point in the given tracks --
 // all fitBounds needs, and far smaller to hand around than every point.
@@ -95,7 +105,8 @@ export default function FleetMap({
 	// Tracks the missions switched *off*, not on, so "every mission on"
 	// is simply the empty starting state.
 	const [hiddenIds, setHiddenIds] = useState<Set<number>>(() => new Set());
-	const [hovered, setHovered] = useState<Hovered | null>(null);
+	const [hoveredId, setHoveredId] = useState<number | null>(null);
+	const [selected, setSelected] = useState<Selected | null>(null);
 
 	const filtered = useMemo(
 		() => filterMissionMapEntries(missions, filters),
@@ -106,22 +117,29 @@ export default function FleetMap({
 		[filtered, hiddenIds],
 	);
 
-	// Initial view covers every track, whatever the filters later do --
-	// computed from the full list so it's stable across re-renders.
-	const initialBounds = useMemo(() => boundsOf(missions), [missions]);
+	// Bounds of every track, whatever the filters later do -- computed
+	// from the full list so it's stable across re-renders. Used for the
+	// opening view's longitude and as the reset button's fallback.
+	const allBounds = useMemo(() => boundsOf(missions), [missions]);
 	const drawnBounds = useMemo(() => boundsOf(drawn), [drawn]);
+	const initialBounds = useMemo<[number, number][]>(
+		() => [
+			[INITIAL_SOUTH, allBounds[0]?.[1] ?? FALLBACK_WEST],
+			[INITIAL_NORTH, allBounds[1]?.[1] ?? FALLBACK_EAST],
+		],
+		[allBounds],
+	);
 
-	const hoveredMission = hovered
-		? drawn.find((m) => m.id === hovered.id)
+	const selectedMission = selected
+		? drawn.find((m) => m.id === selected.id)
 		: undefined;
 
 	return (
 		<Box sx={{ position: "relative", height: "100%", width: "100%" }}>
 			<MapContainer
 				key={mapKey}
-				{...(initialBounds.length > 0
-					? { bounds: initialBounds, boundsOptions: FIT_BOUNDS_OPTIONS }
-					: { center: FALLBACK_CENTER, zoom: FALLBACK_ZOOM })}
+				bounds={initialBounds}
+				boundsOptions={INITIAL_FIT_OPTIONS}
 				renderer={renderer}
 				style={{ height: "100%", width: "100%" }}
 				scrollWheelZoom
@@ -144,46 +162,60 @@ export default function FleetMap({
 						positions={m.track}
 						pathOptions={{
 							color: trackColor(m.id),
-							weight: hovered?.id === m.id ? 5 : 3,
-							opacity: 0.9,
+							weight: hoveredId === m.id || selected?.id === m.id ? 5 : 3,
+							opacity: 0.85,
 						}}
 						eventHandlers={{
-							mouseover: (e) => setHovered({ id: m.id, latlng: e.latlng }),
+							// Hover only highlights -- raised to the top so a
+							// thickened line isn't half-hidden under its
+							// neighbours. The popup waits for a click.
+							mouseover: (e) => {
+								e.target.bringToFront();
+								setHoveredId(m.id);
+							},
+							mouseout: () => setHoveredId((h) => (h === m.id ? null : h)),
+							click: (e) =>
+								setSelected((s) => ({
+									id: m.id,
+									latlng: e.latlng,
+									seq: (s?.seq ?? 0) + 1,
+								})),
 						}}
 					/>
 				))}
 
-				{/* A Popup rather than a Tooltip: a Leaflet tooltip closes the
-				    moment the mouse leaves the line, so its link could never
-				    be clicked. This opens on hover and stays until the user
-				    hovers another track or clicks elsewhere on the map. */}
-				{hovered && hoveredMission && (
+				{/* Opens on click, not hover -- a hover popup kept popping up
+				    while just panning across busy areas. Stays until the
+				    user clicks another track or anywhere else on the map
+				    (Leaflet's closeOnClick), so its link can be clicked. */}
+				{selected && selectedMission && (
 					<Popup
-						position={hovered.latlng}
+						key={selected.seq}
+						position={selected.latlng}
 						autoPan={false}
 						closeButton={false}
 						eventHandlers={{
 							remove: () =>
-								setHovered((h) => (h?.id === hoveredMission.id ? null : h)),
+								setSelected((s) => (s?.seq === selected.seq ? null : s)),
 						}}
 					>
 						<Box sx={{ minWidth: 180 }}>
 							<Typography sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
-								{missionMapLabel(hoveredMission)}
+								{missionMapLabel(selectedMission)}
 							</Typography>
 							<Typography sx={{ fontSize: "0.8rem" }}>
-								{hoveredMission.glider ?? "Unknown glider"}
-								{hoveredMission.site ? ` · ${hoveredMission.site}` : ""}
+								{selectedMission.glider ?? "Unknown glider"}
+								{selectedMission.site ? ` · ${selectedMission.site}` : ""}
 							</Typography>
 							<Typography sx={{ fontSize: "0.8rem", mb: 0.5 }}>
-								{formatDate(hoveredMission.launchDate)} –{" "}
-								{hoveredMission.recoveryDate
-									? formatDate(hoveredMission.recoveryDate)
+								{formatDate(selectedMission.launchDate)} –{" "}
+								{selectedMission.recoveryDate
+									? formatDate(selectedMission.recoveryDate)
 									: "ongoing"}
 							</Typography>
 							<MuiLink
 								component={Link}
-								href={`/missions/${hoveredMission.id}`}
+								href={`/missions/${selectedMission.id}`}
 								sx={{ fontSize: "0.8rem" }}
 							>
 								Mission details →
@@ -194,7 +226,7 @@ export default function FleetMap({
 
 				<ScaleControl position="bottomleft" imperial={false} />
 				<ResetViewControl
-					bounds={drawnBounds.length > 0 ? drawnBounds : initialBounds}
+					bounds={drawnBounds.length > 0 ? drawnBounds : allBounds}
 				/>
 			</MapContainer>
 

@@ -96,21 +96,21 @@ export function missionMapLabel(m: MissionMapEntry): string {
 	return m.missionNumber != null ? `${m.missionNumber}. ${name}` : name;
 }
 
-// Picked to stay distinct from each other and readable on both the
-// light-blue Ocean basemap and the dark Satellite one. Keyed off the
-// mission id (not list position) so a mission keeps its colour when
-// filters change what's listed around it.
+// The track palette, chosen by the facility. Keyed off the mission id
+// (not list position) so a mission keeps its colour when filters change
+// what's listed around it; with ~120 missions and 10 colours, repeats
+// are expected.
 const TRACK_COLORS = [
-	"#e5473b",
-	"#7b2cbf",
-	"#f28c28",
-	"#1b7f3b",
-	"#d6338a",
-	"#0d47a1",
-	"#8d5524",
-	"#00897b",
-	"#c9a100",
-	"#37474f",
+	"#FF5733",
+	"#C70039",
+	"#FFC300",
+	"#DAF7A6",
+	"#33FFBD",
+	"#900C3F",
+	"#581845",
+	"#F39C12",
+	"#1ABC9C",
+	"#8E44AD",
 ];
 
 export function trackColor(id: number): string {
