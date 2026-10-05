@@ -606,6 +606,7 @@ export default function MissionFormDialog({
 								<TextField
 									size="small"
 									fullWidth
+									disabled={mode === "edit"}
 									value={form.missionNumber}
 									onChange={(e) =>
 										setForm((s) => ({ ...s, missionNumber: e.target.value }))
@@ -613,7 +614,7 @@ export default function MissionFormDialog({
 									helperText={
 										mode === "create"
 											? "Suggested next number — editable"
-											: undefined
+											: "Permanent identifier — can't be changed"
 									}
 								/>
 							</Field>
@@ -622,8 +623,17 @@ export default function MissionFormDialog({
 									size="small"
 									fullWidth
 									disabled
-									value={missionNamePreview ?? ""}
+									value={
+										mode === "edit"
+											? (mission?.missionName ?? "")
+											: (missionNamePreview ?? "")
+									}
 									placeholder="Fills in once Glider, Project, Site and Launch date are set"
+									helperText={
+										mode === "edit"
+											? "Kept as originally entered — the standard name updates automatically"
+											: undefined
+									}
 								/>
 							</Field>
 							<Field label="Glider" required>

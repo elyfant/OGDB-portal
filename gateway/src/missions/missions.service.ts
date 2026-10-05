@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+	BadRequestException,
+	Inject,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
 import type {
 	CreatedMission,
 	GliderBuildComponent,
@@ -419,15 +424,36 @@ export class MissionsService {
 	// Same shape as createMission -- UPDATE instead of INSERT, and any
 	// build changes are dated to this mission's own launch date (not
 	// "today"), with mission_id pointing at the existing row rather than
-	// a freshly created one. mission_name is recomputed unconditionally
-	// from whatever the edit ends up submitting, same as create -- no
-	// special-casing for "did glider/project/site actually change".
+	// a freshly created one.
+	//
+	// Two columns are deliberately NOT written on edit (see "Mission
+	// identifiers" in OGDB's alembic/design-notes.md):
+	// - mission_number is the permanent mission identifier (the NNN- prefix
+	//   of the mission's data folder). OGDB enforces this with a trigger;
+	//   a changed number is rejected here first with a readable 400.
+	// - mission_name is the historical label the mission was known by
+	//   (e.g. "agf311811_2016"), set once at create. The computed
+	//   glider_project_site_monYYYY name is norglider_missions
+	//   .std_mission_name, which follows edits automatically.
+	//
+	// launch_date / end_date_science / recovery_date are timestamps, but the
+	// form only edits the date. If the submitted date matches the stored
+	// one, the stored timestamp is kept as-is, so an unrelated edit (say,
+	// the dive count) doesn't reset an ingested time like 15:05:49 to
+	// midnight. Done in SQL, not JS, so the stored value never round-trips
+	// through a JS Date (exact to the microsecond). The ::text casts keep
+	// each parameter's type consistent across its two uses.
 	async updateMission(
 		id: number,
 		dto: UpdateMissionDto,
 		userId: number,
 	): Promise<CreatedMission> {
-		await this.findOne(id);
+		const existing = await this.findOne(id);
+		if (Number(dto.missionNumber) !== Number(existing.missionNumber)) {
+			throw new BadRequestException(
+				`Mission number is permanent and can't be changed (mission #${existing.missionNumber}).`,
+			);
+		}
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
@@ -441,33 +467,29 @@ export class MissionsService {
 			);
 			const { gliderName, projectName, siteName } = names.rows[0];
 			if (!gliderName || !projectName || !siteName) {
-				throw new NotFoundException(
-					"Glider, project, or site not found -- can't build a mission name.",
-				);
+				throw new NotFoundException("Glider, project, or site not found.");
 			}
-			const missionName = buildMissionName(
-				gliderName,
-				projectName,
-				siteName,
-				dto.launchDate,
-			);
 
 			const updated = await client.query(
 				`UPDATE missions SET
-           mission_number = $1, mission_name = $2, glider_asset_id = $3, status_id = $4,
-           project_id = $5, site_id = $6,
-           principal_investigator_id = $7, technical_lead_id = $8,
-           operating_agency_id = $9, funding_agency_id = $10,
-           launch_date = $11, launch_latitude = $12, launch_longitude = $13, launch_cruise_id = $14,
-           end_date_science = $15, recovery_date = $16, recovery_latitude = $17,
-           recovery_longitude = $18, recovery_cruise_id = $19,
-           volume = $20, weight_in_air = $21, density = $22, dives = $23, distance_km = $24,
-           iridium_minutes = $25, l1_file = $26, l2_file = $27, changed_by = $28, updated_at = now()
-         WHERE id = $29
+           glider_asset_id = $1, status_id = $2,
+           project_id = $3, site_id = $4,
+           principal_investigator_id = $5, technical_lead_id = $6,
+           operating_agency_id = $7, funding_agency_id = $8,
+           launch_date = CASE WHEN launch_date::date = $9::text::date
+             THEN launch_date ELSE $9::text::timestamp END,
+           launch_latitude = $10, launch_longitude = $11, launch_cruise_id = $12,
+           end_date_science = CASE WHEN end_date_science::date = $13::text::date
+             THEN end_date_science ELSE $13::text::timestamp END,
+           recovery_date = CASE WHEN recovery_date::date = $14::text::date
+             THEN recovery_date ELSE $14::text::timestamp END,
+           recovery_latitude = $15,
+           recovery_longitude = $16, recovery_cruise_id = $17,
+           volume = $18, weight_in_air = $19, density = $20, dives = $21, distance_km = $22,
+           iridium_minutes = $23, l1_file = $24, l2_file = $25, changed_by = $26, updated_at = now()
+         WHERE id = $27
          RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
-					dto.missionNumber,
-					missionName,
 					dto.gliderAssetId,
 					dto.statusId,
 					dto.projectId,
