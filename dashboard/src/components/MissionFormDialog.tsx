@@ -511,8 +511,8 @@ export default function MissionFormDialog({
 				dives: toNumberOrNull(form.dives),
 				distanceKm: toNumberOrNull(form.distanceKm),
 				iridiumMinutes: toNumberOrNull(form.iridiumMinutes),
-				l1File: form.l1File || null,
-				l2File: form.l2File || null,
+				l1File: form.l1File.trim() || null,
+				l2File: form.l2File.trim() || null,
 				buildChanges: pendingChanges.length > 0 ? pendingChanges : undefined,
 			};
 			const result =
@@ -932,7 +932,8 @@ export default function MissionFormDialog({
 								<TextField
 									size="small"
 									fullWidth
-									placeholder="path or URI to the current best L1 dataset"
+									placeholder="e.g. naco/data/delayed/095-…/basestation/…nc, or a URL"
+									helperText="Current best L1 dataset: path inside the shared projects folder (no /Data/gfi/projects/ or drive letter), or a URL"
 									value={form.l1File}
 									onChange={(e) =>
 										setForm((s) => ({
@@ -946,7 +947,8 @@ export default function MissionFormDialog({
 								<TextField
 									size="small"
 									fullWidth
-									placeholder="path or URI to the current best L2 dataset"
+									placeholder="e.g. naco/data/delayed/095-…/basestation/…nc, or a URL"
+									helperText="Current best L2 dataset: path inside the shared projects folder (no /Data/gfi/projects/ or drive letter), or a URL"
 									value={form.l2File}
 									onChange={(e) =>
 										setForm((s) => ({
