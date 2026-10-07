@@ -88,8 +88,10 @@ const SELECT_DATASET_PROCESSING = `
     dp.id,
     dp.erddap_l1_url AS "erddapL1Url",
     COALESCE(l1.status, 'none') AS "erddapL1Status",
+    l1.live_file AS "erddapL1File",
     dp.erddap_l2_url AS "erddapL2Url",
     COALESCE(l2.status, 'none') AS "erddapL2Status",
+    l2.live_file AS "erddapL2File",
     dp.ocean_ops_board_url AS "oceanOpsBoardUrl",
     dp.coriolis_url AS "coriolisUrl"
   FROM dataset_processing dp
@@ -191,7 +193,13 @@ function describeHistoryEntry(row: {
 function formatErddapColumn(l1: string, l2: string): string {
 	const parts: string[] = [];
 	const label = (s: string) =>
-		s === "MANUAL_QC" ? "manual QC" : s === "AUTO_QC" ? "auto-QC" : s;
+		s === "MANUAL_QC"
+			? "manual QC"
+			: s === "AUTO_QC"
+				? "auto-QC"
+				: s === "BASESTATION"
+					? "basestation"
+					: s;
 	if (l1 !== "none") parts.push(`L1 ${label(l1)}`);
 	if (l2 !== "none") parts.push(`L2 ${label(l2)}`);
 	return parts.join(" · ");
@@ -235,8 +243,10 @@ export class DatasetsService {
 			...(processing.rows[0] ?? {
 				erddapL1Url: null,
 				erddapL1Status: "none",
+				erddapL1File: null,
 				erddapL2Url: null,
 				erddapL2Status: "none",
+				erddapL2File: null,
 				oceanOpsBoardUrl: null,
 				coriolisUrl: null,
 			}),
@@ -407,10 +417,42 @@ export class DatasetsService {
 				missionId,
 				userId,
 			);
+			// Every live push is linked to the processing run whose file was
+			// sent (erddap_pushes.processing_run_id), so what's on ERDDAP is
+			// always traceable to an exact internal file. Matched by the file
+			// when given (the push script), else the latest run of that stage
+			// with a file for this level (the portal checkboxes). OGDB's
+			// trg_erddap_push_matches_run re-checks the pairing.
+			let runId: number | null = null;
+			if (dto.status !== "none") {
+				const fileCol = dto.level === "L1" ? "l1_file" : "l2_file";
+				const run = await client.query(
+					`SELECT id, stage FROM dataset_processing_stages
+           WHERE dataset_processing_id = $1 AND ${fileCol} IS NOT NULL
+             AND ($2::text IS NULL OR ${fileCol} = $2::text)
+             AND ($2::text IS NOT NULL OR stage = $3::text)
+           ORDER BY occurred_at DESC NULLS LAST, id DESC
+           LIMIT 1`,
+					[datasetProcessingId, dto.file ?? null, dto.status],
+				);
+				if (run.rows.length === 0) {
+					throw new BadRequestException(
+						dto.file
+							? `No processing run of this mission has ${dto.level} file ${dto.file}.`
+							: `No ${dto.status} processing run of this mission has an ${dto.level} file to push.`,
+					);
+				}
+				if (run.rows[0].stage !== dto.status) {
+					throw new BadRequestException(
+						`${dto.file} belongs to a ${run.rows[0].stage} run, not ${dto.status}.`,
+					);
+				}
+				runId = run.rows[0].id;
+			}
 			await client.query(
-				`INSERT INTO erddap_pushes (dataset_processing_id, level, status, changed_by)
-         VALUES ($1, $2, $3, $4)`,
-				[datasetProcessingId, dto.level, dto.status, userId],
+				`INSERT INTO erddap_pushes (dataset_processing_id, level, status, processing_run_id, changed_by)
+         VALUES ($1, $2, $3, $4, $5)`,
+				[datasetProcessingId, dto.level, dto.status, runId, userId],
 			);
 
 			await client.query("COMMIT");

@@ -321,6 +321,15 @@ function PackageVersionFields({
 // mirror to go stale. Since status is a single value, checking either
 // box always simply overwrites it -- checking "manual QC" can never
 // leave "auto-QC" also true, and vice versa.
+// What can be live on ERDDAP: the best file available, from the lowest
+// (basestation, during the mission) to the highest (manual QC). Each
+// confirmation is linked server-side to the processing run whose file it is.
+const PUSH_OPTIONS: [ErddapPushStatus, string][] = [
+	["BASESTATION", "Basestation pushed"],
+	["AUTO_QC", "Auto-QC pushed"],
+	["MANUAL_QC", "Manual QC pushed"],
+];
+
 function ErddapStatusControl({
 	level,
 	status,
@@ -351,31 +360,21 @@ function ErddapStatusControl({
 
 	return (
 		<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-			<FormControlLabel
-				sx={{ mr: 1 }}
-				control={
-					<Checkbox
-						size="small"
-						checked={status === "AUTO_QC"}
-						disabled={busy}
-						onChange={(e) => confirm(e.target.checked ? "AUTO_QC" : "none")}
-					/>
-				}
-				label={
-					<Typography variant="caption">Auto-QC pushed</Typography>
-				}
-			/>
-			<FormControlLabel
-				control={
-					<Checkbox
-						size="small"
-						checked={status === "MANUAL_QC"}
-						disabled={busy}
-						onChange={(e) => confirm(e.target.checked ? "MANUAL_QC" : "none")}
-					/>
-				}
-				label={<Typography variant="caption">Manual QC pushed</Typography>}
-			/>
+			{PUSH_OPTIONS.map(([value, label]) => (
+				<FormControlLabel
+					key={value}
+					sx={{ mr: 1 }}
+					control={
+						<Checkbox
+							size="small"
+							checked={status === value}
+							disabled={busy}
+							onChange={(e) => confirm(e.target.checked ? value : "none")}
+						/>
+					}
+					label={<Typography variant="caption">{label}</Typography>}
+				/>
+			))}
 		</Box>
 	);
 }

@@ -23,19 +23,28 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import type { ErddapPushStatus } from "@ogdb/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+const PUSHED_LABEL: Record<Exclude<ErddapPushStatus, "none">, string> = {
+	BASESTATION: "Basestation pushed",
+	AUTO_QC: "Auto-QC pushed",
+	MANUAL_QC: "Manual QC pushed",
+};
 
 function ExternalRefRow({
 	label,
 	url,
 	linkText,
 	pushStatus,
+	liveFile,
 }: {
 	label: string;
 	url: string | null;
 	linkText: string;
-	pushStatus?: "none" | "AUTO_QC" | "MANUAL_QC";
+	pushStatus?: ErddapPushStatus;
+	liveFile?: string | null;
 }) {
 	return (
 		<TableRow>
@@ -54,8 +63,11 @@ function ExternalRefRow({
 				{pushStatus && pushStatus !== "none" && (
 					<Chip
 						size="small"
-						label={pushStatus === "AUTO_QC" ? "Auto-QC pushed" : "Manual QC pushed"}
+						label={PUSHED_LABEL[pushStatus]}
 						color={pushStatus === "MANUAL_QC" ? "success" : "default"}
+						// The internal file that's live there, from the processing run
+						// the push is linked to -- hover to see it.
+						title={liveFile ?? undefined}
 					/>
 				)}
 			</TableCell>
@@ -235,12 +247,14 @@ export default async function DatasetDetailPage({
 							url={detail.erddapL1Url}
 							linkText="view dataset"
 							pushStatus={detail.erddapL1Status}
+							liveFile={detail.erddapL1File}
 						/>
 						<ExternalRefRow
 							label="NorGliders ERDDAP L2 (gridded)"
 							url={detail.erddapL2Url}
 							linkText="view dataset"
 							pushStatus={detail.erddapL2Status}
+							liveFile={detail.erddapL2File}
 						/>
 						<ExternalRefRow
 							label="Coriolis (real-time data)"

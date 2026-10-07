@@ -342,8 +342,12 @@ export interface DatasetProcessingDetail {
 	// append-only erddap_pushes table, not dataset_processing directly.
 	erddapL1Url: string | null;
 	erddapL1Status: ErddapPushStatus;
+	// The internal file currently live at that URL (relative to the shared
+	// projects folder) -- from the processing run the push is linked to.
+	erddapL1File: string | null;
 	erddapL2Url: string | null;
 	erddapL2Status: ErddapPushStatus;
+	erddapL2File: string | null;
 	coriolisUrl: string | null;
 	// Best L1/L2 across all runs (mission_best_files) -- see Mission.
 	bestL1File: string | null;
@@ -354,7 +358,7 @@ export interface DatasetProcessingDetail {
 	history: DatasetHistoryEntry[];
 }
 
-export type ErddapPushStatus = "none" | "AUTO_QC" | "MANUAL_QC";
+export type ErddapPushStatus = "none" | "BASESTATION" | "AUTO_QC" | "MANUAL_QC";
 export type ErddapLevel = "L1" | "L2";
 
 // One row in erddap_pushes -- confirming a status always inserts a new
