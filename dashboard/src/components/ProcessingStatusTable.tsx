@@ -1,9 +1,9 @@
 "use client";
 
 import { formatDate } from "@/lib/format";
+import { STAGE_LABEL } from "@/lib/processing-stages";
 import CancelIcon from "@mui/icons-material/Cancel";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
@@ -22,16 +22,12 @@ import Typography from "@mui/material/Typography";
 import type { DatasetProcessingStageDetail } from "@ogdb/types";
 import { Fragment, useState } from "react";
 
-const STAGE_LABEL: Record<string, string> = {
-	raw: "Raw data archival",
-	L0: "L0 dataset",
-	BASESTATION: "Basestation (auto, during mission)",
-	AUTO_QC: "Reprocessed, auto-QC",
-	MANUAL_QC: "Reprocessed, auto + manual QC",
-};
 // Matches DatasetEditor's OG1_CAPABLE_STAGES -- only the reprocessed
 // stages are OG1-eligible.
 const OG1_CAPABLE_STAGES = new Set(["AUTO_QC", "MANUAL_QC"]);
+// Stages whose runs carry L1/L2 NetCDF files (matches OGDB's
+// ck_dataset_processing_stages_files_stage).
+const FILE_STAGES = new Set(["BASESTATION", "AUTO_QC", "MANUAL_QC"]);
 
 function Tick({ done }: { done: boolean }) {
 	return done ? (
@@ -74,12 +70,22 @@ function VersionLink({
 	);
 }
 
-function DownloadIndicator({ available }: { available: boolean }) {
+// A run's NetCDF file: just the file name (the full path, relative to the
+// shared projects folder, is in the tooltip), marked "best" when it's the
+// one mission_best_files picked for this level.
+function FileCell({ file, best }: { file: string | null; best: boolean }) {
+	if (!file) return <Pending />;
 	return (
-		<FileDownloadIcon
-			fontSize="small"
-			sx={{ color: available ? "primary.main" : "text.disabled" }}
-		/>
+		<Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+			<Typography
+				component="span"
+				title={file}
+				sx={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all" }}
+			>
+				{file.split("/").pop()}
+			</Typography>
+			{best && <Chip size="small" color="success" label="best" />}
+		</Box>
 	);
 }
 
@@ -105,8 +111,12 @@ function StageDetailRow({ stage }: { stage: DatasetProcessingStageDetail }) {
 
 export default function ProcessingStatusTable({
 	stages,
+	bestL1File,
+	bestL2File,
 }: {
 	stages: DatasetProcessingStageDetail[];
+	bestL1File: string | null;
+	bestL2File: string | null;
 }) {
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -132,15 +142,15 @@ export default function ProcessingStatusTable({
 						<TableCell>Version</TableCell>
 						<TableCell>Manual QC</TableCell>
 						<TableCell>OG1</TableCell>
-						<TableCell>Internal download</TableCell>
-						<TableCell>Internal download OG1</TableCell>
+						<TableCell>L1 file</TableCell>
+						<TableCell>L2 file</TableCell>
 					</TableRow>
 				</TableHead>
 				<TableBody>
 					{stages.map((s) => (
 						<Fragment key={s.stage}>
 							<TableRow hover>
-								<TableCell>{STAGE_LABEL[s.stage] ?? s.stage}</TableCell>
+								<TableCell>{STAGE_LABEL[s.stage]}</TableCell>
 								<TableCell>
 									<Tick done={s.status} />
 								</TableCell>
@@ -194,15 +204,21 @@ export default function ProcessingStatusTable({
 									)}
 								</TableCell>
 								<TableCell>
-									{s.applicable ? (
-										<DownloadIndicator available={s.hasInternalDownload} />
+									{FILE_STAGES.has(s.stage) ? (
+										<FileCell
+											file={s.l1File}
+											best={s.l1File !== null && s.l1File === bestL1File}
+										/>
 									) : (
 										<NotApplicable />
 									)}
 								</TableCell>
 								<TableCell>
-									{s.applicable ? (
-										<DownloadIndicator available={s.hasInternalDownloadOg1} />
+									{FILE_STAGES.has(s.stage) ? (
+										<FileCell
+											file={s.l2File}
+											best={s.l2File !== null && s.l2File === bestL2File}
+										/>
 									) : (
 										<NotApplicable />
 									)}

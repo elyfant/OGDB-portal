@@ -211,7 +211,11 @@ export default async function DatasetDetailPage({
 				</Box>
 			</Box>
 			<Box sx={{ mb: 4 }}>
-				<ProcessingStatusTable stages={detail.stages} />
+				<ProcessingStatusTable
+					stages={detail.stages}
+					bestL1File={detail.bestL1File}
+					bestL2File={detail.bestL2File}
+				/>
 			</Box>
 
 			<Typography variant="h6" sx={{ mb: 1.5 }}>

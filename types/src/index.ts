@@ -302,6 +302,11 @@ export interface DatasetProcessingStageDetail {
 	// RecordDatasetStageInput: there is deliberately no way to set these.
 	hasInternalDownload: boolean;
 	hasInternalDownloadOg1: boolean;
+	// The NetCDF files this stage's latest run produced (relative to the
+	// shared projects folder) -- set by the ingest scripts, carried over to
+	// later runs recorded in the portal. Only BASESTATION/AUTO_QC/MANUAL_QC.
+	l1File: string | null;
+	l2File: string | null;
 }
 
 export interface DatasetHistoryEntry {
@@ -340,6 +345,11 @@ export interface DatasetProcessingDetail {
 	erddapL2Url: string | null;
 	erddapL2Status: ErddapPushStatus;
 	coriolisUrl: string | null;
+	// Best L1/L2 across all runs (mission_best_files) -- see Mission.
+	bestL1File: string | null;
+	bestL1Stage: DatasetProcessingStage | null;
+	bestL2File: string | null;
+	bestL2Stage: DatasetProcessingStage | null;
 	stages: DatasetProcessingStageDetail[];
 	history: DatasetHistoryEntry[];
 }
@@ -519,13 +529,16 @@ export interface Mission {
 	dives: number | null;
 	distanceKm: number | null;
 	numberOfDays: number | null;
-	// Free-text pointers (path or URI) to the current best dataset for this
-	// mission at each processing level -- the concatenated realtime file
-	// during the mission, the archived location after archival, the
-	// reprocessed file after manual QC. Not validated as real paths, and
-	// no history is kept: moving the pointer overwrites it.
-	l1File: string | null;
-	l2File: string | null;
+	// The mission's best internal L1/L2 NetCDF files and the processing
+	// stage each came from -- computed by OGDB's mission_best_files view
+	// (highest QC level among completed runs, then the latest run), never
+	// stored. Paths are relative to the shared projects folder, e.g.
+	// naco/data/delayed/095-.../basestation/x.nc. Per-run files are on
+	// DatasetProcessingStageDetail.
+	bestL1File: string | null;
+	bestL1Stage: DatasetProcessingStage | null;
+	bestL2File: string | null;
+	bestL2Stage: DatasetProcessingStage | null;
 }
 
 // One file attached to a mission (documents.mission_id) -- the "Key
@@ -624,8 +637,6 @@ export interface CreateMissionInput {
 	dives?: number | null;
 	distanceKm?: number | null;
 	iridiumMinutes?: number | null;
-	l1File?: string | null;
-	l2File?: string | null;
 	// The new mission's initial build, applied in the same transaction as
 	// the mission row itself -- omit/empty when the glider's current live
 	// build already covers it (most redeployments need no changes at all).

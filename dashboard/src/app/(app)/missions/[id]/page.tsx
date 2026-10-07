@@ -1,3 +1,4 @@
+import BestDataFiles from "@/components/BestDataFiles";
 import EditMissionButton from "@/components/EditMissionButton";
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
@@ -296,6 +297,28 @@ export default async function MissionDetailPage({
 					<Field label="Operating agency" value={mission.operatingAgency} />
 					<Field label="Funding agency" value={mission.fundingAgency} />
 				</Box>
+			</Paper>
+
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 1.5,
+				}}
+			>
+				<Typography variant="h6">Data files</Typography>
+				<MuiLink component={Link} href={`/datasets/${mission.id}`}>
+					All processing runs
+				</MuiLink>
+			</Box>
+			<Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
+				<BestDataFiles
+					l1File={mission.bestL1File}
+					l1Stage={mission.bestL1Stage}
+					l2File={mission.bestL2File}
+					l2Stage={mission.bestL2Stage}
+				/>
 			</Paper>
 
 			<Box

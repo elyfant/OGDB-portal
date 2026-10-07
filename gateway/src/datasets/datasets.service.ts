@@ -100,6 +100,17 @@ const SELECT_DATASET_PROCESSING = `
   WHERE dp.mission_id = $1
 `;
 
+// The mission's best internal L1/L2 NetCDF files, computed by OGDB's
+// mission_best_files view (highest QC level among completed runs, then the
+// latest run) -- never stored, so it can't go stale. Paths are relative to
+// the shared projects folder (e.g. naco/data/delayed/095-.../x.nc).
+export const SELECT_BEST_FILES = `
+  SELECT l1_file AS "bestL1File", l1_stage AS "bestL1Stage",
+         l2_file AS "bestL2File", l2_stage AS "bestL2Stage"
+  FROM mission_best_files
+  WHERE mission_id = $1
+`;
+
 // "raw" has no package/version/QC/OG1/download concept at all — flagged
 // via "applicable" so the dashboard can render "n/a" instead of a dash.
 const SELECT_STAGES = `
@@ -121,7 +132,9 @@ const SELECT_STAGES = `
     cps.version_id AS "versionId",
     cps.processing_notes AS "processingNotes",
     cps.qc_done AS "qcDone",
-    cps.is_og1 AS "isOg1"
+    cps.is_og1 AS "isOg1",
+    cps.l1_file AS "l1File",
+    cps.l2_file AS "l2File"
   FROM stage_labels sl
   LEFT JOIN dataset_processing dp ON dp.mission_id = $1
   LEFT JOIN current_dataset_processing_stage cps
@@ -197,7 +210,7 @@ export class DatasetsService {
 	}
 
 	async findDetail(missionId: number): Promise<DatasetProcessingDetail> {
-		const [header, processing, stages, documents, history] = await Promise.all([
+		const [header, processing, stages, documents, history, best] = await Promise.all([
 			this.pool.query(SELECT_MISSION_HEADER, [missionId]),
 			this.pool.query(SELECT_DATASET_PROCESSING, [missionId]),
 			this.pool.query(SELECT_STAGES, [missionId]),
@@ -206,6 +219,7 @@ export class DatasetsService {
 				[missionId],
 			),
 			this.pool.query(SELECT_HISTORY, [missionId]),
+			this.pool.query(SELECT_BEST_FILES, [missionId]),
 		]);
 
 		if (header.rows.length === 0) {
@@ -225,6 +239,12 @@ export class DatasetsService {
 				erddapL2Status: "none",
 				oceanOpsBoardUrl: null,
 				coriolisUrl: null,
+			}),
+			...(best.rows[0] ?? {
+				bestL1File: null,
+				bestL1Stage: null,
+				bestL2File: null,
+				bestL2Stage: null,
 			}),
 			stages: stages.rows.map((row) => {
 				const stage = row.stage as DatasetProcessingStage;
@@ -246,6 +266,8 @@ export class DatasetsService {
 					processingNotes: row.processingNotes,
 					qcDone: row.qcDone,
 					isOg1: OG1_CAPABLE_STAGES.includes(stage) ? row.isOg1 : null,
+					l1File: row.l1File,
+					l2File: row.l2File,
 					hasInternalDownload:
 						row.applicable && documentTypes.has(`${key}_output`),
 					hasInternalDownloadOg1:
@@ -516,11 +538,27 @@ export class DatasetsService {
 			stage.packageId,
 		);
 
+		// NetCDF files (l1_file / l2_file) are set by the ingest scripts, not
+		// typed in the portal. Every save here appends a new run, so the new
+		// run carries over the files of the latest run of the same stage --
+		// editing a run's notes must not make its files disappear. A first
+		// MANUAL_QC run takes the latest AUTO_QC run's files: manual QC is
+		// done on that same reprocessed dataset. raw/L0 runs never have files.
 		await client.query(
 			`INSERT INTO dataset_processing_stages
          (dataset_processing_id, stage, status, who_id, occurred_at,
-          package_id, version_id, processing_notes, qc_done, is_og1, changed_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          package_id, version_id, processing_notes, qc_done, is_og1, changed_by,
+          l1_file, l2_file)
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, src.l1_file, src.l2_file
+       FROM (SELECT 1) AS one
+       LEFT JOIN LATERAL (
+         SELECT l1_file, l2_file FROM dataset_processing_stages
+         WHERE dataset_processing_id = $1
+           AND (l1_file IS NOT NULL OR l2_file IS NOT NULL)
+           AND (stage = $2::text OR ($2::text = 'MANUAL_QC' AND stage = 'AUTO_QC'))
+         ORDER BY (stage = $2::text) DESC, occurred_at DESC NULLS LAST, id DESC
+         LIMIT 1
+       ) AS src ON true`,
 			[
 				datasetProcessingId,
 				stage.stage,

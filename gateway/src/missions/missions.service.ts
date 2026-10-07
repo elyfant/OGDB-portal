@@ -46,14 +46,17 @@ const MISSION_KEY_FILE_DOCUMENT_TYPE = "mission_key_file";
 // resolves -- needed for the Add Mission dialog's "autopopulate from
 // previous mission" feature, which has to set real dropdown selections,
 // not just show text. Same correlated-subquery pattern already used for
-// gliderAssetId/l1File/l2File below (norglider_missions doesn't
-// expose these directly; missions does).
+// gliderAssetId below (norglider_missions doesn't expose these directly;
+// missions does). bestL1File/bestL2File come from the mission_best_files
+// view -- the best NetCDF per level across the mission's processing runs.
 const SELECT_MISSIONS = `
   SELECT
     id,
     (SELECT glider_asset_id FROM missions WHERE missions.id = norglider_missions.id) AS "gliderAssetId",
-    (SELECT l1_file FROM missions WHERE missions.id = norglider_missions.id) AS "l1File",
-    (SELECT l2_file FROM missions WHERE missions.id = norglider_missions.id) AS "l2File",
+    (SELECT l1_file FROM mission_best_files b WHERE b.mission_id = norglider_missions.id) AS "bestL1File",
+    (SELECT l1_stage FROM mission_best_files b WHERE b.mission_id = norglider_missions.id) AS "bestL1Stage",
+    (SELECT l2_file FROM mission_best_files b WHERE b.mission_id = norglider_missions.id) AS "bestL2File",
+    (SELECT l2_stage FROM mission_best_files b WHERE b.mission_id = norglider_missions.id) AS "bestL2Stage",
     (SELECT status_id FROM missions WHERE missions.id = norglider_missions.id) AS "statusId",
     (SELECT project_id FROM missions WHERE missions.id = norglider_missions.id) AS "projectId",
     (SELECT site_id FROM missions WHERE missions.id = norglider_missions.id) AS "siteId",
@@ -358,14 +361,14 @@ export class MissionsService {
            launch_date, launch_latitude, launch_longitude, launch_cruise_id,
            end_date_science, recovery_date, recovery_latitude, recovery_longitude, recovery_cruise_id,
            volume, weight_in_air, density, dives, distance_km, iridium_minutes,
-           l1_file, l2_file, changed_by
+           changed_by
          ) VALUES (
            $1, $2, $3, $4, $5, $6,
            $7, $8, $9, $10,
            $11, $12, $13, $14,
            $15, $16, $17, $18, $19,
            $20, $21, $22, $23, $24, $25,
-           $26, $27, $28
+           $26
          ) RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
 					dto.missionNumber,
@@ -393,8 +396,6 @@ export class MissionsService {
 					dto.dives ?? null,
 					dto.distanceKm ?? null,
 					dto.iridiumMinutes ?? null,
-					dto.l1File ?? null,
-					dto.l2File ?? null,
 					userId,
 				],
 			);
@@ -486,8 +487,8 @@ export class MissionsService {
            recovery_latitude = $15,
            recovery_longitude = $16, recovery_cruise_id = $17,
            volume = $18, weight_in_air = $19, density = $20, dives = $21, distance_km = $22,
-           iridium_minutes = $23, l1_file = $24, l2_file = $25, changed_by = $26, updated_at = now()
-         WHERE id = $27
+           iridium_minutes = $23, changed_by = $24, updated_at = now()
+         WHERE id = $25
          RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
 					dto.gliderAssetId,
@@ -513,8 +514,6 @@ export class MissionsService {
 					dto.dives ?? null,
 					dto.distanceKm ?? null,
 					dto.iridiumMinutes ?? null,
-					dto.l1File ?? null,
-					dto.l2File ?? null,
 					userId,
 					id,
 				],

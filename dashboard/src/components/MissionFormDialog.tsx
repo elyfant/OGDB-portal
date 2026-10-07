@@ -84,8 +84,6 @@ interface FormState {
 	dives: string;
 	distanceKm: string;
 	iridiumMinutes: string;
-	l1File: string;
-	l2File: string;
 }
 
 function emptyForm(): FormState {
@@ -114,8 +112,6 @@ function emptyForm(): FormState {
 		dives: "",
 		distanceKm: "",
 		iridiumMinutes: "",
-		l1File: "",
-		l2File: "",
 	};
 }
 
@@ -150,8 +146,6 @@ function formFromMission(m: Mission): FormState {
 		dives: m.dives?.toString() ?? "",
 		distanceKm: m.distanceKm?.toString() ?? "",
 		iridiumMinutes: m.iridiumMinutes?.toString() ?? "",
-		l1File: m.l1File ?? "",
-		l2File: m.l2File ?? "",
 	};
 }
 
@@ -340,8 +334,6 @@ export default function MissionFormDialog({
 			iridiumMinutes: source.iridiumMinutes?.toString() ?? "",
 			// L1/L2 dataset pointers belong to the source mission's data --
 			// nothing to carry over to a mission that hasn't happened yet.
-			l1File: "",
-			l2File: "",
 		}));
 		if (source.gliderAssetId) loadBuild(source.gliderAssetId);
 	}
@@ -511,8 +503,6 @@ export default function MissionFormDialog({
 				dives: toNumberOrNull(form.dives),
 				distanceKm: toNumberOrNull(form.distanceKm),
 				iridiumMinutes: toNumberOrNull(form.iridiumMinutes),
-				l1File: form.l1File.trim() || null,
-				l2File: form.l2File.trim() || null,
 				buildChanges: pendingChanges.length > 0 ? pendingChanges : undefined,
 			};
 			const result =
@@ -920,41 +910,6 @@ export default function MissionFormDialog({
 									value={form.iridiumMinutes}
 									onChange={(e) =>
 										setForm((s) => ({ ...s, iridiumMinutes: e.target.value }))
-									}
-								/>
-							</Field>
-						</Grid>
-					</Section>
-
-					<Section label="Data & links">
-						<Grid>
-							<Field label="L1 file" span={3}>
-								<TextField
-									size="small"
-									fullWidth
-									placeholder="e.g. naco/data/delayed/095-…/basestation/…nc, or a URL"
-									helperText="Current best L1 dataset: path inside the shared projects folder (no /Data/gfi/projects/ or drive letter), or a URL"
-									value={form.l1File}
-									onChange={(e) =>
-										setForm((s) => ({
-											...s,
-											l1File: e.target.value,
-										}))
-									}
-								/>
-							</Field>
-							<Field label="L2 file" span={3}>
-								<TextField
-									size="small"
-									fullWidth
-									placeholder="e.g. naco/data/delayed/095-…/basestation/…nc, or a URL"
-									helperText="Current best L2 dataset: path inside the shared projects folder (no /Data/gfi/projects/ or drive letter), or a URL"
-									value={form.l2File}
-									onChange={(e) =>
-										setForm((s) => ({
-											...s,
-											l2File: e.target.value,
-										}))
 									}
 								/>
 							</Field>

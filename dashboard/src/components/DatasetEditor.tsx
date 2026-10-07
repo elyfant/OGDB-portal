@@ -8,6 +8,7 @@ import {
 	updateExternalReferences,
 } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
+import { STAGE_LABEL } from "@/lib/processing-stages";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Alert from "@mui/material/Alert";
@@ -47,13 +48,6 @@ const STAGE_ORDER: DatasetProcessingStage[] = [
 	"AUTO_QC",
 	"MANUAL_QC",
 ];
-const STAGE_LABEL: Record<DatasetProcessingStage, string> = {
-	raw: "Raw data archival",
-	L0: "L0 dataset",
-	BASESTATION: "Basestation (auto, during mission)",
-	AUTO_QC: "Reprocessed, auto-QC",
-	MANUAL_QC: "Reprocessed, auto + manual QC",
-};
 // Sequential-ish progression through the pipeline, all drawn from MUI's own
 // semantic palette so light/dark both work without hardcoded hex -- raw
 // (nothing processed yet) gets no colour at all, the processed stages do.
