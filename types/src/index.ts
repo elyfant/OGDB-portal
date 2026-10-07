@@ -261,7 +261,16 @@ export interface UpdateAssetInput {
 // processing pipeline (both platforms produce their timeseries and
 // gridded products together at each maturity step; format-specific
 // links live on the external-references URLs instead).
-export type DatasetProcessingStage = "raw" | "L0" | "DM" | "PUB";
+// Renamed 2026-10-07 (OGDB xxxx_processing_stages_qc_levels): stages are
+// named for their QC level -- DM -> AUTO_QC, PUB -> MANUAL_QC -- and
+// BASESTATION is new (the Seaglider basestation's own automatic processing
+// during the mission). "Published" is tracked separately (erddap_pushes).
+export type DatasetProcessingStage =
+	| "raw"
+	| "L0"
+	| "BASESTATION"
+	| "AUTO_QC"
+	| "MANUAL_QC";
 
 export interface DatasetProcessingStageDetail {
 	stage: DatasetProcessingStage;
@@ -323,8 +332,8 @@ export interface DatasetProcessingDetail {
 	// NorGliders' own published ERDDAP endpoints -- distinct from
 	// oceanOpsBoardUrl/coriolisUrl, which are the real-time feeds. The URL
 	// is a stable address; *Status tracks what's currently live there --
-	// "none" (nothing confirmed pushed yet), "DM" (delayed mode), or "PUB"
-	// (published, which supersedes DM at the same URL). Backed by the
+	// "none" (nothing confirmed pushed yet), "AUTO_QC", or "MANUAL_QC"
+	// (which supersedes AUTO_QC at the same URL). Backed by the
 	// append-only erddap_pushes table, not dataset_processing directly.
 	erddapL1Url: string | null;
 	erddapL1Status: ErddapPushStatus;
@@ -335,7 +344,7 @@ export interface DatasetProcessingDetail {
 	history: DatasetHistoryEntry[];
 }
 
-export type ErddapPushStatus = "none" | "DM" | "PUB";
+export type ErddapPushStatus = "none" | "AUTO_QC" | "MANUAL_QC";
 export type ErddapLevel = "L1" | "L2";
 
 // One row in erddap_pushes -- confirming a status always inserts a new
@@ -352,8 +361,8 @@ export interface DatasetProcessingStatus {
 	missionName: string;
 	doi: string | null;
 	rawStatus: boolean;
-	dmStatus: boolean;
-	pubStatus: boolean;
+	autoQcStatus: boolean;
+	manualQcStatus: boolean;
 	// Folds dmOg1/pubOg1 into one flag -- whichever stage reached OG1
 	// first still counts, since the catalogue is an at-a-glance view (the
 	// dataset detail page still breaks OG1 out per stage).

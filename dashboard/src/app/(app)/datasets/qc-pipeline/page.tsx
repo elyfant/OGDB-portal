@@ -12,7 +12,12 @@ const GLOSSARY: { term: string; definition: string }[] = [
 	{
 		term: "DM",
 		definition:
-			"Delayed mode — reprocessing once the full dataset is back, with automated QC applied.",
+			"Delayed mode — reprocessing once the full dataset is back, with automated QC applied. Recorded in OGDB as the “Reprocessed, auto-QC” stage, and “Reprocessed, auto + manual QC” once manual QC is done.",
+	},
+	{
+		term: "Basestation",
+		definition:
+			"Seaglider only — the basestation’s own automatic processing during the mission (the basestation/ folder). Has L1/L2 files and automatic QC, but at a lower level than the team’s reprocessing afterwards.",
 	},
 	{
 		term: "L1 / L2",

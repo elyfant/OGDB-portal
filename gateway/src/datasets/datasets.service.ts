@@ -19,21 +19,27 @@ import type { ConfirmErddapPushDto } from "./dto/confirm-erddap-push.dto";
 import type { RegisterDatasetDocumentDto } from "./dto/register-dataset-document.dto";
 import type { UpdateExternalReferencesDto } from "./dto/update-external-references.dto";
 
-const VALID_STAGES: DatasetProcessingStage[] = ["raw", "L0", "DM", "PUB"];
+const VALID_STAGES: DatasetProcessingStage[] = [
+	"raw",
+	"L0",
+	"BASESTATION",
+	"AUTO_QC",
+	"MANUAL_QC",
+];
 // Matches xxxx_dataset_processing_dm_published.py's acceptance criteria --
-// QC is only a concept for DM/PUB.
-const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
+// QC is only a concept for the reprocessed stages.
+const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["AUTO_QC", "MANUAL_QC"];
 // L0 is a raw-format conversion, not an OG1-eligible product -- only
-// DM/PUB can be OG1. Matches the DB check constraint added in
+// AUTO_QC/MANUAL_QC can be OG1. Matches the DB check constraint added in
 // xxxx_dataset_processing_og1_check.py.
-const OG1_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
+const OG1_CAPABLE_STAGES: DatasetProcessingStage[] = ["AUTO_QC", "MANUAL_QC"];
 
 // One row per mission, pivoting current_dataset_processing_stage (latest
 // run per stage — see xxxx_dataset_processing_dm_published.py) and
 // current_erddap_status into the catalogue table's columns. og1 folds
-// DM/PUB's is_og1 into one flag (whichever stage reached OG1 first still
-// counts). erddapL1Status/erddapL2Status come back raw ("none"/"DM"/
-// "PUB") -- findAll() below folds them into one display string, same
+// AUTO_QC/MANUAL_QC's is_og1 into one flag (whichever stage reached OG1 first still
+// counts). erddapL1Status/erddapL2Status come back raw ("none"/"AUTO_QC"/
+// "MANUAL_QC") -- findAll() below folds them into one display string, same
 // reasoning as og1. A mission with no dataset_processing row at all
 // (nothing started yet) comes back false/"none" across the board via
 // the COALESCE, not undefined.
@@ -43,9 +49,9 @@ const SELECT_DATASETS = `
     COALESCE(nm.std_mission_name, nm.mission_name, 'Mission ' || nm.mission_number) AS "missionName",
     m.doi,
     COALESCE(bool_or(CASE WHEN cps.stage = 'raw' THEN cps.status END), false) AS "rawStatus",
-    COALESCE(bool_or(CASE WHEN cps.stage = 'DM' THEN cps.status END), false) AS "dmStatus",
-    COALESCE(bool_or(CASE WHEN cps.stage = 'PUB' THEN cps.status END), false) AS "pubStatus",
-    COALESCE(bool_or(CASE WHEN cps.stage IN ('DM', 'PUB') THEN cps.is_og1 END), false) AS "og1",
+    COALESCE(bool_or(CASE WHEN cps.stage = 'AUTO_QC' THEN cps.status END), false) AS "autoQcStatus",
+    COALESCE(bool_or(CASE WHEN cps.stage = 'MANUAL_QC' THEN cps.status END), false) AS "manualQcStatus",
+    COALESCE(bool_or(CASE WHEN cps.stage IN ('AUTO_QC', 'MANUAL_QC') THEN cps.is_og1 END), false) AS "og1",
     COALESCE(MAX(CASE WHEN erd.level = 'L1' THEN erd.status END), 'none') AS "erddapL1Status",
     COALESCE(MAX(CASE WHEN erd.level = 'L2' THEN erd.status END), 'none') AS "erddapL2Status"
   FROM norglider_missions nm
@@ -98,7 +104,8 @@ const SELECT_DATASET_PROCESSING = `
 // via "applicable" so the dashboard can render "n/a" instead of a dash.
 const SELECT_STAGES = `
   WITH stage_labels(stage, applicable, ord) AS (
-    VALUES ('raw', false, 1), ('L0', true, 2), ('DM', true, 3), ('PUB', true, 4)
+    VALUES ('raw', false, 1), ('L0', true, 2), ('BASESTATION', true, 3),
+           ('AUTO_QC', true, 4), ('MANUAL_QC', true, 5)
   )
   SELECT
     sl.stage,
@@ -170,8 +177,10 @@ function describeHistoryEntry(row: {
 // for empty cells applies uniformly.
 function formatErddapColumn(l1: string, l2: string): string {
 	const parts: string[] = [];
-	if (l1 !== "none") parts.push(`L1 ${l1}`);
-	if (l2 !== "none") parts.push(`L2 ${l2}`);
+	const label = (s: string) =>
+		s === "MANUAL_QC" ? "manual QC" : s === "AUTO_QC" ? "auto-QC" : s;
+	if (l1 !== "none") parts.push(`L1 ${label(l1)}`);
+	if (l2 !== "none") parts.push(`L2 ${label(l2)}`);
 	return parts.join(" · ");
 }
 
@@ -356,8 +365,8 @@ export class DatasetsService {
 	}
 
 	// erddap_pushes is append-only (see xxxx_erddap_pushes.py) -- confirming
-	// a status is always an INSERT. Confirming "PUB" for a level
-	// automatically supersedes a prior "DM" confirmation for that same
+	// a status is always an INSERT. Confirming "MANUAL_QC" for a level
+	// automatically supersedes a prior "AUTO_QC" confirmation for that same
 	// level, just by virtue of current_erddap_status picking the latest
 	// row -- no separate "clear the other flag" step needed.
 	async confirmErddapPush(
@@ -399,7 +408,7 @@ export class DatasetsService {
 	// so reprocessing a mission's L1/L2 doesn't erase the previous file's
 	// record. document_type = "<stage>_output" matches the convention
 	// findDetail() already reads for hasInternalDownload -- deliberately
-	// NOT split by netcdfMetadata.level (L1 vs L2), since a single DM/PUB
+	// NOT split by netcdfMetadata.level (L1 vs L2), since a single AUTO_QC/MANUAL_QC
 	// run can produce both and the dashboard's per-stage download flag is
 	// "at least one output exists", not per-format. Callers that need to
 	// tell L1 and L2 apart read netcdfMetadata->>'level' off the row.

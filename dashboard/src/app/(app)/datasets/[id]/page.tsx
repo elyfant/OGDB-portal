@@ -35,7 +35,7 @@ function ExternalRefRow({
 	label: string;
 	url: string | null;
 	linkText: string;
-	pushStatus?: "none" | "DM" | "PUB";
+	pushStatus?: "none" | "AUTO_QC" | "MANUAL_QC";
 }) {
 	return (
 		<TableRow>
@@ -54,8 +54,8 @@ function ExternalRefRow({
 				{pushStatus && pushStatus !== "none" && (
 					<Chip
 						size="small"
-						label={pushStatus === "DM" ? "Delayed mode pushed" : "Published pushed"}
-						color={pushStatus === "PUB" ? "success" : "default"}
+						label={pushStatus === "AUTO_QC" ? "Auto-QC pushed" : "Manual QC pushed"}
+						color={pushStatus === "MANUAL_QC" ? "success" : "default"}
 					/>
 				)}
 			</TableCell>

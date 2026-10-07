@@ -40,28 +40,36 @@ import type {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const STAGE_ORDER: DatasetProcessingStage[] = ["raw", "L0", "DM", "PUB"];
+const STAGE_ORDER: DatasetProcessingStage[] = [
+	"raw",
+	"L0",
+	"BASESTATION",
+	"AUTO_QC",
+	"MANUAL_QC",
+];
 const STAGE_LABEL: Record<DatasetProcessingStage, string> = {
 	raw: "Raw data archival",
 	L0: "L0 dataset",
-	DM: "Delayed mode dataset",
-	PUB: "Published dataset",
+	BASESTATION: "Basestation (auto, during mission)",
+	AUTO_QC: "Reprocessed, auto-QC",
+	MANUAL_QC: "Reprocessed, auto + manual QC",
 };
 // Sequential-ish progression through the pipeline, all drawn from MUI's own
 // semantic palette so light/dark both work without hardcoded hex -- raw
-// (nothing processed yet) gets no colour at all, only L0/DM/PUB do.
+// (nothing processed yet) gets no colour at all, the processed stages do.
 const STAGE_COLOR: Partial<
 	Record<DatasetProcessingStage, "info" | "secondary" | "success">
 > = {
 	L0: "info",
-	DM: "secondary",
-	PUB: "success",
+	BASESTATION: "info",
+	AUTO_QC: "secondary",
+	MANUAL_QC: "success",
 };
-const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
-// L0 is a raw-format conversion, not an OG1-eligible product -- only the
-// delayed mode and published datasets can be OG1. See
+const QC_CAPABLE_STAGES: DatasetProcessingStage[] = ["AUTO_QC", "MANUAL_QC"];
+// L0 and BASESTATION are not OG1-eligible products -- only the reprocessed
+// (auto-QC / auto + manual QC) datasets can be OG1. See
 // xxxx_dataset_processing_og1_check.py for the matching DB constraint.
-const OG1_CAPABLE_STAGES: DatasetProcessingStage[] = ["DM", "PUB"];
+const OG1_CAPABLE_STAGES: DatasetProcessingStage[] = ["AUTO_QC", "MANUAL_QC"];
 const PROCESSING_NOTES_MAX = 5000;
 
 function today(): string {
@@ -317,8 +325,8 @@ function PackageVersionFields({
 // `status` prop (current_erddap_status from the server), so a successful
 // confirm + router.refresh() is what actually updates it -- no local
 // mirror to go stale. Since status is a single value, checking either
-// box always simply overwrites it -- checking "Published" can never
-// leave "Delayed mode" also true, and vice versa.
+// box always simply overwrites it -- checking "manual QC" can never
+// leave "auto-QC" also true, and vice versa.
 function ErddapStatusControl({
 	level,
 	status,
@@ -354,25 +362,25 @@ function ErddapStatusControl({
 				control={
 					<Checkbox
 						size="small"
-						checked={status === "DM"}
+						checked={status === "AUTO_QC"}
 						disabled={busy}
-						onChange={(e) => confirm(e.target.checked ? "DM" : "none")}
+						onChange={(e) => confirm(e.target.checked ? "AUTO_QC" : "none")}
 					/>
 				}
 				label={
-					<Typography variant="caption">Delayed mode pushed</Typography>
+					<Typography variant="caption">Auto-QC pushed</Typography>
 				}
 			/>
 			<FormControlLabel
 				control={
 					<Checkbox
 						size="small"
-						checked={status === "PUB"}
+						checked={status === "MANUAL_QC"}
 						disabled={busy}
-						onChange={(e) => confirm(e.target.checked ? "PUB" : "none")}
+						onChange={(e) => confirm(e.target.checked ? "MANUAL_QC" : "none")}
 					/>
 				}
-				label={<Typography variant="caption">Published pushed</Typography>}
+				label={<Typography variant="caption">Manual QC pushed</Typography>}
 			/>
 		</Box>
 	);

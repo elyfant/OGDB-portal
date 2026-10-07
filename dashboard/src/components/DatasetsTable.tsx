@@ -36,8 +36,8 @@ const STAGE_COLUMNS: {
 	label: string;
 }[] = [
 	{ key: "rawStatus", label: "Raw archived" },
-	{ key: "dmStatus", label: "Delayed mode status" },
-	{ key: "pubStatus", label: "Production status" },
+	{ key: "autoQcStatus", label: "Auto-QC" },
+	{ key: "manualQcStatus", label: "Manual QC" },
 	{ key: "og1", label: "OG1" },
 ];
 

@@ -25,12 +25,13 @@ import { Fragment, useState } from "react";
 const STAGE_LABEL: Record<string, string> = {
 	raw: "Raw data archival",
 	L0: "L0 dataset",
-	DM: "Delayed mode dataset",
-	PUB: "Published dataset",
+	BASESTATION: "Basestation (auto, during mission)",
+	AUTO_QC: "Reprocessed, auto-QC",
+	MANUAL_QC: "Reprocessed, auto + manual QC",
 };
-// Matches DatasetEditor's OG1_CAPABLE_STAGES -- L0 is a raw-format
-// conversion, not OG1-eligible.
-const OG1_CAPABLE_STAGES = new Set(["DM", "PUB"]);
+// Matches DatasetEditor's OG1_CAPABLE_STAGES -- only the reprocessed
+// stages are OG1-eligible.
+const OG1_CAPABLE_STAGES = new Set(["AUTO_QC", "MANUAL_QC"]);
 
 function Tick({ done }: { done: boolean }) {
 	return done ? (

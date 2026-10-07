@@ -10,7 +10,7 @@ import { IsIn, IsInt, IsObject, IsString, Min } from "class-validator";
 // the one field checked here since it drives the document_type this
 // becomes (see DatasetsService.registerDocument).
 export class RegisterDatasetDocumentDto {
-	@IsIn(["raw", "L0", "DM", "PUB"])
+	@IsIn(["raw", "L0", "BASESTATION", "AUTO_QC", "MANUAL_QC"])
 	stage!: DatasetProcessingStage;
 
 	@IsString()

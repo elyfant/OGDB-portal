@@ -5,6 +5,6 @@ export class ConfirmErddapPushDto {
 	@IsIn(["L1", "L2"])
 	level!: ErddapLevel;
 
-	@IsIn(["none", "DM", "PUB"])
+	@IsIn(["none", "AUTO_QC", "MANUAL_QC"])
 	status!: ErddapPushStatus;
 }
