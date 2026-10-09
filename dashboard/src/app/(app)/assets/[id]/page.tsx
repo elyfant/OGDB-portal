@@ -1,6 +1,8 @@
+import AssetChangeLog from "@/components/AssetChangeLog";
 import AssetDetailsSection from "@/components/AssetDetailsSection";
 import AssetFormDialog from "@/components/AssetFormDialog";
 import AssetServicingTimeline from "@/components/AssetServicingTimeline";
+import AssetStatusHistoryTable from "@/components/AssetStatusHistoryTable";
 import BatteryDetailsSection from "@/components/BatteryDetailsSection";
 import CalibrationHistorySection from "@/components/CalibrationHistorySection";
 import Field from "@/components/Field";
@@ -9,9 +11,11 @@ import {
 	getAsset,
 	getAssetBattery,
 	getAssetCalibrations,
+	getAssetChanges,
 	getAssetDetails,
 	getAssetMissions,
 	getAssetRmas,
+	getAssetStatusHistory,
 	getAssetTypes,
 	getContacts,
 	getSensorModels,
@@ -36,12 +40,6 @@ import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { notFound, redirect } from "next/navigation";
-
-const PLACEHOLDER_SECTIONS = [
-	"Calibration information",
-	"Operational history",
-	"Editing history",
-];
 
 function calibrationToTimelineEvent(row: {
 	id: number;
@@ -92,6 +90,8 @@ export default async function AssetDetailPage({
 		assetTypes,
 		sensorModels,
 		details,
+		statusHistory,
+		changes,
 		user,
 	] = await Promise.all([
 		getAssetCalibrations(asset.id),
@@ -103,6 +103,8 @@ export default async function AssetDetailPage({
 		getAssetTypes(),
 		getSensorModels(),
 		getAssetDetails(asset.id),
+		getAssetStatusHistory(asset.id),
+		getAssetChanges(asset.id),
 		getCurrentUser(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
@@ -234,16 +236,22 @@ export default async function AssetDetailPage({
 				History
 			</Typography>
 			<Box>
-				{PLACEHOLDER_SECTIONS.map((title) => (
-					<Accordion key={title} disableGutters>
-						<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-							<Typography color="text.secondary">{title}</Typography>
-						</AccordionSummary>
-						<AccordionDetails>
-							<Typography color="text.disabled">Not yet available.</Typography>
-						</AccordionDetails>
-					</Accordion>
-				))}
+				<Accordion disableGutters>
+					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+						<Typography color="text.secondary">Status history</Typography>
+					</AccordionSummary>
+					<AccordionDetails>
+						<AssetStatusHistoryTable entries={statusHistory} />
+					</AccordionDetails>
+				</Accordion>
+				<Accordion disableGutters>
+					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+						<Typography color="text.secondary">Change log</Typography>
+					</AccordionSummary>
+					<AccordionDetails>
+						<AssetChangeLog changes={changes} />
+					</AccordionDetails>
+				</Accordion>
 			</Box>
 		</Box>
 	);

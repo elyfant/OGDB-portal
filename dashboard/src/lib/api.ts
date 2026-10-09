@@ -1,8 +1,10 @@
 import "server-only";
 import type {
 	Asset,
+	AssetChange,
 	AssetDetails,
 	AssetRmaSummary,
+	AssetStatusHistoryEntry,
 	AssetStatusOption,
 	Battery,
 	BatteryDetail,
@@ -358,6 +360,28 @@ export async function getAssetDetails(assetId: number): Promise<AssetDetails> {
 	if (!res.ok) {
 		throw new Error(
 			`Failed to fetch details for asset ${assetId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getAssetStatusHistory(
+	assetId: number,
+): Promise<AssetStatusHistoryEntry[]> {
+	const res = await apiFetch(`/assets/${assetId}/status-history`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch status history for asset ${assetId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getAssetChanges(assetId: number): Promise<AssetChange[]> {
+	const res = await apiFetch(`/assets/${assetId}/changes`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch change log for asset ${assetId}: ${res.status}`,
 		);
 	}
 	return res.json();

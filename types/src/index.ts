@@ -191,6 +191,37 @@ export interface AssetDetails {
 	fields: Record<string, string | number | boolean | null> | null;
 }
 
+// One asset_status_history row for a single asset (the per-asset
+// counterpart of GliderStatusHistoryItem, which spans a glider's build).
+export interface AssetStatusHistoryEntry {
+	id: number;
+	status: string;
+	effectiveDate: string;
+	notes: string | null;
+	changedByEmail: string | null;
+}
+
+// One changed field of an UPDATE in the audit log. Values are the raw
+// stored ones, so a foreign key shows as its id (e.g. status_id: 3 -> 4).
+export interface AssetChangeField {
+	field: string;
+	oldValue: string | number | boolean | null;
+	newValue: string | number | boolean | null;
+}
+
+// One audit_log row touching an asset: its own row, its per-type detail
+// row, or a child record (status history, service events, calibrations,
+// assignments, documents...). `changes` is filled for UPDATEs only.
+export interface AssetChange {
+	id: number;
+	tableName: string;
+	rowId: number;
+	operation: "INSERT" | "UPDATE" | "DELETE";
+	changedAt: string;
+	changedByEmail: string | null;
+	changes: AssetChangeField[];
+}
+
 // The Batteries catalogue row -- assets of type "battery" with their
 // battery-specific detail fields joined in (the generic "All assets"
 // table has no source for model/manufacture date/weight). Weight is the

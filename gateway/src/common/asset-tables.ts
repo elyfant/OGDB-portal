@@ -325,3 +325,20 @@ export const VALID_PARENT_TYPES: Record<string, string[]> = {
 	eco_sensor: ["glider", "slocum_payload_bay"],
 	slocum_end_cap: ["glider"],
 };
+
+// Audited tables that carry an `asset_id` column, whose audit_log rows can
+// be matched to an asset through the row's JSON (the audit row_id is the
+// child row's own id, not the asset's). Calibration tables are added from
+// CAL_TABLES. asset_assignments is handled separately (child/parent ids)
+// and the assets / detail tables match on row_id directly.
+export const AUDITED_ASSET_ID_TABLES: string[] = [
+	"asset_status_history",
+	"asset_service_events",
+	"asset_faults",
+	"documents",
+	"asset_battery_measurements",
+	"firmware_history",
+	"rma_assets",
+	"asset_sensor_parameters",
+	...Object.values(CAL_TABLES).map(([table]) => table),
+];

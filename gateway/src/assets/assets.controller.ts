@@ -152,6 +152,16 @@ export class AssetsController {
 		return this.calibrations.getForAsset(id);
 	}
 
+	@Get(":id/status-history")
+	getStatusHistory(@Param("id", ParseIntPipe) id: number) {
+		return this.assets.getStatusHistory(id);
+	}
+
+	@Get(":id/changes")
+	getChanges(@Param("id", ParseIntPipe) id: number) {
+		return this.assets.getChangeLog(id);
+	}
+
 	@Get(":id/details")
 	getDetails(@Param("id", ParseIntPipe) id: number) {
 		return this.assets.getDetailsForAsset(id);

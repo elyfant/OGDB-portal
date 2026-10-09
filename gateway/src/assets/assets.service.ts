@@ -7,13 +7,17 @@ import {
 } from "@nestjs/common";
 import type {
 	Asset,
+	AssetChange,
+	AssetChangeField,
 	AssetDetails,
 	AssetSearchResult,
+	AssetStatusHistoryEntry,
 	Battery,
 	BatteryDetail,
 } from "@ogdb/types";
 import type { Pool } from "pg";
 import {
+	AUDITED_ASSET_ID_TABLES,
 	CAL_COLUMNS,
 	CAL_TABLES,
 	CAL_TABLES_WITH_SERVICE_EVENT,
@@ -319,6 +323,75 @@ export class AssetsService {
 		}
 		Object.assign(fields, columns);
 		return { assetType: asset.assetType, fields };
+	}
+
+	// This asset's asset_status_history, newest first.
+	async getStatusHistory(id: number): Promise<AssetStatusHistoryEntry[]> {
+		await this.findOne(id);
+		const result = await this.pool.query(
+			`SELECT ash.id, aso.name AS status, ash.effective_date AS "effectiveDate",
+              ash.notes, u.email AS "changedByEmail"
+       FROM asset_status_history ash
+       JOIN asset_status_options aso ON aso.id = ash.status_id
+       LEFT JOIN users u ON u.id = ash.changed_by
+       WHERE ash.asset_id = $1
+       ORDER BY ash.effective_date DESC, ash.id DESC`,
+			[id],
+		);
+		return result.rows;
+	}
+
+	// Change log: every audit_log row that touches this asset -- the asset
+	// row itself, its per-type detail row, assignments where it is parent or
+	// child, and child records carrying its asset_id. UPDATEs are diffed
+	// field by field from the stored old/new JSON. Newest first, capped.
+	async getChangeLog(id: number): Promise<AssetChange[]> {
+		const asset = await this.findOne(id);
+		const result = await this.pool.query(
+			`SELECT al.id, al.table_name AS "tableName", al.row_id AS "rowId",
+              al.operation, al.changed_at AS "changedAt", u.email AS "changedByEmail",
+              al.old_values AS "oldValues", al.new_values AS "newValues"
+       FROM audit_log al
+       LEFT JOIN users u ON u.id = al.changed_by
+       WHERE (al.table_name = 'assets' AND al.row_id = $1)
+          OR (al.table_name = $2 AND al.row_id = $1)
+          OR (al.table_name = ANY($3)
+              AND COALESCE(al.new_values, al.old_values) ->> 'asset_id' = $1::text)
+          OR (al.table_name = 'asset_assignments'
+              AND ($1::text = COALESCE(al.new_values, al.old_values) ->> 'child_asset_id'
+                OR $1::text = COALESCE(al.new_values, al.old_values) ->> 'parent_asset_id'))
+       ORDER BY al.changed_at DESC, al.id DESC
+       LIMIT 500`,
+			[id, DETAIL_TABLES[asset.assetType] ?? null, AUDITED_ASSET_ID_TABLES],
+		);
+
+		// Bookkeeping columns that change on every write; not worth showing.
+		const NOISE = new Set(["updated_at", "created_at", "changed_by"]);
+		const entries: AssetChange[] = result.rows.map(
+			({ oldValues, newValues, ...row }) => {
+				const changes: AssetChangeField[] = [];
+				if (row.operation === "UPDATE" && oldValues && newValues) {
+					for (const field of Object.keys(newValues)) {
+						if (NOISE.has(field)) continue;
+						if (
+							JSON.stringify(oldValues[field]) ===
+							JSON.stringify(newValues[field])
+						)
+							continue;
+						changes.push({
+							field,
+							oldValue: oldValues[field] ?? null,
+							newValue: newValues[field] ?? null,
+						});
+					}
+				}
+				return { ...row, changes };
+			},
+		);
+		// An UPDATE that only touched bookkeeping columns has nothing to show.
+		return entries.filter(
+			(e) => e.operation !== "UPDATE" || e.changes.length > 0,
+		);
 	}
 
 	async findOne(id: number): Promise<Asset> {
