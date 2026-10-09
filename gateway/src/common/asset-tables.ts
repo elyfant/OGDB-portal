@@ -27,22 +27,87 @@ export const DETAIL_TABLES: Record<string, string> = {
 	mr_sensor: "asset_sensor_details",
 };
 
-// Types the generic "show every detail column" endpoint skips, because
-// their detail table is mostly foreign keys into lookup tables (NVS terms,
-// battery_models, hull_models) and a raw id is meaningless on screen.
-// Each already has, or needs, its own display: batteries have
-// BatteryDetailsSection, sensors resolve their model from NVS, hulls from
-// hull_models, gliders have their own page. Everything else in
-// DETAIL_TABLES is plain columns and is shown as-is.
-export const NO_GENERIC_DETAILS = new Set<string>([
-	"glider",
-	"battery",
-	"slocum_hull",
-	"ct_sensor",
-	"do_sensor",
-	"eco_sensor",
-	"mr_sensor",
-]);
+// Types the generic "show every detail column" endpoint skips entirely:
+// gliders have their own page.
+export const NO_GENERIC_DETAILS = new Set<string>(["glider"]);
+
+// A foreign key in a detail table that points at a lookup table. The
+// details panel shows the lookup's label (and optionally some of its spec
+// columns) instead of the raw id. Defined once here so the panel and the
+// assets list's `model` column resolve a model the same way.
+export interface LookupField {
+	// FK column in the type's detail table, e.g. battery_model_id.
+	column: string;
+	// Key it appears under in the details panel, e.g. "battery_model".
+	as: string;
+	// Lookup table (joined on its `id`) and the column holding the label.
+	table: string;
+	label: string;
+	// Extra lookup-table columns shown beside the label -- facts about the
+	// MODEL (capacity, chemistry...), shared by every unit of it.
+	specs?: string[];
+	// This lookup is the asset's model name.
+	isModel?: boolean;
+	// Whether assets.service's list query should generate the join for it.
+	// False for sensors: SELECT_ASSETS already joins asset_sensor_details
+	// and its NVS term by hand (it also needs the raw l22ModelId for the
+	// edit form).
+	inList?: boolean;
+}
+
+const SENSOR_LOOKUPS: LookupField[] = [
+	{
+		column: "l05_family_id",
+		as: "sensor_family",
+		table: "nvs_terms",
+		label: "label",
+	},
+	{
+		column: "l22_model_id",
+		as: "sensor_model",
+		table: "nvs_terms",
+		label: "label",
+		isModel: true,
+		inList: false,
+	},
+];
+
+export const LOOKUP_FIELDS: Record<string, LookupField[]> = {
+	battery: [
+		{
+			column: "battery_model_id",
+			as: "battery_model",
+			table: "battery_models",
+			label: "model",
+			specs: [
+				"manufacturer_part_number",
+				"nominal_capacity",
+				"nominal_voltage",
+				"nominal_watt_hours",
+				"total_li_content",
+				"chemistry",
+				"un_classification",
+			],
+			isModel: true,
+			inList: true,
+		},
+	],
+	slocum_hull: [
+		{
+			column: "hull_model_id",
+			as: "hull_model",
+			table: "hull_models",
+			label: "teledyne_part_number",
+			specs: ["length"],
+			isModel: true,
+			inList: true,
+		},
+	],
+	ct_sensor: SENSOR_LOOKUPS,
+	do_sensor: SENSOR_LOOKUPS,
+	eco_sensor: SENSOR_LOOKUPS,
+	mr_sensor: SENSOR_LOOKUPS,
+};
 
 // Types whose detail table has a plain `model` text column, no NVS/
 // battery_models/hull_models indirection needed. Every one of these is

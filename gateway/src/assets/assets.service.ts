@@ -19,6 +19,7 @@ import {
 	CAL_TABLES_WITH_SERVICE_EVENT,
 	DETAIL_TABLES,
 	FLAT_MODEL_TABLES,
+	LOOKUP_FIELDS,
 	NO_GENERIC_DETAILS,
 } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
@@ -85,6 +86,47 @@ function mapCreateAssetError(err: unknown): Error {
 	return err instanceof Error ? err : new Error(String(err));
 }
 
+// The `model` an asset shows in the list and page header, assembled from
+// the registries in asset-tables.ts instead of a hand-written join per
+// type: every FLAT_MODEL_TABLES table contributes its plain `model` text,
+// every LOOKUP_FIELDS entry flagged isModel+inList contributes its
+// lookup label. A new type gets a model here by being added to a registry.
+// All table/column names come from those constants, never request input.
+function buildModelSql(): { joins: string; exprs: string[] } {
+	const joins: string[] = [];
+	const exprs: string[] = [];
+	let n = 0;
+	for (const table of new Set(Object.values(FLAT_MODEL_TABLES))) {
+		// Already joined as `aed` in SELECT_ASSETS (it also supplies the name).
+		if (table === "asset_equipment_details") {
+			exprs.push("aed.model");
+			continue;
+		}
+		const alias = `fm${n++}`;
+		joins.push(`LEFT JOIN ${table} ${alias} ON ${alias}.asset_id = a.id`);
+		exprs.push(`${alias}.model`);
+	}
+	const seen = new Set<string>();
+	for (const [type, lookups] of Object.entries(LOOKUP_FIELDS)) {
+		for (const lf of lookups) {
+			if (!lf.isModel || !lf.inList) continue;
+			const detailTable = DETAIL_TABLES[type];
+			const key = `${detailTable}.${lf.column}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			const d = `lmd${n}`;
+			const l = `lm${n++}`;
+			joins.push(
+				`LEFT JOIN ${detailTable} ${d} ON ${d}.asset_id = a.id`,
+				`LEFT JOIN ${lf.table} ${l} ON ${l}.id = ${d}.${lf.column}`,
+			);
+			exprs.push(`${l}.${lf.label}`);
+		}
+	}
+	return { joins: joins.join("\n  "), exprs };
+}
+const MODEL_SQL = buildModelSql();
+
 // Name only resolves for gliders right now (via asset_glider_details ->
 // platforms). assetModel resolves for gliders (platforms.model) and
 // science sensors (asset_sensor_details.l22_model_id's NVS label) --
@@ -101,7 +143,7 @@ const SELECT_ASSETS = `
     a.serial_number AS "serialNumber",
     at.name AS "assetType",
     atg.name AS "assetTypeGroup",
-    COALESCE(TRIM(p.model), l22.label, aed.model) AS "assetModel",
+    COALESCE(TRIM(p.model), l22.label, ${MODEL_SQL.exprs.join(", ")}) AS "assetModel",
     pm.label AS "platformModelFull",
     pc.label AS "platformCategory",
     asd.l22_model_id AS "l22ModelId",
@@ -127,6 +169,7 @@ const SELECT_ASSETS = `
   LEFT JOIN nvs_terms pm ON pm.id = p.b76_model_id
   LEFT JOIN nvs_terms pc ON pc.id = p.l06_category_id
   LEFT JOIN asset_equipment_details aed ON aed.asset_id = a.id
+  ${MODEL_SQL.joins}
   LEFT JOIN asset_sensor_details asd ON asd.asset_id = a.id
   LEFT JOIN nvs_terms l22 ON l22.id = asd.l22_model_id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
@@ -255,6 +298,24 @@ export class AssetsService {
 					)
 				: null;
 			fields.glider = glider?.rows[0]?.glider_name ?? null;
+		}
+		// Lookup-backed columns: swap the raw FK id for the lookup's label
+		// (first, since it is the model) plus its spec columns.
+		for (const lf of LOOKUP_FIELDS[asset.assetType] ?? []) {
+			const fk = columns[lf.column];
+			delete columns[lf.column];
+			if (fk == null) {
+				fields[lf.as] = null;
+				continue;
+			}
+			const specCols = (lf.specs ?? []).map((c) => `, ${c}`).join("");
+			const found = await this.pool.query(
+				`SELECT ${lf.label} AS label${specCols} FROM ${lf.table} WHERE id = $1`,
+				[fk],
+			);
+			const { label, ...specs } = found.rows[0] ?? {};
+			fields[lf.as] = label ?? null;
+			Object.assign(fields, specs);
 		}
 		Object.assign(fields, columns);
 		return { assetType: asset.assetType, fields };
