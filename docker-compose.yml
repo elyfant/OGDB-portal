@@ -41,8 +41,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # No `ports:` — only the dashboard container calls this, over the
-    # internal Docker network (service name `gateway`).
+    ports:
+      # Bound to the VM's own loopback ONLY (127.0.0.1, not 0.0.0.0) —
+      # same pattern as postgres above. Lets the norgliders-ERDDAP push
+      # script (ingest.py), run from a team member's own machine, reach
+      # the gateway via an SSH tunnel through access they already have,
+      # without exposing it to the network.
+      - "127.0.0.1:3001:3001"
 
   dashboard:
     build:
