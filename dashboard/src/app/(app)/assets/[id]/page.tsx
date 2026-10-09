@@ -200,8 +200,6 @@ export default async function AssetDetailPage({
 					/>
 					<Field label="Asset type group" value={asset.assetTypeGroup} />
 					<Field label="Asset model" value={asset.assetModel} />
-					<Field label="Platform model" value={asset.platformModelFull} />
-					<Field label="Platform category" value={asset.platformCategory} />
 					<Field label="Purchase date" value={formatDate(asset.purchaseDate)} />
 					<Field
 						label="Purchase value"
