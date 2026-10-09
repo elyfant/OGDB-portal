@@ -35,7 +35,8 @@ const SELECT_FLEET = `
     pmfr."NVS_L35_preferred_label" AS "platformManufacturerName",
     pmfr."NVS_L35_url" AS "platformManufacturerUri",
     a.purchase_date AS "purchaseDate",
-    a.purchase_value_usd::float8 AS "purchaseValueUsd",
+    a.purchase_value::float8 AS "purchaseValue",
+    a.purchase_currency AS "purchaseCurrency",
     -- Operational status is derived from the glider's own timeline
     -- (open mission / open service event / destroyed marker), not a
     -- hand-set asset_status_history row -- see
@@ -101,7 +102,7 @@ export class GlidersService {
 		try {
 			await client.query("BEGIN");
 			const assetResult = await client.query(
-				`INSERT INTO assets (asset_type_id, serial_number, institute_id, purchase_date, purchase_value_usd, changed_by)
+				`INSERT INTO assets (asset_type_id, serial_number, institute_id, purchase_date, purchase_value, changed_by)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
 				[
@@ -109,7 +110,7 @@ export class GlidersService {
 					dto.serialNumber ?? null,
 					dto.instituteId ?? null,
 					dto.purchaseDate ?? null,
-					dto.purchaseValueUsd ?? null,
+					dto.purchaseValue ?? null,
 					userId,
 				],
 			);
@@ -148,14 +149,14 @@ export class GlidersService {
 				dto.serialNumber !== undefined ||
 				dto.instituteId !== undefined ||
 				dto.purchaseDate !== undefined ||
-				dto.purchaseValueUsd !== undefined
+				dto.purchaseValue !== undefined
 			) {
 				await client.query(
 					`UPDATE assets SET
              serial_number = COALESCE($1, serial_number),
              institute_id = COALESCE($2, institute_id),
              purchase_date = COALESCE($3, purchase_date),
-             purchase_value_usd = COALESCE($4, purchase_value_usd),
+             purchase_value = COALESCE($4, purchase_value),
              updated_at = now(),
              changed_by = $6
            WHERE id = $5`,
@@ -163,7 +164,7 @@ export class GlidersService {
 						dto.serialNumber ?? null,
 						dto.instituteId ?? null,
 						dto.purchaseDate ?? null,
-						dto.purchaseValueUsd ?? null,
+						dto.purchaseValue ?? null,
 						id,
 						userId,
 					],

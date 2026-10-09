@@ -1,7 +1,7 @@
 "use client";
 
 import StatusEditor from "@/components/StatusEditor";
-import { formatAssetType, formatDate, formatUsd } from "@/lib/format";
+import { formatAssetType, formatDate, formatMoney } from "@/lib/format";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -84,12 +84,19 @@ export default function AssetsTable({
 				defaultVisible: true,
 			},
 			{
-				key: "purchaseValueUsd",
+				key: "purchaseValue",
 				label: "Purchase value",
 				kind: "number",
 				defaultVisible: true,
 				align: "right",
-				format: (v) => formatUsd(v as number | null),
+				renderCell: (row) =>
+					formatMoney(row.purchaseValue, row.purchaseCurrency),
+			},
+			{
+				key: "purchaseCurrency",
+				label: "Currency",
+				kind: "string",
+				defaultVisible: false,
 			},
 			{
 				key: "status",

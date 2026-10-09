@@ -35,10 +35,15 @@ interface FormState {
 	serialNumber: string;
 	notes: string;
 	purchaseDate: string;
-	purchaseValueUsd: string;
+	purchaseValue: string;
+	purchaseCurrency: string;
 	instituteId: number | "";
 	l22ModelId: number | "";
 }
+
+// Currencies assets are actually bought in; add more here as needed (the
+// gateway accepts any 3-letter ISO 4217 code).
+const CURRENCIES = ["USD", "EUR", "NOK", "GBP"];
 
 function emptyForm(): FormState {
 	return {
@@ -46,7 +51,8 @@ function emptyForm(): FormState {
 		serialNumber: "",
 		notes: "",
 		purchaseDate: "",
-		purchaseValueUsd: "",
+		purchaseValue: "",
+		purchaseCurrency: "USD",
 		instituteId: "",
 		l22ModelId: "",
 	};
@@ -63,7 +69,8 @@ function formFromAsset(asset: Asset): FormState {
 		serialNumber: asset.serialNumber ?? "",
 		notes: "",
 		purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
-		purchaseValueUsd: asset.purchaseValueUsd?.toString() ?? "",
+		purchaseValue: asset.purchaseValue?.toString() ?? "",
+		purchaseCurrency: asset.purchaseCurrency,
 		instituteId: "",
 		l22ModelId: asset.l22ModelId ?? "",
 	};
@@ -133,11 +140,9 @@ export default function AssetFormDialog(props: Props) {
 			setError("Asset type is required.");
 			return;
 		}
-		const purchaseValueUsd =
-			form.purchaseValueUsd.trim() === ""
-				? null
-				: Number(form.purchaseValueUsd);
-		if (purchaseValueUsd !== null && Number.isNaN(purchaseValueUsd)) {
+		const purchaseValue =
+			form.purchaseValue.trim() === "" ? null : Number(form.purchaseValue);
+		if (purchaseValue !== null && Number.isNaN(purchaseValue)) {
 			setError("Purchase value must be a number.");
 			return;
 		}
@@ -150,7 +155,8 @@ export default function AssetFormDialog(props: Props) {
 							serialNumber: form.serialNumber.trim() || null,
 							notes: form.notes.trim() || null,
 							purchaseDate: form.purchaseDate || null,
-							purchaseValueUsd,
+							purchaseValue,
+							purchaseCurrency: form.purchaseCurrency,
 							...(isSensor && {
 								l22ModelId: form.l22ModelId === "" ? null : form.l22ModelId,
 							}),
@@ -160,7 +166,8 @@ export default function AssetFormDialog(props: Props) {
 							serialNumber: form.serialNumber.trim() || null,
 							notes: form.notes.trim() || null,
 							purchaseDate: form.purchaseDate || null,
-							purchaseValueUsd,
+							purchaseValue,
+							purchaseCurrency: form.purchaseCurrency,
 							instituteId: form.instituteId === "" ? null : form.instituteId,
 							...(isSensor && {
 								l22ModelId: form.l22ModelId === "" ? null : form.l22ModelId,
@@ -319,16 +326,36 @@ export default function AssetFormDialog(props: Props) {
 									}
 								/>
 							</Field>
-							<Field label="Purchase value (USD)">
-								<TextField
-									type="number"
-									size="small"
-									fullWidth
-									value={form.purchaseValueUsd}
-									onChange={(e) =>
-										setForm((s) => ({ ...s, purchaseValueUsd: e.target.value }))
-									}
-								/>
+							<Field label="Purchase value">
+								<Box sx={{ display: "flex", gap: 1 }}>
+									<TextField
+										type="number"
+										size="small"
+										fullWidth
+										value={form.purchaseValue}
+										onChange={(e) =>
+											setForm((s) => ({ ...s, purchaseValue: e.target.value }))
+										}
+									/>
+									<TextField
+										select
+										size="small"
+										sx={{ minWidth: 90 }}
+										value={form.purchaseCurrency}
+										onChange={(e) =>
+											setForm((s) => ({
+												...s,
+												purchaseCurrency: e.target.value,
+											}))
+										}
+									>
+										{CURRENCIES.map((c) => (
+											<MenuItem key={c} value={c}>
+												{c}
+											</MenuItem>
+										))}
+									</TextField>
+								</Box>
 							</Field>
 							<Field
 								label={mode === "edit" ? "Notes (replaces existing)" : "Notes"}

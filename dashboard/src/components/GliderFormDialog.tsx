@@ -26,7 +26,7 @@ interface FormState {
 	platformId: number | "";
 	instituteId: number | "";
 	purchaseDate: string;
-	purchaseValueUsd: string;
+	purchaseValue: string;
 }
 
 function emptyForm(): FormState {
@@ -37,7 +37,7 @@ function emptyForm(): FormState {
 		platformId: "",
 		instituteId: "",
 		purchaseDate: "",
-		purchaseValueUsd: "",
+		purchaseValue: "",
 	};
 }
 
@@ -49,7 +49,7 @@ function formFromGlider(g: Glider): FormState {
 		platformId: g.platformId ?? "",
 		instituteId: g.instituteId ?? "",
 		purchaseDate: g.purchaseDate?.slice(0, 10) ?? "",
-		purchaseValueUsd: g.purchaseValueUsd?.toString() ?? "",
+		purchaseValue: g.purchaseValue?.toString() ?? "",
 	};
 }
 
@@ -60,7 +60,7 @@ const FIELD_LABELS: { key: keyof FormState; label: string }[] = [
 	{ key: "platformId", label: "Platform" },
 	{ key: "instituteId", label: "Owner" },
 	{ key: "purchaseDate", label: "Purchase date" },
-	{ key: "purchaseValueUsd", label: "Purchase value" },
+	{ key: "purchaseValue", label: "Purchase value" },
 ];
 
 function displayValue(
@@ -77,7 +77,7 @@ function displayValue(
 		return institutes.find((i) => i.id === value)?.name ?? "—";
 	}
 	if (key === "purchaseDate") return formatDate(String(value));
-	if (key === "purchaseValueUsd") return formatUsd(Number(value));
+	if (key === "purchaseValue") return formatUsd(Number(value));
 	return String(value);
 }
 
@@ -140,11 +140,9 @@ export default function GliderFormDialog(props: Props) {
 			setError("Name is required.");
 			return;
 		}
-		const purchaseValueUsd =
-			form.purchaseValueUsd.trim() === ""
-				? null
-				: Number(form.purchaseValueUsd);
-		if (purchaseValueUsd !== null && Number.isNaN(purchaseValueUsd)) {
+		const purchaseValue =
+			form.purchaseValue.trim() === "" ? null : Number(form.purchaseValue);
+		if (purchaseValue !== null && Number.isNaN(purchaseValue)) {
 			setError("Purchase value must be a number.");
 			return;
 		}
@@ -158,7 +156,7 @@ export default function GliderFormDialog(props: Props) {
 				platformId: form.platformId || undefined,
 				instituteId: form.instituteId || undefined,
 				purchaseDate: form.purchaseDate || undefined,
-				purchaseValueUsd: purchaseValueUsd ?? undefined,
+				purchaseValue: purchaseValue ?? undefined,
 			};
 			const glider =
 				mode === "edit"
@@ -284,11 +282,11 @@ export default function GliderFormDialog(props: Props) {
 									type="number"
 									size="small"
 									fullWidth
-									value={form.purchaseValueUsd}
+									value={form.purchaseValue}
 									onChange={(e) =>
 										setForm((s) => ({
 											...s,
-											purchaseValueUsd: e.target.value,
+											purchaseValue: e.target.value,
 										}))
 									}
 								/>

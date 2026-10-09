@@ -102,3 +102,17 @@ export function formatUsd(value: number | null): string {
 		currency: "USD",
 	});
 }
+
+// Money in the currency it was actually paid in (assets.purchase_currency,
+// ISO 4217) -- not everything is bought in USD. en-GB locale puts the
+// symbol/code the way the rest of the app formats numbers.
+export function formatMoney(
+	value: number | null,
+	currency: string | null | undefined,
+): string {
+	if (value === null) return "—";
+	return value.toLocaleString("en-GB", {
+		style: "currency",
+		currency: currency || "USD",
+	});
+}

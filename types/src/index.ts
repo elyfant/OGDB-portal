@@ -67,7 +67,8 @@ export interface Glider {
 	platformManufacturerName: string | null;
 	platformManufacturerUri: string | null;
 	purchaseDate: string | null;
-	purchaseValueUsd: number | null;
+	purchaseValue: number | null;
+	purchaseCurrency: string;
 	// `status` is derived from the glider's timeline (open mission / open
 	// service event / a `destroyed` marker), not a hand-set value -- see
 	// docs/design/derived-glider-status.md. `statusId` is that name
@@ -99,7 +100,7 @@ export interface CreateGliderInput {
 	serialNumber?: string | null;
 	instituteId?: number | null;
 	purchaseDate?: string | null;
-	purchaseValueUsd?: number | null;
+	purchaseValue?: number | null;
 }
 
 export interface UpdateGliderInput {
@@ -109,7 +110,7 @@ export interface UpdateGliderInput {
 	serialNumber?: string | null;
 	instituteId?: number | null;
 	purchaseDate?: string | null;
-	purchaseValueUsd?: number | null;
+	purchaseValue?: number | null;
 }
 
 export interface SetGliderStatusInput {
@@ -166,7 +167,8 @@ export interface Asset {
 	// current model in its L22 dropdown). Null for every other asset type.
 	l22ModelId: number | null;
 	purchaseDate: string | null;
-	purchaseValueUsd: number | null;
+	purchaseValue: number | null;
+	purchaseCurrency: string;
 	statusId: number | null;
 	status: AssetStatus | null;
 	statusEffectiveDate: string | null;
@@ -190,7 +192,8 @@ export interface Battery {
 	dateOfManufacture: string | null;
 	weight: number | null;
 	purchaseDate: string | null;
-	purchaseValueUsd: number | null;
+	purchaseValue: number | null;
+	purchaseCurrency: string;
 	statusId: number | null;
 	status: AssetStatus | null;
 	statusEffectiveDate: string | null;
@@ -230,7 +233,9 @@ export interface CreateAssetInput {
 	serialNumber?: string | null;
 	notes?: string | null;
 	purchaseDate?: string | null;
-	purchaseValueUsd?: number | null;
+	purchaseValue?: number | null;
+	// ISO 4217 code; omit to leave unchanged (new assets default to USD).
+	purchaseCurrency?: string;
 	instituteId?: number | null;
 	// Science sensors only -- ignored server-side for any other asset type.
 	l22ModelId?: number | null;
@@ -250,7 +255,9 @@ export interface UpdateAssetInput {
 	serialNumber?: string | null;
 	notes?: string | null;
 	purchaseDate?: string | null;
-	purchaseValueUsd?: number | null;
+	purchaseValue?: number | null;
+	// ISO 4217 code; omit to leave unchanged (new assets default to USD).
+	purchaseCurrency?: string;
 	// Science sensors only. Omit to leave unchanged; null clears it.
 	l22ModelId?: number | null;
 }

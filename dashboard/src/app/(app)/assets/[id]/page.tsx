@@ -17,7 +17,7 @@ import {
 	getServicingEvents,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { formatAssetType, formatDate, formatUsd } from "@/lib/format";
+import { formatAssetType, formatDate, formatMoney } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import {
 	type TimelineEvent,
@@ -191,7 +191,7 @@ export default async function AssetDetailPage({
 					<Field label="Purchase date" value={formatDate(asset.purchaseDate)} />
 					<Field
 						label="Purchase value"
-						value={formatUsd(asset.purchaseValueUsd)}
+						value={formatMoney(asset.purchaseValue, asset.purchaseCurrency)}
 					/>
 				</Box>
 			</Paper>

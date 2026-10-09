@@ -27,7 +27,7 @@ interface FormState {
 	instituteId: number | "";
 	serialNumber: string;
 	purchaseDate: string;
-	purchaseValueUsd: string;
+	purchaseValue: string;
 	batteryModelId: number | "";
 	dateOfManufacture: string;
 	weight: string;
@@ -38,7 +38,7 @@ function emptyForm(): FormState {
 		instituteId: "",
 		serialNumber: "",
 		purchaseDate: "",
-		purchaseValueUsd: "",
+		purchaseValue: "",
 		batteryModelId: "",
 		dateOfManufacture: "",
 		weight: "",
@@ -82,11 +82,9 @@ export default function BatteryFormDialog({
 	async function handleSave() {
 		setError(null);
 
-		const purchaseValueUsd =
-			form.purchaseValueUsd.trim() === ""
-				? null
-				: Number(form.purchaseValueUsd);
-		if (purchaseValueUsd !== null && Number.isNaN(purchaseValueUsd)) {
+		const purchaseValue =
+			form.purchaseValue.trim() === "" ? null : Number(form.purchaseValue);
+		if (purchaseValue !== null && Number.isNaN(purchaseValue)) {
 			setError("Purchase value must be a number.");
 			return;
 		}
@@ -102,7 +100,7 @@ export default function BatteryFormDialog({
 				assetTypeId: batteryAssetTypeId,
 				serialNumber: form.serialNumber.trim() || null,
 				purchaseDate: form.purchaseDate || null,
-				purchaseValueUsd,
+				purchaseValue,
 				instituteId: form.instituteId === "" ? null : form.instituteId,
 				batteryModelId: form.batteryModelId === "" ? null : form.batteryModelId,
 				dateOfManufacture: form.dateOfManufacture || null,
@@ -190,11 +188,11 @@ export default function BatteryFormDialog({
 									type="number"
 									size="small"
 									fullWidth
-									value={form.purchaseValueUsd}
+									value={form.purchaseValue}
 									onChange={(e) =>
 										setForm((s) => ({
 											...s,
-											purchaseValueUsd: e.target.value,
+											purchaseValue: e.target.value,
 										}))
 									}
 								/>

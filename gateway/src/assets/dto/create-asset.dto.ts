@@ -4,6 +4,7 @@ import {
 	IsNumber,
 	IsOptional,
 	IsString,
+	Matches,
 	MaxLength,
 } from "class-validator";
 
@@ -26,7 +27,15 @@ export class CreateAssetDto {
 
 	@IsOptional()
 	@IsNumber()
-	purchaseValueUsd?: number;
+	purchaseValue?: number;
+
+	// ISO 4217 code (assets.purchase_currency); defaults to USD when
+	// omitted on create.
+	@IsOptional()
+	@Matches(/^[A-Z]{3}$/, {
+		message: "purchaseCurrency must be a 3-letter ISO 4217 code",
+	})
+	purchaseCurrency?: string;
 
 	@IsOptional()
 	@IsInt()

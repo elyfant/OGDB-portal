@@ -103,7 +103,8 @@ const SELECT_ASSETS = `
     pc.label AS "platformCategory",
     asd.l22_model_id AS "l22ModelId",
     a.purchase_date AS "purchaseDate",
-    a.purchase_value_usd::float8 AS "purchaseValueUsd",
+    a.purchase_value::float8 AS "purchaseValue",
+    a.purchase_currency AS "purchaseCurrency",
     aso.id AS "statusId",
     aso.name AS status,
     cas.effective_date AS "statusEffectiveDate",
@@ -144,7 +145,8 @@ const SELECT_BATTERIES = `
     abd.date_of_manufacture AS "dateOfManufacture",
     cbm.weight::float8 AS weight,
     a.purchase_date AS "purchaseDate",
-    a.purchase_value_usd::float8 AS "purchaseValueUsd",
+    a.purchase_value::float8 AS "purchaseValue",
+    a.purchase_currency AS "purchaseCurrency",
     aso.id AS "statusId",
     aso.name AS status,
     cas.effective_date AS "statusEffectiveDate"
@@ -438,15 +440,16 @@ export class AssetsService {
 		let assetId: number;
 		try {
 			const result = await this.pool.query(
-				`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value_usd, institute_id, changed_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+				`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value, purchase_currency, institute_id, changed_by)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'USD'), $7, $8)
          RETURNING id`,
 				[
 					dto.assetTypeId,
 					dto.serialNumber ?? null,
 					dto.notes ?? null,
 					dto.purchaseDate ?? null,
-					dto.purchaseValueUsd ?? null,
+					dto.purchaseValue ?? null,
+					dto.purchaseCurrency ?? null,
 					dto.instituteId ?? null,
 					userId,
 				],
@@ -525,14 +528,16 @@ export class AssetsService {
 			dto.serialNumber !== undefined ||
 			dto.notes !== undefined ||
 			dto.purchaseDate !== undefined ||
-			dto.purchaseValueUsd !== undefined
+			dto.purchaseValue !== undefined ||
+			dto.purchaseCurrency !== undefined
 		) {
 			await this.pool.query(
 				`UPDATE assets SET
            serial_number = COALESCE($1, serial_number),
            notes = COALESCE($2, notes),
            purchase_date = COALESCE($3, purchase_date),
-           purchase_value_usd = COALESCE($4, purchase_value_usd),
+           purchase_value = COALESCE($4, purchase_value),
+           purchase_currency = COALESCE($7, purchase_currency),
            updated_at = now(),
            changed_by = $6
          WHERE id = $5`,
@@ -540,9 +545,10 @@ export class AssetsService {
 					dto.serialNumber ?? null,
 					dto.notes ?? null,
 					dto.purchaseDate ?? null,
-					dto.purchaseValueUsd ?? null,
+					dto.purchaseValue ?? null,
 					id,
 					userId,
+					dto.purchaseCurrency ?? null,
 				],
 			);
 		}

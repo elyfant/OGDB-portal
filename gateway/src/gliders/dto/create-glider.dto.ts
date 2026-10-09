@@ -36,5 +36,5 @@ export class CreateGliderDto {
 
 	@IsOptional()
 	@IsNumber()
-	purchaseValueUsd?: number;
+	purchaseValue?: number;
 }
