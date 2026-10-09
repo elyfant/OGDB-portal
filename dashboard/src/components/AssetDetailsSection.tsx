@@ -25,7 +25,7 @@ export default function AssetDetailsSection({
 	const entries = Object.entries(details.fields);
 
 	return (
-		<Accordion disableGutters defaultExpanded sx={{ mb: 3 }}>
+		<Accordion disableGutters sx={{ mb: 3 }}>
 			<AccordionSummary expandIcon={<ExpandMoreIcon />}>
 				<Typography>{formatAssetType(details.assetType)} details</Typography>
 			</AccordionSummary>

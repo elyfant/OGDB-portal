@@ -124,14 +124,24 @@ export default async function AssetDetailPage({
 		...rmas.map(rmaToTimelineEvent),
 	];
 
-	const name = asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`;
+	// Title: "Slocum aft section SN:1015". Equipment is identified by its
+	// own name ("Argos goniometer") rather than the generic type word.
+	const typeLabel =
+		asset.assetType === "equipment" && asset.name
+			? asset.name
+			: asset.assetType
+					.replaceAll("_", " ")
+					.replace(/^./, (c) => c.toUpperCase());
+	const title = asset.serialNumber
+		? `${typeLabel} SN:${asset.serialNumber}`
+		: typeLabel;
 
 	return (
 		<Box>
 			<PageBreadcrumb
 				catalogue="Assets"
 				catalogueHref="/assets"
-				current={name}
+				current={String(asset.id)}
 			/>
 
 			<Box
@@ -144,7 +154,7 @@ export default async function AssetDetailPage({
 					mb: 3,
 				}}
 			>
-				<Typography variant="h5">Asset: {name}</Typography>
+				<Typography variant="h5">Asset: {title}</Typography>
 				{asset.status && (
 					<Chip
 						label={STATUS_LABEL[asset.status]}
