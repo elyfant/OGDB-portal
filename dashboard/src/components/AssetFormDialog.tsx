@@ -39,6 +39,8 @@ interface FormState {
 	purchaseCurrency: string;
 	instituteId: number | "";
 	l22ModelId: number | "";
+	equipmentName: string;
+	equipmentModel: string;
 }
 
 // Currencies assets are actually bought in; add more here as needed (the
@@ -55,6 +57,8 @@ function emptyForm(): FormState {
 		purchaseCurrency: "USD",
 		instituteId: "",
 		l22ModelId: "",
+		equipmentName: "",
+		equipmentModel: "",
 	};
 }
 
@@ -73,6 +77,11 @@ function formFromAsset(asset: Asset): FormState {
 		purchaseCurrency: asset.purchaseCurrency,
 		instituteId: "",
 		l22ModelId: asset.l22ModelId ?? "",
+		// For equipment, Asset.name / assetModel come from
+		// asset_equipment_details.
+		equipmentName: asset.assetType === "equipment" ? (asset.name ?? "") : "",
+		equipmentModel:
+			asset.assetType === "equipment" ? (asset.assetModel ?? "") : "",
 	};
 }
 
@@ -105,6 +114,12 @@ export default function AssetFormDialog(props: Props) {
 			: SENSOR_ASSET_TYPE_NAMES.has(
 					assetTypes.find((t) => t.id === form.assetTypeId)?.name ?? "",
 				);
+	// Equipment (one-off ground kit) is identified by a name + model
+	// instead of a serial-number-keyed model lookup.
+	const isEquipment =
+		mode === "edit"
+			? props.asset.assetType === "equipment"
+			: assetTypes.find((t) => t.id === form.assetTypeId)?.name === "equipment";
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [banner, setBanner] = useState<{
@@ -140,6 +155,10 @@ export default function AssetFormDialog(props: Props) {
 			setError("Asset type is required.");
 			return;
 		}
+		if (isEquipment && mode === "create" && !form.equipmentName.trim()) {
+			setError("Equipment needs a name.");
+			return;
+		}
 		const purchaseValue =
 			form.purchaseValue.trim() === "" ? null : Number(form.purchaseValue);
 		if (purchaseValue !== null && Number.isNaN(purchaseValue)) {
@@ -160,6 +179,10 @@ export default function AssetFormDialog(props: Props) {
 							...(isSensor && {
 								l22ModelId: form.l22ModelId === "" ? null : form.l22ModelId,
 							}),
+							...(isEquipment && {
+								equipmentName: form.equipmentName.trim() || undefined,
+								equipmentModel: form.equipmentModel.trim() || undefined,
+							}),
 						})
 					: await createAsset({
 							assetTypeId: form.assetTypeId as number,
@@ -171,6 +194,10 @@ export default function AssetFormDialog(props: Props) {
 							instituteId: form.instituteId === "" ? null : form.instituteId,
 							...(isSensor && {
 								l22ModelId: form.l22ModelId === "" ? null : form.l22ModelId,
+							}),
+							...(isEquipment && {
+								equipmentName: form.equipmentName.trim() || undefined,
+								equipmentModel: form.equipmentModel.trim() || undefined,
 							}),
 						});
 			closeDialog();
@@ -253,6 +280,36 @@ export default function AssetFormDialog(props: Props) {
 									</TextField>
 								)}
 							</Field>
+							{isEquipment && (
+								<>
+									<Field label="Name (what is it?)">
+										<TextField
+											size="small"
+											fullWidth
+											value={form.equipmentName}
+											onChange={(e) =>
+												setForm((s) => ({
+													...s,
+													equipmentName: e.target.value,
+												}))
+											}
+										/>
+									</Field>
+									<Field label="Model / size">
+										<TextField
+											size="small"
+											fullWidth
+											value={form.equipmentModel}
+											onChange={(e) =>
+												setForm((s) => ({
+													...s,
+													equipmentModel: e.target.value,
+												}))
+											}
+										/>
+									</Field>
+								</>
+							)}
 							{isSensor && (
 								<Field label="Asset model" span={2}>
 									<TextField

@@ -18,9 +18,9 @@ export const DETAIL_TABLES: Record<string, string> = {
 	slocum_energy_bay: "asset_slocum_energy_bay_details",
 	slocum_thruster: "asset_slocum_thruster_details",
 	battery: "asset_battery_details",
-	// Ground equipment (xxxx_ground_equipment) -- never glider components.
-	goniometer: "asset_goniometer_details",
-	antenna_cable: "asset_antenna_cable_details",
+	// Generic one-off ground equipment (xxxx_equipment_asset_type) --
+	// name + model; never a glider component.
+	equipment: "asset_equipment_details",
 	ct_sensor: "asset_sensor_details",
 	do_sensor: "asset_sensor_details",
 	eco_sensor: "asset_sensor_details",
@@ -38,7 +38,7 @@ export const FLAT_MODEL_TABLES: Record<string, string> = {
 	slocum_altimeter: "asset_slocum_altimeter_details",
 	slocum_energy_bay: "asset_slocum_energy_bay_details",
 	slocum_thruster: "asset_slocum_thruster_details",
-	goniometer: "asset_goniometer_details",
+	equipment: "asset_equipment_details",
 };
 
 // asset_types.name -> [cal table, its date column]. mr_sensor's table is

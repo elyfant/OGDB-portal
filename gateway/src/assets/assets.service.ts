@@ -94,11 +94,11 @@ function mapCreateAssetError(err: unknown): Error {
 const SELECT_ASSETS = `
   SELECT
     a.id,
-    agd.glider_name AS name,
+    COALESCE(agd.glider_name, aed.name) AS name,
     a.serial_number AS "serialNumber",
     at.name AS "assetType",
     atg.name AS "assetTypeGroup",
-    COALESCE(TRIM(p.model), l22.label) AS "assetModel",
+    COALESCE(TRIM(p.model), l22.label, aed.model) AS "assetModel",
     pm.label AS "platformModelFull",
     pc.label AS "platformCategory",
     asd.l22_model_id AS "l22ModelId",
@@ -123,6 +123,7 @@ const SELECT_ASSETS = `
   LEFT JOIN platforms p ON p.id = agd.platform_id
   LEFT JOIN nvs_terms pm ON pm.id = p.b76_model_id
   LEFT JOIN nvs_terms pc ON pc.id = p.l06_category_id
+  LEFT JOIN asset_equipment_details aed ON aed.asset_id = a.id
   LEFT JOIN asset_sensor_details asd ON asd.asset_id = a.id
   LEFT JOIN nvs_terms l22 ON l22.id = asd.l22_model_id
   LEFT JOIN current_asset_status cas ON cas.asset_id = a.id
@@ -436,6 +437,10 @@ export class AssetsService {
 				"Gliders are created from the Fleet page, not here.",
 			);
 		}
+		// "equipment" is identified by what it is, so a name is required.
+		if (typeResult.rows[0].name === "equipment" && !dto.equipmentName?.trim()) {
+			throw new BadRequestException("Equipment needs a name.");
+		}
 
 		let assetId: number;
 		try {
@@ -474,6 +479,19 @@ export class AssetsService {
            VALUES ($1, $2)
            ON CONFLICT (asset_id) DO UPDATE SET l22_model_id = EXCLUDED.l22_model_id`,
 					[assetId, dto.l22ModelId],
+				);
+			}
+
+			// Equipment only -- name + model (asset_equipment_details).
+			if (typeResult.rows[0].name === "equipment") {
+				await this.pool.query(
+					`INSERT INTO asset_equipment_details (asset_id, name, model)
+           VALUES ($1, $2, $3)`,
+					[
+						assetId,
+						dto.equipmentName?.trim(),
+						dto.equipmentModel?.trim() || null,
+					],
 				);
 			}
 
@@ -567,6 +585,22 @@ export class AssetsService {
          VALUES ($1, $2)
          ON CONFLICT (asset_id) DO UPDATE SET l22_model_id = EXCLUDED.l22_model_id`,
 				[id, dto.l22ModelId],
+			);
+		}
+
+		// Equipment only: UPDATE hits zero rows for any other asset type, so
+		// the fields are ignored there. An omitted field keeps its value.
+		if (dto.equipmentName !== undefined || dto.equipmentModel !== undefined) {
+			await this.pool.query(
+				`UPDATE asset_equipment_details SET
+           name = COALESCE($2, name),
+           model = COALESCE($3, model)
+         WHERE asset_id = $1`,
+				[
+					id,
+					dto.equipmentName?.trim() || null,
+					dto.equipmentModel?.trim() || null,
+				],
 			);
 		}
 

@@ -48,6 +48,19 @@ export class CreateAssetDto {
 	@IsInt()
 	l22ModelId?: number;
 
+	// Equipment only (asset_equipment_details) -- what the item is, e.g.
+	// "Argos goniometer", and its model/size. Required on create for the
+	// equipment type; ignored for every other type.
+	@IsOptional()
+	@IsString()
+	@MaxLength(100)
+	equipmentName?: string;
+
+	@IsOptional()
+	@IsString()
+	@MaxLength(128)
+	equipmentModel?: string;
+
 	// Batteries only -- asset_battery_details.battery_model_id. Ignored
 	// server-side for any other asset type (same pattern as l22ModelId).
 	@IsOptional()

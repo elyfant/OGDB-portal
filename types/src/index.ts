@@ -239,6 +239,9 @@ export interface CreateAssetInput {
 	instituteId?: number | null;
 	// Science sensors only -- ignored server-side for any other asset type.
 	l22ModelId?: number | null;
+	// Equipment only -- required on create for the `equipment` type.
+	equipmentName?: string | null;
+	equipmentModel?: string | null;
 	// Batteries only -- ignored server-side for any other asset type.
 	// batteryModelId + dateOfManufacture land on asset_battery_details;
 	// weight opens the asset_battery_measurements history.
@@ -260,6 +263,9 @@ export interface UpdateAssetInput {
 	purchaseCurrency?: string;
 	// Science sensors only. Omit to leave unchanged; null clears it.
 	l22ModelId?: number | null;
+	// Equipment only. Omit to leave unchanged.
+	equipmentName?: string | null;
+	equipmentModel?: string | null;
 }
 
 // "DM"/"PUB" replaced "L1"/"L2" (see xxxx_dataset_processing_dm_published.py
