@@ -1,6 +1,7 @@
 import "server-only";
 import type {
 	Asset,
+	AssetDetails,
 	AssetRmaSummary,
 	AssetStatusOption,
 	Battery,
@@ -347,6 +348,16 @@ export async function getAssetCalibrations(
 	if (!res.ok) {
 		throw new Error(
 			`Failed to fetch calibrations for asset ${assetId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getAssetDetails(assetId: number): Promise<AssetDetails> {
+	const res = await apiFetch(`/assets/${assetId}/details`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch details for asset ${assetId}: ${res.status}`,
 		);
 	}
 	return res.json();

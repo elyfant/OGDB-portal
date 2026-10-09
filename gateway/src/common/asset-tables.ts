@@ -27,6 +27,23 @@ export const DETAIL_TABLES: Record<string, string> = {
 	mr_sensor: "asset_sensor_details",
 };
 
+// Types the generic "show every detail column" endpoint skips, because
+// their detail table is mostly foreign keys into lookup tables (NVS terms,
+// battery_models, hull_models) and a raw id is meaningless on screen.
+// Each already has, or needs, its own display: batteries have
+// BatteryDetailsSection, sensors resolve their model from NVS, hulls from
+// hull_models, gliders have their own page. Everything else in
+// DETAIL_TABLES is plain columns and is shown as-is.
+export const NO_GENERIC_DETAILS = new Set<string>([
+	"glider",
+	"battery",
+	"slocum_hull",
+	"ct_sensor",
+	"do_sensor",
+	"eco_sensor",
+	"mr_sensor",
+]);
+
 // Types whose detail table has a plain `model` text column, no NVS/
 // battery_models/hull_models indirection needed. Every one of these is
 // also in DETAIL_TABLES; this is the subset with the simple case.

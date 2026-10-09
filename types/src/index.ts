@@ -180,6 +180,17 @@ export interface Asset {
 	decommissionReason: string | null;
 }
 
+// Every column of an asset's per-type detail table (asset_<type>_details),
+// generically -- the keys are the database column names. `fields` is null
+// when the type has no detail table or its table is lookup-backed (see
+// NO_GENERIC_DETAILS on the gateway), which means "show no section", not
+// "empty". For a Slocum aft section `glider` replaces glider_asset_id with
+// the glider's name.
+export interface AssetDetails {
+	assetType: string;
+	fields: Record<string, string | number | boolean | null> | null;
+}
+
 // The Batteries catalogue row -- assets of type "battery" with their
 // battery-specific detail fields joined in (the generic "All assets"
 // table has no source for model/manufacture date/weight). Weight is the

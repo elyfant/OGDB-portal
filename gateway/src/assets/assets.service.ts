@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import type {
 	Asset,
+	AssetDetails,
 	AssetSearchResult,
 	Battery,
 	BatteryDetail,
@@ -16,7 +17,9 @@ import {
 	CAL_COLUMNS,
 	CAL_TABLES,
 	CAL_TABLES_WITH_SERVICE_EVENT,
+	DETAIL_TABLES,
 	FLAT_MODEL_TABLES,
+	NO_GENERIC_DETAILS,
 } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
 import { DocumentsService } from "../documents/documents.service";
@@ -220,6 +223,41 @@ export class AssetsService {
 			dateOfManufacture: detail.rows[0]?.dateOfManufacture ?? null,
 			measurements: measurements.rows,
 		};
+	}
+
+	// Read-only: every column of the asset's per-type detail table, as-is.
+	// The table name comes from DETAIL_TABLES (code constants, never request
+	// input). New columns added by a migration show up here automatically;
+	// a new asset type only needs a DETAIL_TABLES entry.
+	async getDetailsForAsset(id: number): Promise<AssetDetails> {
+		const asset = await this.findOne(id);
+		const table = DETAIL_TABLES[asset.assetType];
+		if (!table || NO_GENERIC_DETAILS.has(asset.assetType)) {
+			return { assetType: asset.assetType, fields: null };
+		}
+
+		const result = await this.pool.query(
+			`SELECT * FROM ${table} WHERE asset_id = $1`,
+			[id],
+		);
+		const row = result.rows[0];
+		if (!row) return { assetType: asset.assetType, fields: {} };
+
+		const { asset_id, glider_asset_id, ...columns } = row;
+		const fields: AssetDetails["fields"] = {};
+		// Slocum aft section only: the 1:1 glider link, shown by name
+		// rather than as a bare id, and first since it is the identity.
+		if (glider_asset_id !== undefined) {
+			const glider = glider_asset_id
+				? await this.pool.query(
+						"SELECT glider_name FROM asset_glider_details WHERE asset_id = $1",
+						[glider_asset_id],
+					)
+				: null;
+			fields.glider = glider?.rows[0]?.glider_name ?? null;
+		}
+		Object.assign(fields, columns);
+		return { assetType: asset.assetType, fields };
 	}
 
 	async findOne(id: number): Promise<Asset> {

@@ -152,6 +152,11 @@ export class AssetsController {
 		return this.calibrations.getForAsset(id);
 	}
 
+	@Get(":id/details")
+	getDetails(@Param("id", ParseIntPipe) id: number) {
+		return this.assets.getDetailsForAsset(id);
+	}
+
 	@Get(":id/battery")
 	getBattery(@Param("id", ParseIntPipe) id: number) {
 		return this.assets.getBatteryForAsset(id);

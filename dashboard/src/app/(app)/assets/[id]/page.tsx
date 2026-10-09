@@ -1,3 +1,4 @@
+import AssetDetailsSection from "@/components/AssetDetailsSection";
 import AssetFormDialog from "@/components/AssetFormDialog";
 import AssetServicingTimeline from "@/components/AssetServicingTimeline";
 import BatteryDetailsSection from "@/components/BatteryDetailsSection";
@@ -8,6 +9,7 @@ import {
 	getAsset,
 	getAssetBattery,
 	getAssetCalibrations,
+	getAssetDetails,
 	getAssetMissions,
 	getAssetRmas,
 	getAssetTypes,
@@ -89,6 +91,7 @@ export default async function AssetDetailPage({
 		contacts,
 		assetTypes,
 		sensorModels,
+		details,
 		user,
 	] = await Promise.all([
 		getAssetCalibrations(asset.id),
@@ -99,6 +102,7 @@ export default async function AssetDetailPage({
 		getContacts(),
 		getAssetTypes(),
 		getSensorModels(),
+		getAssetDetails(asset.id),
 		getCurrentUser(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
@@ -195,6 +199,8 @@ export default async function AssetDetailPage({
 					/>
 				</Box>
 			</Paper>
+
+			<AssetDetailsSection details={details} />
 
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				Timeline
