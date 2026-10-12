@@ -114,6 +114,7 @@ All profile×level arrays: dims `(profile, level)`, int16 packed (§5).
 | Core CTD | `temperature` | degree_C | `temperature`, `temp` | 48/48 |
 | Core CTD | `salinity` | 1e-3 (PSS-78) | `salinity` | 48/48 |
 | Core CTD | `pressure` | dbar | `pressure` | 48/48 |
+| Core CTD | `conductivity` | S/m | `conductivity` | where present |
 | Core CTD | `conservative_temperature` | degree_C | **computed** (TEOS-10, `gsw`) | all with T, S |
 | Core CTD | `absolute_salinity` | g/kg | **computed** (TEOS-10) | all with T, S |
 | Core CTD | `sigma0` | kg/m³ | **computed** (TEOS-10 σ₀ — the "sigma_theta" in the mockup) | all with T, S |
@@ -144,7 +145,7 @@ there (§7).
 
 | Standard name | From |
 |---|---|
-| `temperature_raw`, `salinity_raw`, `conductivity_raw`, `conductivity` | same names |
+| `temperature_raw`, `salinity_raw`, `conductivity_raw` | same names |
 | `source_sigma_theta`, `source_theta`, `source_density` | the file's own `sigma_theta`/`sigma_t`, `theta`, `density` — to compare with the computed ones |
 | `eng/<name>` | every `eng_*` variable on profile×depth, name without the `eng_` prefix (e.g. `eng/aa4330_O2`, `eng/pitchAng`) |
 | `glider_speed`, `glider_vertical_speed`, `glider_horizontal_speed` | `speed`, `vert_speed`, `horz_speed` |
@@ -361,6 +362,13 @@ bundles are added. The builder reports each bundle's size.
   range) that every panel reads.
 - x-axis "Dive": use `dive` + `cast` (two casts per dive); "Distance":
   `distance_km`.
+- **Colour scales: default to the 5–95 % range, not min/max.** The bundle
+  carries the source file's values unchanged, spikes included — e.g. mission
+  004 (BASESTATION, not QC'd) has salinity 21.7–80, mission 023 one oxygen
+  value of 2111 µmol/kg. A min/max colour scale lets one spike wash out the
+  whole section. Use `min(stats/<var>/p05)` … `max(stats/<var>/p95)` as the
+  default range and let the user widen it; `valid_min`/`valid_max` (§7) are
+  the true extremes, for the "full range" option only.
 
 ## 11. Open decisions
 
@@ -372,5 +380,5 @@ bundles are added. The builder reports each bundle's size.
 4. **L1 (timeseries)** — not used by the current mockup. If a view needs
    per-measurement data later, add an L1 store (Parquet may suit point data
    better than Zarr).
-5. **Public vs staff split of `pressure` and `conductivity`** — proposed as
-   above; confirm.
+5. ~~Public vs staff split of `pressure` and `conductivity`~~ — **decided
+   (2026-10-12):** both public (§4.1); only the `_raw` versions are staff.
