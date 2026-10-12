@@ -1301,3 +1301,26 @@ export interface IridiumMissionDetail {
 	cost: IridiumMissionCost | null;
 	months: IridiumMissionMonth[];
 }
+
+// Mission data bundle (docs/mission-data-bundle.md §8) -- the Zarr stores
+// behind the mission data page. Store URLs carry the build id, so a new
+// upload gives new URLs and the browser can cache store files forever.
+export interface MissionBundleSummary {
+	available: boolean; // false: no bundle uploaded yet
+	stale: boolean; // built from a different L2 file than the one now live on ERDDAP
+	buildId: string | null;
+	builtAt: string | null;
+	sourceL2File: string | null;
+	publicStoreUrl: string | null; // "/api/missions/23/bundle/<buildId>/public.zarr"
+	staffStoreUrl: string | null; // null unless the caller is editor/admin
+	erddapL2Url: string | null;
+}
+
+// One profile at full resolution, from ERDDAP (§8.3).
+export interface FullResolutionProfile {
+	profileIndex: number;
+	time: string;
+	depth: number[];
+	values: Record<string, (number | null)[]>;
+	units: Record<string, string>;
+}

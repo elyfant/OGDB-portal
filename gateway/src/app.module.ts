@@ -6,6 +6,7 @@ import { AssetsModule } from "./assets/assets.module";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { RolesGuard } from "./auth/roles.guard";
+import { BundlesModule } from "./bundles/bundles.module";
 import { CalibrationsModule } from "./calibrations/calibrations.module";
 import { CruisesModule } from "./cruises/cruises.module";
 import { DatasetsModule } from "./datasets/datasets.module";
@@ -32,6 +33,7 @@ import { UsersModule } from "./users/users.module";
 		LookupsModule,
 		MissionsModule,
 		DatasetsModule,
+		BundlesModule,
 		CruisesModule,
 		UsersModule,
 		ProcessingPackagesModule,

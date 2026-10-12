@@ -266,29 +266,46 @@ the same path prefixed with `/api`.
 ### 8.1 `GET /missions/:id/bundle` → summary
 
 ```ts
-interface MissionBundleSummary {
-  available: boolean;            // false: no bundle built yet
-  stale: boolean;                // built from an older file than the L2 now live on ERDDAP
+interface MissionBundleSummary {        // @ogdb/types
+  available: boolean;            // false: no bundle uploaded yet
+  stale: boolean;                // built from a different L2 file than the one now live on ERDDAP
+  buildId: string | null;        // "20261012T134054883Z-8825b0" -- upload time + random suffix
   builtAt: string | null;
-  publicStoreUrl: string | null; // "/api/missions/23/bundle/public.zarr" (dashboard route, see above)
+  sourceL2File: string | null;   // the L2 it was built from (relative to the projects folder)
+  publicStoreUrl: string | null; // "/api/missions/23/bundle/<buildId>/public.zarr" (dashboard route, see above)
   staffStoreUrl: string | null;  // null unless the caller is editor/admin
   erddapL2Url: string | null;
 }
 ```
 
-### 8.2 `GET /missions/:id/bundle/{public|staff}.zarr/<path>` → store files
+The UI opens the store at `publicStoreUrl` as given -- never builds the URL
+itself. `stale` compares file paths (a reprocessing run writes a new file);
+a file overwritten in place under the same name isn't detected yet.
+
+### 8.2 `GET /missions/:id/bundle/:buildId/{public|staff}.zarr/<path>` → store files
 
 Static files of the store (`zarr.json`, chunk files) — exactly what zarrita's
-`FetchStore` requests. `staff.zarr` returns 403 for non-staff. Responses carry
-`ETag` and `Cache-Control: private, max-age=3600` (files only change when a
-new bundle is uploaded, which changes the build directory — see §9), so a
-second visit loads from the browser cache.
+`FetchStore` requests; a missing key is a 404 (= all fill value, as Zarr
+readers expect). `staff.zarr` returns 403 for non-staff.
+
+**The build id is in the URL** (changed 2026-10-12 from the unversioned
+`/bundle/public.zarr/...`). With a fixed URL, a browser holding a cached
+chunk from the old bundle could combine it with the new bundle's
+`zarr.json` after a re-upload -- a different grid, silently wrong. With the
+build id in the path, a file at a given URL never changes, so responses carry
+`Cache-Control: private, max-age=31536000, immutable` (plus an `ETag`):
+a second visit loads entirely from the browser cache, and a new upload simply
+means new URLs. The previous build is kept on disk, so a page that loaded
+the summary just before an upload can finish loading; anything older is
+deleted (404 → the UI re-fetches the summary).
 
 ### 8.3 `GET /missions/:id/profiles/:profile?variables=temperature,salinity` → one full-resolution profile
 
 Proxied from ERDDAP (gateway → `nrec_erddap` over the internal network, ~4 ms),
 using the frozen dataset id from `erddap_l2_url`, for the pinned-dive detail
-view. `:profile` is the bundle's profile index; the gateway turns it into a
+view. ERDDAP's address is the gateway's `ERDDAP_URL` (default the public
+`http://158.39.77.95/erddap`; point it at the internal address once the two
+VMs share a network). `:profile` is the bundle's profile index; the gateway turns it into a
 time constraint. Variables use the **ERDDAP names** of that dataset (the
 bundle's `source_variable` attributes give the mapping).
 
@@ -304,11 +321,15 @@ interface FullResolutionProfile {
 
 ### 8.4 `PUT /missions/:id/bundle` (editor/admin) → upload
 
-Body: one `.zip` with `public.zarr/` and `staff.zarr/` at its root. The
-gateway validates (`bundle_format_version`, mission number matches `:id`),
-unpacks into a new build directory, then switches the mission's "current"
-pointer to it and deletes the previous build — so a reader never sees half a
-bundle.
+Body: multipart, one part `file` = the `.zip` with `public.zarr/` and
+`staff.zarr/` at its root (as `build_bundle.py` writes `bundle.zip`); up to
+300 MB. The gateway validates (only those two stores, safe paths,
+`bundle_format_version`, `mission_number` and `ogdb_mission_id` match `:id`,
+size limits against a corrupt or hostile zip), unpacks into a new build
+directory, then switches the mission's `current` pointer to it (write +
+rename, atomic) and deletes all but the newest two builds — so a reader never
+sees half a bundle. Returns the new summary (§8.1). Unzipping uses `fflate`
+(MIT, already in the dependency tree via NestJS).
 
 **Storage** — on the portal VM (`nrec_app`), in the portal's own file storage,
 the same way uploaded documents are kept:
@@ -320,7 +341,7 @@ the same way uploaded documents are kept:
 | On `nrec_app`'s disk | `/var/lib/docker/volumes/ogdb-portal_documents_data/_data` | `/var/lib/docker/volumes/ogdb-portal_bundles_data/_data` |
 
 Layout inside: `<mission_id>/<build_id>/{public,staff}.zarr/` plus a
-`<mission_id>/current` pointer. A named volume, not the container's own
+`<mission_id>/current` text file holding the current build id. A named volume, not the container's own
 layer, so bundles survive `docker compose up -d --build`. Bundles are
 derived — always rebuildable from the L2 — so they need no backup.
 

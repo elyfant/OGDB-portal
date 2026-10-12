@@ -32,12 +32,20 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       PORT: 3001
       DOCUMENTS_DIR: /app/storage/documents
+      # Mission data bundles (Zarr), uploaded by norgliders-ERDDAP's
+      # build_bundle.py -- see docs/mission-data-bundle.md.
+      BUNDLES_DIR: /app/storage/bundles
+      # Where the gateway asks ERDDAP for full-resolution profiles.
+      ERDDAP_URL: ${ERDDAP_URL:-http://158.39.77.95/erddap}
     volumes:
       # Uploaded calibration certificates and other mission documents —
       # a named volume, not the container's own writable layer, so they
       # survive `docker compose up -d --build` (which recreates the
       # container from scratch on every deploy).
       - documents_data:/app/storage/documents
+      # Bundles are derived (rebuildable from the L2 files), so no backup
+      # needed -- but a named volume so they survive a redeploy too.
+      - bundles_data:/app/storage/bundles
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,3 +93,4 @@ volumes:
   caddy_data:
   caddy_config:
   documents_data:
+  bundles_data:
