@@ -18,7 +18,7 @@ a new machine:
 
 ```bash
 mkdir -p .claude/rules
-ln -s ~/projects/OGDB/alembic/design-notes.md .claude/rules/ogdb-design-notes.md
+ln -s ~/projects/norgliders-facility/OGDB/alembic/design-notes.md .claude/rules/ogdb-design-notes.md
 ```
 
 See `docs/design/build-hierarchy.md` for the summary this unlocked.
@@ -30,8 +30,8 @@ system map, open cross-repo dependency questions, and architecture
 decisions — none of it visible to a session started here without help.
 
 ```bash
-ln -s ~/projects/norgliders/dependencies.md .claude/rules/norgliders-dependencies.md
-ln -s ~/projects/norgliders/decisions .claude/rules/norgliders-decisions
+ln -s ~/projects/norgliders-facility/norgliders/dependencies.md .claude/rules/norgliders-dependencies.md
+ln -s ~/projects/norgliders-facility/norgliders/decisions .claude/rules/norgliders-decisions
 ```
 
 ## 0. Ground rule: no real data entry locally
