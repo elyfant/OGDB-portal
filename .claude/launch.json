@@ -3,15 +3,21 @@
   "configurations": [
     {
       "name": "gateway",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:gateway"],
-      "port": 3001
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["PORT=3101", "npm", "run", "dev:gateway"],
+      "port": 3101
     },
     {
       "name": "dashboard",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:dashboard"],
-      "port": 3000
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3100",
+        "API_URL=http://localhost:3101",
+        "npm",
+        "run",
+        "dev:dashboard"
+      ],
+      "port": 3100
     }
   ]
 }

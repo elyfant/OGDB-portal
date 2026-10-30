@@ -1,3 +1,4 @@
+import AddBatteryMeasurementDialog from "@/components/AddBatteryMeasurementDialog";
 import AssetChangeLog from "@/components/AssetChangeLog";
 import AssetServicingTimeline from "@/components/AssetServicingTimeline";
 import AssetStatusHistoryTable from "@/components/AssetStatusHistoryTable";
@@ -31,8 +32,25 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { notFound, redirect } from "next/navigation";
+
+// A weight/voltage value with the date it was measured as hover text.
+function MeasuredValue({
+	value,
+	date,
+}: {
+	value: number | null | undefined;
+	date: string | null | undefined;
+}) {
+	if (value == null) return <>—</>;
+	return (
+		<Tooltip title={date ? formatDate(date) : ""} placement="top-start">
+			<span>{value.toLocaleString("en-GB")}</span>
+		</Tooltip>
+	);
+}
 
 // A battery is an asset (asset_type "battery", same id) but gets its own
 // page: the asset page minus the sections that don't apply (RMA cases,
@@ -86,10 +104,12 @@ export default async function BatteryDetailPage({
 		...missions.map(deploymentToTimelineEvent).filter((e) => e !== null),
 	];
 
-	// measurements come back newest first, so [0] is the current weight.
-	const currentWeight = battery.measurements.find(
-		(m) => m.weight !== null,
-	)?.weight;
+	// measurements come back newest first, so the first non-null reading of
+	// each kind is the current one (a voltage-only check leaves weight null
+	// on that row, and vice versa).
+	const latestWeight = battery.measurements.find((m) => m.weight !== null);
+	const latestVoltage = battery.measurements.find((m) => m.voltage !== null);
+	const { spec } = battery;
 
 	return (
 		<Box>
@@ -131,13 +151,16 @@ export default async function BatteryDetailPage({
 			>
 				<Typography variant="h6">About battery</Typography>
 				{canEdit && (
-					<BatteryFormDialog
-						mode="edit"
-						asset={asset}
-						battery={battery}
-						institutes={institutes}
-						batteryModels={batteryModels}
-					/>
+					<Box sx={{ display: "flex", gap: 1 }}>
+						<AddBatteryMeasurementDialog assetId={asset.id} />
+						<BatteryFormDialog
+							mode="edit"
+							asset={asset}
+							battery={battery}
+							institutes={institutes}
+							batteryModels={batteryModels}
+						/>
+					</Box>
 				)}
 			</Box>
 			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
@@ -153,7 +176,6 @@ export default async function BatteryDetailPage({
 				>
 					<Field label="Serial number" value={asset.serialNumber} />
 					<Field label="Institute" value={battery.institute} />
-					<Field label="Battery model" value={battery.batteryModel} />
 					<Field
 						label="Date of manufacture"
 						value={formatDate(battery.dateOfManufacture)}
@@ -165,8 +187,53 @@ export default async function BatteryDetailPage({
 					/>
 					<Field
 						label="Weight (g)"
-						value={currentWeight == null ? null : String(currentWeight)}
+						value={
+							<MeasuredValue
+								value={latestWeight?.weight}
+								date={latestWeight?.measuredDate}
+							/>
+						}
 					/>
+					<Field
+						label="Voltage (V)"
+						value={
+							<MeasuredValue
+								value={latestVoltage?.voltage}
+								date={latestVoltage?.measuredDate}
+							/>
+						}
+					/>
+				</Box>
+			</Paper>
+
+			<Typography variant="h6" sx={{ mb: 0.5 }}>
+				Specs
+			</Typography>
+			<Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+				Information about the battery model, shared by every pack of this model.
+			</Typography>
+			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: {
+							xs: "repeat(2, 1fr)",
+							md: "repeat(4, 1fr)",
+						},
+						gap: 3,
+					}}
+				>
+					<Field label="Battery model" value={spec?.model} />
+					<Field
+						label="Manufacturer part number"
+						value={spec?.manufacturerPartNumber}
+					/>
+					<Field label="Capacity (Ah)" value={spec?.capacity} />
+					<Field label="Nominal voltage (V)" value={spec?.nominalVoltage} />
+					<Field label="Energy (Wh)" value={spec?.wattHours} />
+					<Field label="Chemistry" value={spec?.chemistry} />
+					<Field label="UN classification" value={spec?.unClassification} />
+					<Field label="Platform" value={spec?.platform} />
 				</Box>
 			</Paper>
 
@@ -184,29 +251,27 @@ export default async function BatteryDetailPage({
 				canEdit={canEdit}
 				decommissionedDate={asset.decommissionedDate}
 				decommissionReason={asset.decommissionReason}
+				historyChildren={
+					<>
+						<Accordion disableGutters>
+							<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+								<Typography color="text.secondary">Status history</Typography>
+							</AccordionSummary>
+							<AccordionDetails>
+								<AssetStatusHistoryTable entries={statusHistory} />
+							</AccordionDetails>
+						</Accordion>
+						<Accordion disableGutters>
+							<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+								<Typography color="text.secondary">Change log</Typography>
+							</AccordionSummary>
+							<AccordionDetails>
+								<AssetChangeLog changes={changes} />
+							</AccordionDetails>
+						</Accordion>
+					</>
+				}
 			/>
-
-			<Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
-				History
-			</Typography>
-			<Box>
-				<Accordion disableGutters>
-					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-						<Typography color="text.secondary">Status history</Typography>
-					</AccordionSummary>
-					<AccordionDetails>
-						<AssetStatusHistoryTable entries={statusHistory} />
-					</AccordionDetails>
-				</Accordion>
-				<Accordion disableGutters>
-					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-						<Typography color="text.secondary">Change log</Typography>
-					</AccordionSummary>
-					<AccordionDetails>
-						<AssetChangeLog changes={changes} />
-					</AccordionDetails>
-				</Accordion>
-			</Box>
 		</Box>
 	);
 }

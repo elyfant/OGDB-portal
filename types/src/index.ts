@@ -261,7 +261,25 @@ export interface BatteryMeasurement {
 // Read-only battery detail for the asset page's "Battery details"
 // accordion: the per-instance spec (asset_battery_details) plus the
 // measurement history, newest first.
+// The model-level spec (battery_models) for a battery's model -- shared by
+// every pack of that model, unlike the per-pack fields on BatteryDetail.
+export interface BatteryModelSpec {
+	model: string;
+	manufacturerPartNumber: string | null;
+	// Ah
+	capacity: number | null;
+	// V
+	nominalVoltage: number | null;
+	// Wh
+	wattHours: number | null;
+	chemistry: string | null;
+	unClassification: string | null;
+	// Resolved platform label (NVS name, or the platform's own name/model).
+	platform: string | null;
+}
+
 export interface BatteryDetail {
+	spec: BatteryModelSpec | null;
 	// The raw FKs (assets.institute_id, asset_battery_details.battery_model_id)
 	// so the edit dialog can pre-select the current values.
 	instituteId: number | null;
@@ -270,6 +288,17 @@ export interface BatteryDetail {
 	batteryModel: string | null;
 	dateOfManufacture: string | null;
 	measurements: BatteryMeasurement[];
+}
+
+// A dated weight and/or voltage reading for a battery (one row of
+// asset_battery_measurements). At least one of weight/voltage is required;
+// measuredDate defaults to today server-side.
+export interface RecordBatteryMeasurementInput {
+	measuredDate?: string;
+	// g
+	weight?: number | null;
+	// V
+	voltage?: number | null;
 }
 
 // Generic fields only — every asset type has these, but only gliders

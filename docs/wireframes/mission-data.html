@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission data page wireframe</title>
+<style>
+:root{--bg:#f6f6f4;--surf:#fff;--surf2:#f0efec;--line:#d6d4cd;--line2:#b3b0a6;--tx:#23221f;--tx2:#5f5d57;--tx3:#8d8b84;--ac:#185fa5;--acbg:#e6f1fb;--warnbg:#faeeda;--warn:#854f0b;--badbg:#fceaea;--bad:#a32d2d}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1b19;--surf:#242422;--surf2:#2d2d2a;--line:#42413d;--line2:#5d5b55;--tx:#ecebe6;--tx2:#a9a79f;--tx3:#7d7b74;--ac:#85b7eb;--acbg:#0c447c;--warnbg:#412402;--warn:#fac775;--badbg:#501313;--bad:#f7c1c1}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+.top{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--surf);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+.top b{font-weight:600;margin-right:6px}
+.sw{border:1px solid var(--line2);background:var(--surf);color:var(--tx);border-radius:6px;padding:5px 12px;cursor:pointer;font:inherit}
+.sw.on{background:var(--acbg);color:var(--ac);border-color:var(--ac)}
+.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 50px)}
+.side{border-right:1px solid var(--line);background:var(--surf);padding:12px 0}
+.side h6{margin:12px 16px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.side a{display:flex;gap:8px;align-items:center;padding:6px 16px;color:var(--tx2);font-size:13px}
+.side a.on{background:var(--acbg);color:var(--ac);font-weight:600}
+.side a i{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;display:inline-block}
+main{padding:20px 24px;min-width:0}
+.crumb{color:var(--tx2);font-size:13px;margin-bottom:8px}
+.hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.hd h1{font-size:20px;margin:0;font-weight:600}
+.sp{flex:1}
+.btn{border:1px solid var(--line2);background:var(--surf);color:var(--tx);border-radius:6px;padding:6px 12px;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.btn.pri{background:var(--ac);color:var(--surf);border-color:var(--ac);font-weight:600}
+.btn.dis{color:var(--tx3);border-style:dashed}
+.chip{border:1px solid var(--line2);border-radius:6px;padding:2px 9px;font-size:12px;background:var(--surf);cursor:pointer;color:var(--tx)}
+.chip.on{background:var(--acbg);color:var(--ac);border-color:var(--ac)}
+.badge{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--acbg);color:var(--ac)}
+.badge.w{background:var(--warnbg);color:var(--warn)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tab{padding:9px 16px;border:none;background:none;color:var(--tx2);border-bottom:2px solid transparent;cursor:pointer;font:inherit;white-space:nowrap}
+.tab.on{color:var(--tx);border-bottom-color:var(--ac);font-weight:600}
+.card{background:var(--surf);border:1px dashed var(--line2);border-radius:8px;padding:10px 12px;position:relative}
+.card.solid{border-style:solid;border-color:var(--line)}
+.lbl{font-size:12px;color:var(--tx2)}
+.note{font-size:12px;color:var(--tx3);margin-top:8px}
+.warnbox{background:var(--warnbg);color:var(--warn);border-radius:6px;padding:8px 10px;font-size:12px;margin:8px 0}
+.ctx{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surf);margin-bottom:12px}
+.ctx .sep{width:1px;height:20px;background:var(--line)}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.g2{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px}
+.g11{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.tile{background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.tile b{display:block;font-size:20px;font-weight:600}
+table{width:100%;border-collapse:collapse;background:var(--surf);border:1px solid var(--line);border-radius:8px;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--tx2);font-weight:600;font-size:12px}
+svg{display:block;width:100%}
+.ln{stroke:var(--line2);fill:none}.gr{stroke:var(--line);fill:none}.ac{stroke:var(--ac);fill:none;stroke-width:2}.dash{stroke:var(--ac);fill:none;stroke-dasharray:5 4}
+.t{font-size:11px;fill:var(--tx3)}
+.screen{display:none}.screen.on{display:block}
+.pane{display:none}.pane.on{display:block}
+.ann{border-left:3px solid var(--ac);padding:4px 10px;margin:10px 0;font-size:12px;color:var(--tx2);background:var(--surf);border-radius:0 6px 6px 0}
+@media(max-width:900px){.app{grid-template-columns:1fr}.side{display:none}.g2,.g11,.g4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top"><b>Wireframe</b><span class="lbl">Screen:</span>
+<button class="sw on" data-s="list">1 · Missions list</button>
+<button class="sw" data-s="overview">2 · Mission overview</button>
+<button class="sw" data-s="data">3 · Mission data</button>
+<span class="sp"></span><span class="lbl">Low-fidelity layout only. Dashed boxes are placeholder plots.</span></div>
+<div class="app">
+<nav class="side" id="side"></nav>
+<main>
+
+<section class="screen on" id="s-list">
+ <div class="hd"><h1>Missions</h1><span class="sp"></span><span class="btn">Filter</span></div>
+ <table>
+  <tr><th>Mission</th><th>Glider</th><th>Area</th><th>Start</th><th>Dives</th><th>Status</th><th>Data</th></tr>
+  <tr><td>Mission X</td><td>SG-123</td><td>Fram Strait</td><td>12 Mar 2026</td><td>1,204</td><td><span class="badge">Complete</span></td><td><span class="btn pri" style="padding:2px 10px">View data</span></td></tr>
+  <tr><td>Mission W</td><td>SL-045</td><td>Norwegian Sea</td><td>2 Nov 2025</td><td>688</td><td><span class="badge">Complete</span></td><td><span class="btn pri" style="padding:2px 10px">View data</span></td></tr>
+  <tr><td>Mission V</td><td>SG-118</td><td>Lofoten Basin</td><td>9 Jun 2025</td><td>941</td><td><span class="badge">Complete</span></td><td><span class="btn dis" style="padding:2px 10px">Not on ERDDAP yet</span></td></tr>
+ </table>
+ <div class="ann">New Data column. Enabled when the mission has an L2 file on ERDDAP; otherwise greyed with a tooltip. Clicking a row still opens the overview.</div>
+</section>
+
+<section class="screen" id="s-overview">
+ <div class="crumb">Missions › Mission X</div>
+ <div class="hd"><h1>Mission X</h1><span class="badge">Complete</span><span class="sp"></span><span class="btn pri">View data</span></div>
+ <div class="tabs"><button class="tab on">Overview</button><button class="tab">Data</button><button class="tab">Processing</button></div>
+ <div class="g4">
+  <div class="tile"><span class="lbl">Dives</span><b>1,204</b></div>
+  <div class="tile"><span class="lbl">Distance</span><b>3,410 km</b></div>
+  <div class="tile"><span class="lbl">Duration</span><b>51 days</b></div>
+  <div class="tile"><span class="lbl">Max depth</span><b>1,000 m</b></div>
+ </div>
+ <div class="g2">
+  <div class="card"><span class="lbl">Track map (existing)</span><svg viewBox="0 0 400 180"><path class="ln" d="M30 150 C80 110 110 130 160 90 S240 60 280 45 S340 25 370 20"/></svg></div>
+  <div class="card solid"><span class="lbl">Mission metadata (existing)</span><p class="lbl">Glider, project, institute, contacts, science payload, files…</p></div>
+ </div>
+ <div class="ann">The existing mission page gains a tab bar: <b>Overview | Data | Processing</b>. Overview is today's page unchanged. Processing is today's dataset detail page. Data is new. The "View data" button in the header jumps straight to the Data tab.</div>
+</section>
+
+<section class="screen" id="s-data">
+ <div class="crumb">Missions › Mission X › Data</div>
+ <div class="hd"><h1>Mission X</h1><span class="badge">Complete</span><span class="sp"></span><span class="btn">Open in ERDDAP ↗</span><span class="btn">Download</span></div>
+ <div class="tabs"><button class="tab">Overview</button><button class="tab on">Data</button><button class="tab">Processing</button></div>
+
+ <div class="ctx">
+  <b>SG-123</b><span class="lbl">12 Mar to 2 May 2026 · 1,204 dives</span>
+  <span class="sep"></span>
+  <span class="lbl">x-axis</span><span class="chip on">Time</span><span class="chip">Dive</span><span class="chip">Distance</span>
+  <span class="sep"></span>
+  <span class="chip">Variables ▾</span>
+  <span class="lbl">Range</span><span class="chip">12 Mar ━━●━━━━━━━━●━━ 2 May</span>
+  <span class="sp"></span>
+  <span class="lbl" id="selinfo">Selected: none</span>
+ </div>
+
+ <div class="tabs" id="dtabs"></div>
+
+ <div class="pane on" data-p="0">
+  <div class="row"><span class="lbl">Overlays</span><span class="chip on">Isopycnals</span><span class="chip">Mixed layer depth</span><span class="chip">Thermocline</span><span class="chip">Gap-filled cells</span><span class="sp"></span><span class="chip">+ Add variable</span></div>
+  <div id="secs" style="display:grid;gap:8px"></div>
+  <div class="card" style="margin-top:8px"><span class="lbl">Depth-averaged current (u, v) and max depth per dive</span>
+   <svg viewBox="0 0 900 70"><path class="gr" d="M0 35 H900"/><path class="ln" d="M0 35 Q60 8 120 38 T240 30 T360 12 T480 40 T600 20 T720 36 T900 28"/><path class="ac" d="M0 48 Q80 60 160 44 T320 52 T480 42 T640 56 T900 46" style="stroke-width:1.5"/></svg></div>
+  <div class="ann">One shared x-axis and brush. Drag on any panel to zoom all of them; the selection also narrows the dives shown in the Map tab. Each panel has its own colourbar and a hover readout (time, depth, value).</div>
+ </div>
+
+ <div class="pane" data-p="1">
+  <div class="g2">
+   <div class="card"><span class="lbl">Map · tracks coloured by date</span>
+    <svg viewBox="0 0 640 380"><rect width="640" height="380" fill="none" class="gr"/>
+     <path class="gr" d="M40 330 C120 270 160 300 240 220 S380 160 440 120 S540 70 600 50"/>
+     <path class="ln" d="M40 340 C125 282 165 312 245 232 S385 172 445 132 S545 82 602 62"/>
+     <path class="ac" d="M240 226 L262 208"/><circle cx="250" cy="217" r="7" style="fill:var(--acbg);stroke:var(--ac);stroke-width:2"/>
+     <g class="ln"><path d="M190 270 l14 -12 M330 190 l14 -12 M480 110 l14 -12 M560 80 l12 -10"/></g>
+     <text class="t" x="14" y="22">Hover = preview · click = pin · shift-click = compare</text>
+     <text class="t" x="14" y="370">Legend: date →  ·  arrows = depth-averaged current</text></svg>
+    <div class="row" style="margin:8px 0 0"><span class="lbl">Dive</span><span class="chip">◀</span><span class="lbl">━━━━━●━━━━━━━━━━━━━</span><span class="chip">▶</span><span class="lbl">482 / 1,204</span><span class="sp"></span><span class="chip">Current vectors</span><span class="chip">Bathymetry</span></div></div>
+   <div class="card"><div class="row" style="margin-bottom:4px"><span class="chip">Temperature ▾</span></div>
+    <svg viewBox="0 0 220 380"><path class="gr" d="M34 10 V350 H210"/>
+     <path class="gr" d="M80 10 Q96 100 74 190 T104 350 M96 10 Q116 110 94 200 T124 350 M66 10 Q84 90 64 180 T92 350 M112 10 Q130 120 108 210 T140 350 M72 10 Q92 95 70 185 T98 350"/>
+     <path class="ac" d="M88 10 Q106 105 84 195 T114 350"/>
+     <text class="t" x="2" y="12">0 m</text><text class="t" x="2" y="350">1000</text><text class="t" x="100" y="372">°C</text></svg>
+    <div class="lbl">Dive 482 · 14 Apr 2026 · 62.1°N 3.4°E</div></div>
+  </div>
+  <div class="ann">Grey = every dive. Accent = the previewed or pinned dive. Hovering a profile highlights its dive on the map and vice versa; the dive slider and arrow keys give a non-hover way to step through.</div>
+ </div>
+
+ <div class="pane" data-p="2">
+  <div class="row"><span class="lbl">Colour by</span><span class="chip on">Depth</span><span class="chip">Dive</span><span class="chip">Time</span><span class="sp"></span><span class="chip">Isopycnals</span></div>
+  <div class="g2">
+   <div class="card"><svg viewBox="0 0 700 420"><path class="gr" d="M56 10 V380 H690"/>
+    <path class="dash" d="M80 360 Q300 270 680 80 M80 380 Q350 320 680 150 M80 340 Q260 230 660 40" style="opacity:.55"/>
+    <g id="ts" style="fill:var(--ac);opacity:.5"></g>
+    <text class="t" x="340" y="408">Salinity (PSU)</text><text class="t" x="4" y="14">Temp °C</text></svg></div>
+   <div class="card solid"><span class="lbl">Water masses</span><p class="lbl">Legend and optional labelled regions (e.g. Atlantic Water, Arctic Water). Colourbar for the chosen "colour by".</p>
+    <span class="lbl">Selected points</span><p class="lbl">Clicking a point shows its dive, date, depth and highlights that dive in the Map tab.</p></div>
+  </div>
+ </div>
+
+ <div class="pane" data-p="3">
+  <div class="g11">
+   <div class="card"><span class="lbl">Mean profile with 5–95% band</span><div class="row" style="margin:4px 0"><span class="chip">Temperature ▾</span><span class="chip on">5–95%</span><span class="chip">Min/max</span></div>
+    <svg viewBox="0 0 400 380"><path class="gr" d="M40 10 V350 H390"/>
+     <path d="M110 10 Q170 110 140 190 T200 350 L270 350 Q220 270 250 190 T190 10 Z" style="fill:var(--acbg);stroke:none"/>
+     <path class="ac" d="M150 10 Q200 110 195 190 T235 350"/></svg></div>
+   <div class="card"><span class="lbl">Variable vs variable</span><div class="row" style="margin:4px 0"><span class="chip">x: Sigma-theta ▾</span><span class="chip">y: Oxygen sat ▾</span><span class="chip">Colour: Depth</span></div>
+    <svg viewBox="0 0 400 380"><path class="gr" d="M40 10 V350 H390"/><g id="sc" style="fill:var(--ac);opacity:.5"></g></svg></div>
+  </div>
+ </div>
+
+ <div class="pane" data-p="4">
+  <div class="row"><span class="lbl">Colour</span><span class="chip">Temperature ▾</span><span class="lbl">Vertical exaggeration</span><span class="chip">━━●━━</span><span class="chip on">Bathymetry</span><span class="chip">Track</span><span class="chip">Reset view</span></div>
+  <div class="card"><svg viewBox="0 0 900 460">
+   <path class="gr" d="M120 330 L450 420 L800 300 L470 200 Z"/>
+   <path class="gr" d="M170 322 L460 400 M230 308 L500 380 M300 290 L550 358 M370 270 L600 338 M440 250 L650 318 M510 228 L720 306 M120 330 L470 200 M230 363 L560 245 M340 395 L680 270"/>
+   <path class="ac" d="M190 300 Q300 200 400 270 T620 230 T760 270"/>
+   <path class="gr" d="M190 300 V90 M760 270 V70" style="stroke-dasharray:3 4"/>
+   <text class="t" x="60" y="90">depth (z)</text><text class="t" x="400" y="450">lon · lat</text></svg></div>
+  <div class="note">Open bathymetry (GEBCO or EMODnet) as the surface, glider track coloured by the chosen variable. Built last.</div>
+ </div>
+
+ <div class="pane" data-p="5">
+  <div class="warnbox">Staff only. This tab and the raw/engineering variables are hidden from the public view.</div>
+  <div class="card"><span class="lbl">Data availability · sensor × dive · colour = % valid</span><div id="av" style="margin-top:6px"></div>
+   <div class="note">Click a gap to jump to that dive in the Map tab and its row in Processing.</div></div>
+  <div class="card" style="margin-top:12px"><span class="lbl">Dive-to-dive difference · profile N minus N−1</span>
+   <svg viewBox="0 0 900 120"><path class="gr" d="M0 60 H900"/><path class="ln" d="M0 60 Q90 15 180 68 T360 52 T540 100 T720 28 T900 62"/></svg></div>
+  <div class="warnbox" style="background:var(--badbg);color:var(--bad)">Ascent vs descent comparison is not available: dive_number counts a full up and down in L2. Needs a profile-direction flag written at gridding.</div>
+ </div>
+</section>
+
+</main></div>
+<script>
+var groups=[["Home",["Home","Mission Stats"]],["Assets",["Glider fleet","All assets","Batteries"]],["Operations",["Missions","Cruises","Datasets","Map"]],["Workshop",["Calibrations","Orders","Iridium"]]];
+var side=document.getElementById('side');
+groups.forEach(function(g){var h='<h6>'+g[0]+'</h6>';g[1].forEach(function(n){h+='<a class="'+(n==='Missions'?'on':'')+'"><i></i>'+n+'</a>'});side.insertAdjacentHTML('beforeend',h)});
+document.querySelectorAll('.sw').forEach(function(b){b.onclick=function(){document.querySelectorAll('.sw').forEach(function(x){x.classList.toggle('on',x===b)});document.querySelectorAll('.screen').forEach(function(s){s.classList.toggle('on',s.id==='s-'+b.dataset.s)})}});
+var names=['Sections','Map and profile','T–S','Profiles','3D','QC (staff)'];
+var dt=document.getElementById('dtabs');
+names.forEach(function(n,i){var b=document.createElement('button');b.className='tab'+(i?'':' on');b.textContent=n;b.onclick=function(){dt.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===b)});document.querySelectorAll('#s-data .pane').forEach(function(p){p.classList.toggle('on',+p.dataset.p===i)})};dt.appendChild(b)});
+var secs=document.getElementById('secs');
+['Temperature (°C)','Salinity (PSU)','Oxygen saturation (%)','Sigma-theta (kg/m³)'].forEach(function(n,s){
+ var h='<div class="card"><span class="lbl">'+n+'</span><span class="lbl" style="position:absolute;right:12px;top:10px">colourbar ▮▮▮</span><svg viewBox="0 0 900 130">';
+ for(var r=0;r<10;r++)for(var c=0;c<60;c++){var o=(0.1+0.75*(r/10)*(0.6+0.4*Math.sin(c/7+s)))*(0.65+0.35*Math.cos(c/11+r/2));h+='<rect x="'+(c*15)+'" y="'+(r*12+8)+'" width="15" height="12" style="fill:var(--ac);opacity:'+Math.max(0.05,Math.min(0.85,o)).toFixed(2)+'"/>'}
+ h+='<path class="dash" d="M0 50 Q150 30 300 56 T600 44 T900 52"/><path class="dash" d="M0 80 Q150 62 300 86 T600 72 T900 84"/><text class="t" x="4" y="126">depth ↓</text></svg></div>';secs.insertAdjacentHTML('beforeend',h)});
+var ts='';for(var i=0;i<110;i++){ts+='<circle cx="'+(90+i*5.3).toFixed(0)+'" cy="'+(360-i*2.5+Math.sin(i/3)*14).toFixed(0)+'" r="3.5"/>'}document.getElementById('ts').innerHTML=ts;
+var sc='';for(var j=0;j<90;j++){sc+='<circle cx="'+(60+j*3.6).toFixed(0)+'" cy="'+(330-j*2.9+Math.cos(j/2)*14).toFixed(0)+'" r="3"/>'}document.getElementById('sc').innerHTML=sc;
+var av='';['Temperature','Salinity','Oxygen','Depth-avg current','Raw T / S'].forEach(function(n,r){av+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><span class="lbl" style="width:110px">'+n+'</span><div style="flex:1;display:flex;height:18px;gap:1px">';for(var c=0;c<70;c++){var bad=(r===2&&c>40&&c<50)||(r===4&&c>14&&c<19);av+='<div style="flex:1;background:'+(bad?'var(--bad)':'var(--acbg)')+'"></div>'}av+='</div></div>'}document.getElementById('av').innerHTML=av;
+</script>
+</body>
+</html>

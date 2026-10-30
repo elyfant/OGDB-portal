@@ -24,6 +24,7 @@ import { ServicingService } from "../servicing/servicing.service";
 import { AssetsService } from "./assets.service";
 import { CertificateParserService } from "./certificate-parser.service";
 import { CreateAssetDto } from "./dto/create-asset.dto";
+import { RecordBatteryMeasurementDto } from "./dto/record-battery-measurement.dto";
 import { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import { SetAssetStatusDto } from "./dto/set-asset-status.dto";
 import { SetDecommissionDto } from "./dto/set-decommission.dto";
@@ -170,6 +171,16 @@ export class AssetsController {
 	@Get(":id/battery")
 	getBattery(@Param("id", ParseIntPipe) id: number) {
 		return this.assets.getBatteryForAsset(id);
+	}
+
+	@Roles("editor", "admin")
+	@Post(":id/battery/measurements")
+	recordBatteryMeasurement(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: RecordBatteryMeasurementDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.assets.recordBatteryMeasurement(id, dto, user.sub);
 	}
 
 	@Roles("editor", "admin")

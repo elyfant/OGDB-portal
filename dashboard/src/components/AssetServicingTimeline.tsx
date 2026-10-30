@@ -22,7 +22,7 @@ import type {
 	ServicingEvent,
 	ServicingEventTypeOption,
 } from "@ogdb/types";
-import { useRef } from "react";
+import { type ReactNode, useRef } from "react";
 
 // The bare-asset counterpart to GliderTimelineTab's controls+chart+
 // Servicing-accordion trio -- a plain asset (a CT sensor, say) has no
@@ -41,6 +41,7 @@ export default function AssetServicingTimeline({
 	decommissionedDate,
 	decommissionReason,
 	hiddenKinds,
+	historyChildren,
 }: {
 	assetId: number;
 	events: TimelineEvent[];
@@ -59,8 +60,28 @@ export default function AssetServicingTimeline({
 	decommissionReason: string | null;
 	// Timeline filter chips to drop for this asset type.
 	hiddenKinds?: TimelineEventKind[];
+	// When given, the Servicing accordion moves out from under the chart
+	// to sit under a "History" heading rendered here, with these (the
+	// page's other history accordions) following it. It lives in this
+	// component because its row clicks open the dialog via controlsRef.
+	historyChildren?: ReactNode;
 }) {
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);
+
+	const servicingAccordion = (
+		<Accordion disableGutters>
+			<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+				<Typography color="text.secondary">Servicing</Typography>
+			</AccordionSummary>
+			<AccordionDetails>
+				<ServicingHistoryTable
+					events={servicingEvents}
+					canEdit={canEdit}
+					onEditEvent={(e) => controlsRef.current?.openForEdit(e)}
+				/>
+			</AccordionDetails>
+		</Accordion>
+	);
 
 	return (
 		<Box>
@@ -88,18 +109,17 @@ export default function AssetServicingTimeline({
 
 			<AssetTimelineSection events={events} hiddenKinds={hiddenKinds} />
 
-			<Accordion disableGutters sx={{ mt: 4 }}>
-				<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-					<Typography color="text.secondary">Servicing</Typography>
-				</AccordionSummary>
-				<AccordionDetails>
-					<ServicingHistoryTable
-						events={servicingEvents}
-						canEdit={canEdit}
-						onEditEvent={(e) => controlsRef.current?.openForEdit(e)}
-					/>
-				</AccordionDetails>
-			</Accordion>
+			{historyChildren !== undefined ? (
+				<>
+					<Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
+						History
+					</Typography>
+					{servicingAccordion}
+					{historyChildren}
+				</>
+			) : (
+				<Box sx={{ mt: 4 }}>{servicingAccordion}</Box>
+			)}
 
 			{rmas && (
 				<Accordion disableGutters sx={{ mt: 2 }}>

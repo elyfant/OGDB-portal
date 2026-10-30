@@ -25,6 +25,7 @@ import type {
 	ParsedCertificate,
 	ProcessingPackage,
 	ProcessingPackageVersion,
+	RecordBatteryMeasurementInput,
 	RecordRmaEventInput,
 	RecordSensorCalibrationInput,
 	RecordServicingEventInput,
@@ -321,6 +322,23 @@ export async function updateGlider(
 		throw new Error(data?.message ?? `Failed to update glider: ${res.status}`);
 	}
 	return res.json();
+}
+
+export async function recordBatteryMeasurement(
+	assetId: number,
+	input: RecordBatteryMeasurementInput,
+): Promise<void> {
+	const res = await fetch(`/api/assets/${assetId}/battery/measurements`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to record measurement: ${res.status}`,
+		);
+	}
 }
 
 export async function createAsset(input: CreateAssetInput): Promise<Asset> {

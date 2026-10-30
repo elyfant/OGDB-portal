@@ -30,6 +30,7 @@ import { PG_POOL } from "../db/db.constants";
 import { DocumentsService } from "../documents/documents.service";
 import { fetchBuildTree } from "../gliders/build.helpers";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
+import type { RecordBatteryMeasurementDto } from "./dto/record-battery-measurement.dto";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
 import type { SetAssetStatusDto } from "./dto/set-asset-status.dto";
 import type { SetDecommissionDto } from "./dto/set-decommission.dto";
@@ -256,6 +257,23 @@ export class AssetsService {
 			[id],
 		);
 
+		const spec = await this.pool.query(
+			`SELECT bm.model,
+              bm.manufacturer_part_number AS "manufacturerPartNumber",
+              bm.nominal_capacity AS capacity,
+              bm.nominal_voltage AS "nominalVoltage",
+              bm.nominal_watt_hours AS "wattHours",
+              bm.chemistry,
+              bm.un_classification AS "unClassification",
+              COALESCE(nt.label, p.name || ' ' || p.model) AS platform
+       FROM asset_battery_details abd
+       JOIN battery_models bm ON bm.id = abd.battery_model_id
+       LEFT JOIN platforms p ON p.id = bm.platform_id
+       LEFT JOIN nvs_terms nt ON nt.id = p.b76_model_id
+       WHERE abd.asset_id = $1`,
+			[id],
+		);
+
 		const measurements = await this.pool.query(
 			`SELECT id,
               measured_date AS "measuredDate",
@@ -271,6 +289,7 @@ export class AssetsService {
 		);
 
 		return {
+			spec: spec.rows[0] ?? null,
 			instituteId: detail.rows[0]?.instituteId ?? null,
 			institute: detail.rows[0]?.institute ?? null,
 			batteryModelId: detail.rows[0]?.batteryModelId ?? null,
@@ -278,6 +297,34 @@ export class AssetsService {
 			dateOfManufacture: detail.rows[0]?.dateOfManufacture ?? null,
 			measurements: measurements.rows,
 		};
+	}
+
+	// Always an INSERT -- asset_battery_measurements is an append-only
+	// history ("current = latest by date", same as the other history
+	// tables), so a re-measurement never overwrites an earlier one.
+	async recordBatteryMeasurement(
+		id: number,
+		dto: RecordBatteryMeasurementDto,
+		userId: number,
+	): Promise<void> {
+		const asset = await this.findOne(id);
+		if (asset.assetType !== "battery") {
+			throw new BadRequestException(`Asset ${id} is not a battery.`);
+		}
+		if (dto.weight == null && dto.voltage == null) {
+			throw new BadRequestException("Enter a weight or a voltage.");
+		}
+		await this.pool.query(
+			`INSERT INTO asset_battery_measurements (asset_id, measured_date, weight, voltage, changed_by)
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5)`,
+			[
+				id,
+				dto.measuredDate ?? null,
+				dto.weight ?? null,
+				dto.voltage ?? null,
+				userId,
+			],
+		);
 	}
 
 	// Read-only: every column of the asset's per-type detail table, as-is.
