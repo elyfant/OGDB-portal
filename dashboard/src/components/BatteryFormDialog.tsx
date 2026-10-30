@@ -1,7 +1,8 @@
 "use client";
 
-import { createAsset } from "@/lib/api-client";
+import { createAsset, updateAsset } from "@/lib/api-client";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -13,7 +14,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import type { LookupOption } from "@ogdb/types";
+import type { Asset, BatteryDetail, LookupOption } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 
@@ -23,15 +24,23 @@ import { type ReactNode, useState } from "react";
 // battery-specific fields (model, date of manufacture, weight) ride along
 // on CreateAssetInput; the gateway routes them to asset_battery_details /
 // asset_battery_measurements once it sees the type is "battery".
+//
+// Edit mode (the battery detail page) shows the same fields, minus
+// weight: weight is the first row of the append-only measurement
+// history, so re-measuring is a separate action, not a field edit.
 interface FormState {
 	instituteId: number | "";
 	serialNumber: string;
 	purchaseDate: string;
 	purchaseValue: string;
+	purchaseCurrency: string;
 	batteryModelId: number | "";
 	dateOfManufacture: string;
 	weight: string;
 }
+
+// Same list as AssetFormDialog -- the gateway accepts any ISO 4217 code.
+const CURRENCIES = ["USD", "EUR", "NOK", "GBP"];
 
 function emptyForm(): FormState {
 	return {
@@ -39,21 +48,44 @@ function emptyForm(): FormState {
 		serialNumber: "",
 		purchaseDate: "",
 		purchaseValue: "",
+		purchaseCurrency: "USD",
 		batteryModelId: "",
 		dateOfManufacture: "",
 		weight: "",
 	};
 }
 
-export default function BatteryFormDialog({
-	batteryAssetTypeId,
-	institutes,
-	batteryModels,
-}: {
-	batteryAssetTypeId: number;
-	institutes: LookupOption[];
-	batteryModels: LookupOption[];
-}) {
+function formFromBattery(asset: Asset, battery: BatteryDetail): FormState {
+	return {
+		instituteId: battery.instituteId ?? "",
+		serialNumber: asset.serialNumber ?? "",
+		purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
+		purchaseValue: asset.purchaseValue?.toString() ?? "",
+		purchaseCurrency: asset.purchaseCurrency,
+		batteryModelId: battery.batteryModelId ?? "",
+		dateOfManufacture: battery.dateOfManufacture?.slice(0, 10) ?? "",
+		weight: "",
+	};
+}
+
+type Props =
+	| {
+			mode?: "create";
+			batteryAssetTypeId: number;
+			institutes: LookupOption[];
+			batteryModels: LookupOption[];
+	  }
+	| {
+			mode: "edit";
+			asset: Asset;
+			battery: BatteryDetail;
+			institutes: LookupOption[];
+			batteryModels: LookupOption[];
+	  };
+
+export default function BatteryFormDialog(props: Props) {
+	const { institutes, batteryModels } = props;
+	const editing = props.mode === "edit";
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(emptyForm);
@@ -65,7 +97,11 @@ export default function BatteryFormDialog({
 	} | null>(null);
 
 	function handleOpen() {
-		setForm(emptyForm());
+		setForm(
+			props.mode === "edit"
+				? formFromBattery(props.asset, props.battery)
+				: emptyForm(),
+		);
 		setError(null);
 		setOpen(true);
 	}
@@ -96,26 +132,46 @@ export default function BatteryFormDialog({
 
 		setSaving(true);
 		try {
-			await createAsset({
-				assetTypeId: batteryAssetTypeId,
-				serialNumber: form.serialNumber.trim() || null,
-				purchaseDate: form.purchaseDate || null,
-				purchaseValue,
-				instituteId: form.instituteId === "" ? null : form.instituteId,
-				batteryModelId: form.batteryModelId === "" ? null : form.batteryModelId,
-				dateOfManufacture: form.dateOfManufacture || null,
-				weight,
-			});
+			const instituteId = form.instituteId === "" ? null : form.instituteId;
+			const batteryModelId =
+				form.batteryModelId === "" ? null : form.batteryModelId;
+			if (props.mode === "edit") {
+				await updateAsset(props.asset.id, {
+					serialNumber: form.serialNumber.trim() || null,
+					purchaseDate: form.purchaseDate || null,
+					purchaseValue,
+					purchaseCurrency: form.purchaseCurrency,
+					instituteId,
+					batteryModelId,
+					dateOfManufacture: form.dateOfManufacture || null,
+				});
+			} else {
+				await createAsset({
+					assetTypeId: props.batteryAssetTypeId,
+					serialNumber: form.serialNumber.trim() || null,
+					purchaseDate: form.purchaseDate || null,
+					purchaseValue,
+					purchaseCurrency: form.purchaseCurrency,
+					instituteId,
+					batteryModelId,
+					dateOfManufacture: form.dateOfManufacture || null,
+					weight,
+				});
+			}
 			closeDialog();
 			setBanner({
 				severity: "success",
-				message: "Battery pack successfully created!",
+				message: editing
+					? "Battery details updated!"
+					: "Battery pack successfully created!",
 			});
 		} catch (err) {
 			setBanner({
 				severity: "error",
 				message:
-					err instanceof Error ? err.message : "Failed to create battery pack.",
+					err instanceof Error
+						? err.message
+						: `Failed to ${editing ? "update" : "create"} battery.`,
 			});
 		} finally {
 			setSaving(false);
@@ -126,14 +182,19 @@ export default function BatteryFormDialog({
 		<>
 			<Button
 				variant="contained"
-				startIcon={<AddCircleOutlineIcon />}
+				size={editing ? "small" : undefined}
+				startIcon={
+					editing ? <EditIcon fontSize="small" /> : <AddCircleOutlineIcon />
+				}
 				onClick={handleOpen}
 			>
-				Add new battery pack
+				{editing ? "Edit battery details" : "Add new battery pack"}
 			</Button>
 
 			<Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
-				<DialogTitle>Add new battery</DialogTitle>
+				<DialogTitle>
+					{editing ? "Edit battery details" : "Add new battery"}
+				</DialogTitle>
 				<DialogContent
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 3 }}
@@ -183,19 +244,39 @@ export default function BatteryFormDialog({
 									}
 								/>
 							</Field>
-							<Field label="Purchase value (USD)">
-								<TextField
-									type="number"
-									size="small"
-									fullWidth
-									value={form.purchaseValue}
-									onChange={(e) =>
-										setForm((s) => ({
-											...s,
-											purchaseValue: e.target.value,
-										}))
-									}
-								/>
+							<Field label="Purchase value">
+								<Box sx={{ display: "flex", gap: 1 }}>
+									<TextField
+										type="number"
+										size="small"
+										fullWidth
+										value={form.purchaseValue}
+										onChange={(e) =>
+											setForm((s) => ({
+												...s,
+												purchaseValue: e.target.value,
+											}))
+										}
+									/>
+									<TextField
+										select
+										size="small"
+										sx={{ minWidth: 90 }}
+										value={form.purchaseCurrency}
+										onChange={(e) =>
+											setForm((s) => ({
+												...s,
+												purchaseCurrency: e.target.value,
+											}))
+										}
+									>
+										{CURRENCIES.map((c) => (
+											<MenuItem key={c} value={c}>
+												{c}
+											</MenuItem>
+										))}
+									</TextField>
+								</Box>
 							</Field>
 							<Field label="Battery model">
 								<TextField
@@ -235,24 +316,26 @@ export default function BatteryFormDialog({
 									}
 								/>
 							</Field>
-							<Field label="Weight (g)">
-								<TextField
-									type="number"
-									size="small"
-									fullWidth
-									value={form.weight}
-									onChange={(e) =>
-										setForm((s) => ({ ...s, weight: e.target.value }))
-									}
-								/>
-							</Field>
+							{!editing && (
+								<Field label="Weight (g)">
+									<TextField
+										type="number"
+										size="small"
+										fullWidth
+										value={form.weight}
+										onChange={(e) =>
+											setForm((s) => ({ ...s, weight: e.target.value }))
+										}
+									/>
+								</Field>
+							)}
 						</Grid>
 					</Section>
 
 					<Typography variant="caption" color="text.secondary">
-						New batteries start with status "Lab". Weight is recorded as the
-						first entry in the battery's measurement history and can be
-						re-measured over its life from the battery's detail page.
+						{editing
+							? "Weight isn't editable here: it's recorded in the battery's measurement history."
+							: "New batteries start with status \"Lab\". Weight is recorded as the first entry in the battery's measurement history and can be re-measured over its life from the battery's detail page."}
 					</Typography>
 
 					{error && (
@@ -266,7 +349,7 @@ export default function BatteryFormDialog({
 						Cancel
 					</Button>
 					<Button variant="contained" onClick={handleSave} disabled={saving}>
-						{saving ? "Saving…" : "Create battery"}
+						{saving ? "Saving…" : editing ? "Save changes" : "Create battery"}
 					</Button>
 				</DialogActions>
 			</Dialog>

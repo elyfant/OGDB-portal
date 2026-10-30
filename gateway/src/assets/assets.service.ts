@@ -243,11 +243,16 @@ export class AssetsService {
 		await this.findOne(id);
 
 		const detail = await this.pool.query(
-			`SELECT bm.model AS "batteryModel",
+			`SELECT a.institute_id AS "instituteId",
+              i.name AS institute,
+              abd.battery_model_id AS "batteryModelId",
+              bm.model AS "batteryModel",
               abd.date_of_manufacture AS "dateOfManufacture"
-       FROM asset_battery_details abd
+       FROM assets a
+       LEFT JOIN institutes i ON i.id = a.institute_id
+       LEFT JOIN asset_battery_details abd ON abd.asset_id = a.id
        LEFT JOIN battery_models bm ON bm.id = abd.battery_model_id
-       WHERE abd.asset_id = $1`,
+       WHERE a.id = $1`,
 			[id],
 		);
 
@@ -266,6 +271,9 @@ export class AssetsService {
 		);
 
 		return {
+			instituteId: detail.rows[0]?.instituteId ?? null,
+			institute: detail.rows[0]?.institute ?? null,
+			batteryModelId: detail.rows[0]?.batteryModelId ?? null,
 			batteryModel: detail.rows[0]?.batteryModel ?? null,
 			dateOfManufacture: detail.rows[0]?.dateOfManufacture ?? null,
 			measurements: measurements.rows,
@@ -713,7 +721,7 @@ export class AssetsService {
 		dto: UpdateAssetDto,
 		userId: number,
 	): Promise<Asset> {
-		await this.findOne(id);
+		const existing = await this.findOne(id);
 		if (
 			dto.serialNumber !== undefined ||
 			dto.notes !== undefined ||
@@ -739,6 +747,42 @@ export class AssetsService {
 					id,
 					userId,
 					dto.purchaseCurrency ?? null,
+				],
+			);
+		}
+
+		// Also a genuine set rather than a COALESCE: the battery edit form
+		// shows the current institute, so null here means "clear it".
+		if (dto.instituteId !== undefined) {
+			await this.pool.query(
+				`UPDATE assets SET institute_id = $1, updated_at = now(), changed_by = $3
+         WHERE id = $2`,
+				[dto.instituteId, id, userId],
+			);
+		}
+
+		// Batteries only: model + manufacture date live in
+		// asset_battery_details, which a battery created before those fields
+		// existed may have no row in, hence the upsert. Each field is only
+		// overwritten when the request actually carried it (null = clear).
+		if (
+			existing.assetType === "battery" &&
+			(dto.batteryModelId !== undefined || dto.dateOfManufacture !== undefined)
+		) {
+			await this.pool.query(
+				`INSERT INTO asset_battery_details (asset_id, battery_model_id, date_of_manufacture)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (asset_id) DO UPDATE SET
+           battery_model_id = CASE WHEN $4::boolean THEN EXCLUDED.battery_model_id
+                                   ELSE asset_battery_details.battery_model_id END,
+           date_of_manufacture = CASE WHEN $5::boolean THEN EXCLUDED.date_of_manufacture
+                                      ELSE asset_battery_details.date_of_manufacture END`,
+				[
+					id,
+					dto.batteryModelId ?? null,
+					dto.dateOfManufacture ?? null,
+					dto.batteryModelId !== undefined,
+					dto.dateOfManufacture !== undefined,
 				],
 			);
 		}

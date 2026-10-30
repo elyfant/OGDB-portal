@@ -7,7 +7,7 @@ import ServicingEventControls, {
 } from "@/components/ServicingEventControls";
 import ServicingHistoryTable from "@/components/ServicingHistoryTable";
 import { formatDate } from "@/lib/format";
-import type { TimelineEvent } from "@/lib/timeline";
+import type { TimelineEvent, TimelineEventKind } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -40,11 +40,13 @@ export default function AssetServicingTimeline({
 	canEdit,
 	decommissionedDate,
 	decommissionReason,
+	hiddenKinds,
 }: {
 	assetId: number;
 	events: TimelineEvent[];
 	servicingEvents: ServicingEvent[];
-	rmas: AssetRmaSummary[];
+	// Pass null to leave the RMA cases accordion off (e.g. batteries).
+	rmas: AssetRmaSummary[] | null;
 	eventTypes: ServicingEventTypeOption[];
 	contacts: LookupOption[];
 	canEdit: boolean;
@@ -55,6 +57,8 @@ export default function AssetServicingTimeline({
 	// glider" cascade), not edited on its own page.
 	decommissionedDate: string | null;
 	decommissionReason: string | null;
+	// Timeline filter chips to drop for this asset type.
+	hiddenKinds?: TimelineEventKind[];
 }) {
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);
 
@@ -82,7 +86,7 @@ export default function AssetServicingTimeline({
 				canEdit={canEdit}
 			/>
 
-			<AssetTimelineSection events={events} />
+			<AssetTimelineSection events={events} hiddenKinds={hiddenKinds} />
 
 			<Accordion disableGutters sx={{ mt: 4 }}>
 				<AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -97,14 +101,16 @@ export default function AssetServicingTimeline({
 				</AccordionDetails>
 			</Accordion>
 
-			<Accordion disableGutters sx={{ mt: 2 }}>
-				<AccordionSummary expandIcon={<ExpandMoreIcon />}>
-					<Typography color="text.secondary">RMA cases</Typography>
-				</AccordionSummary>
-				<AccordionDetails>
-					<AssetRmaHistoryTable rmas={rmas} />
-				</AccordionDetails>
-			</Accordion>
+			{rmas && (
+				<Accordion disableGutters sx={{ mt: 2 }}>
+					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+						<Typography color="text.secondary">RMA cases</Typography>
+					</AccordionSummary>
+					<AccordionDetails>
+						<AssetRmaHistoryTable rmas={rmas} />
+					</AccordionDetails>
+				</Accordion>
+			)}
 		</Box>
 	);
 }

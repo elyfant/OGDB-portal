@@ -29,13 +29,20 @@ const CHIP_KINDS: TimelineEventKind[] = [
 // fully built by the caller (missions/calibrations/servicing folded
 // together however makes sense for that page); this component only
 // owns which kinds are toggled on.
+//
+// `hiddenKinds` drops chips that make no sense for the asset type (a
+// battery has no calibrations or RMAs); events of those kinds are left
+// off the chart too.
 export default function AssetTimelineSection({
 	events,
+	hiddenKinds = [],
 }: {
 	events: TimelineEvent[];
+	hiddenKinds?: TimelineEventKind[];
 }) {
+	const chipKinds = CHIP_KINDS.filter((k) => !hiddenKinds.includes(k));
 	const [activeKinds, setActiveKinds] = useState<Set<TimelineEventKind>>(
-		new Set(CHIP_KINDS),
+		new Set(chipKinds),
 	);
 	function toggleKind(kind: TimelineEventKind) {
 		setActiveKinds((prev) => {
@@ -51,7 +58,7 @@ export default function AssetTimelineSection({
 	return (
 		<Box>
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
-				{CHIP_KINDS.map((kind) => {
+				{chipKinds.map((kind) => {
 					const meta = KIND_META[kind];
 					const count = events.filter((e) => e.kind === kind).length;
 					const active = activeKinds.has(kind);

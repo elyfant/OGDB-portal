@@ -3,13 +3,11 @@ import AssetDetailsSection from "@/components/AssetDetailsSection";
 import AssetFormDialog from "@/components/AssetFormDialog";
 import AssetServicingTimeline from "@/components/AssetServicingTimeline";
 import AssetStatusHistoryTable from "@/components/AssetStatusHistoryTable";
-import BatteryDetailsSection from "@/components/BatteryDetailsSection";
 import CalibrationHistorySection from "@/components/CalibrationHistorySection";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import {
 	getAsset,
-	getAssetBattery,
 	getAssetCalibrations,
 	getAssetChanges,
 	getAssetDetails,
@@ -79,6 +77,10 @@ export default async function AssetDetailPage({
 	if (asset.assetType === "glider") {
 		redirect(`/gliders/${asset.id}`);
 	}
+	// Same for batteries -- see /battery/[id].
+	if (asset.assetType === "battery") {
+		redirect(`/battery/${asset.id}`);
+	}
 
 	const [
 		calibrations,
@@ -108,12 +110,6 @@ export default async function AssetDetailPage({
 		getCurrentUser(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
-
-	// Battery-type assets get a read-only "Battery details" accordion
-	// (model + manufacture date + measurement history) -- the generic
-	// asset detail grid has no source for those.
-	const battery =
-		asset.assetType === "battery" ? await getAssetBattery(asset.id) : null;
 
 	// GET /assets/:id/missions reads asset_assignments.mission_id directly
 	// -- only populated for assignments made through GliderBuildEditor
@@ -226,7 +222,6 @@ export default async function AssetDetailPage({
 				decommissionedDate={asset.decommissionedDate}
 				decommissionReason={asset.decommissionReason}
 			/>
-			{battery && <BatteryDetailsSection battery={battery} />}
 			<CalibrationHistorySection
 				calibrations={calibrations}
 				canEdit={canEdit}

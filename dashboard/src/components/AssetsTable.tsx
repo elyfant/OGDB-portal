@@ -19,13 +19,13 @@ import {
 import DataTable from "./DataTable";
 import FilterBar from "./FilterBar";
 
-// Assets that are gliders live under Fleet's own detail page — the
-// asset's id IS the glider's id (gliders are just assets with
-// asset_type "glider"), so no separate lookup is needed.
+// Gliders and batteries live under their own detail pages — the asset's
+// id IS the glider's/battery's id (both are just assets with the matching
+// asset_type), so no separate lookup is needed.
 function detailHref(asset: { id: number; assetType: string }) {
-	return asset.assetType === "glider"
-		? `/gliders/${asset.id}`
-		: `/assets/${asset.id}`;
+	if (asset.assetType === "glider") return `/gliders/${asset.id}`;
+	if (asset.assetType === "battery") return `/battery/${asset.id}`;
+	return `/assets/${asset.id}`;
 }
 
 export default function AssetsTable({

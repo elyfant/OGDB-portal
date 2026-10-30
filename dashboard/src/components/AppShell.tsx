@@ -71,6 +71,9 @@ const NAV_GROUPS = [
 ];
 
 function isActive(pathname: string, href: string) {
+	// A battery's detail page is /battery/[id], outside the /batteries
+	// prefix, so keep the Batteries nav item lit there too.
+	if (href === "/batteries" && pathname.startsWith("/battery/")) return true;
 	return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 

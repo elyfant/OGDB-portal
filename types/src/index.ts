@@ -262,6 +262,11 @@ export interface BatteryMeasurement {
 // accordion: the per-instance spec (asset_battery_details) plus the
 // measurement history, newest first.
 export interface BatteryDetail {
+	// The raw FKs (assets.institute_id, asset_battery_details.battery_model_id)
+	// so the edit dialog can pre-select the current values.
+	instituteId: number | null;
+	institute: string | null;
+	batteryModelId: number | null;
 	batteryModel: string | null;
 	dateOfManufacture: string | null;
 	measurements: BatteryMeasurement[];
@@ -308,6 +313,12 @@ export interface UpdateAssetInput {
 	// Equipment only. Omit to leave unchanged.
 	equipmentName?: string | null;
 	equipmentModel?: string | null;
+	// Omit to leave unchanged; null clears it.
+	instituteId?: number | null;
+	// Batteries only (asset_battery_details). Omit to leave unchanged; null
+	// clears it.
+	batteryModelId?: number | null;
+	dateOfManufacture?: string | null;
 }
 
 // "DM"/"PUB" replaced "L1"/"L2" (see xxxx_dataset_processing_dm_published.py

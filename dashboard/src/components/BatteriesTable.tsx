@@ -19,11 +19,10 @@ import {
 import DataTable from "./DataTable";
 import FilterBar from "./FilterBar";
 
-// A battery IS an asset (asset_type "battery"), so its detail page is the
-// shared asset detail page -- same as every non-glider asset in the "All
-// assets" table.
+// A battery IS an asset (asset_type "battery", same id) but has its own
+// detail page rather than the shared /assets/[id] one.
 function detailHref(battery: { id: number }) {
-	return `/assets/${battery.id}`;
+	return `/battery/${battery.id}`;
 }
 
 export default function BatteriesTable({
