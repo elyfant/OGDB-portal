@@ -1,4 +1,3 @@
-import BestDataFiles from "@/components/BestDataFiles";
 import EditMissionButton from "@/components/EditMissionButton";
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
@@ -299,28 +298,6 @@ export default async function MissionDetailPage({
 
 			<Box
 				sx={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-					mb: 1.5,
-				}}
-			>
-				<Typography variant="h6">Data files</Typography>
-				<MuiLink component={Link} href={`/datasets/${mission.id}`}>
-					All processing runs
-				</MuiLink>
-			</Box>
-			<Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
-				<BestDataFiles
-					l1File={mission.bestL1File}
-					l1Stage={mission.bestL1Stage}
-					l2File={mission.bestL2File}
-					l2Stage={mission.bestL2Stage}
-				/>
-			</Paper>
-
-			<Box
-				sx={{
 					display: "grid",
 					gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
 					gap: 3,
@@ -424,46 +401,6 @@ export default async function MissionDetailPage({
 							mb: 1.5,
 						}}
 					>
-						<Typography variant="h6">Glider build</Typography>
-						{mission.gliderAssetId && (
-							<Box sx={{ display: "flex", gap: 1 }}>
-								<GliderBuildEditor
-									variant="science"
-									gliderId={mission.gliderAssetId}
-									components={gliderBuild?.components ?? []}
-									statusOptions={statusOptions}
-									missionId={mission.id}
-									defaultDate={mission.launchDate?.slice(0, 10)}
-								/>
-								<GliderBuildEditor
-									gliderId={mission.gliderAssetId}
-									components={gliderBuild?.components ?? []}
-									statusOptions={statusOptions}
-									missionId={mission.id}
-									defaultDate={mission.launchDate?.slice(0, 10)}
-								/>
-							</Box>
-						)}
-					</Box>
-					<Paper variant="outlined" sx={{ p: 3 }}>
-						<MissionBuild
-							structuralComponents={structuralComponents}
-							sciencePayload={sciencePayload}
-							launchDate={mission.launchDate}
-							showDiagram={glider?.platform === "slocum"}
-						/>
-					</Paper>
-				</Box>
-
-				<Box>
-					<Box
-						sx={{
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "space-between",
-							mb: 1.5,
-						}}
-					>
 						<Typography variant="h6">Key files</Typography>
 						<MissionFilesEditor missionId={mission.id} files={missionFiles} />
 					</Box>
@@ -471,6 +408,46 @@ export default async function MissionDetailPage({
 						<KeyFiles files={missionFiles} />
 					</Paper>
 				</Box>
+			</Box>
+
+			<Box sx={{ mb: 4 }}>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						mb: 1.5,
+					}}
+				>
+					<Typography variant="h6">Glider build</Typography>
+					{mission.gliderAssetId && (
+						<Box sx={{ display: "flex", gap: 1 }}>
+							<GliderBuildEditor
+								variant="science"
+								gliderId={mission.gliderAssetId}
+								components={gliderBuild?.components ?? []}
+								statusOptions={statusOptions}
+								missionId={mission.id}
+								defaultDate={mission.launchDate?.slice(0, 10)}
+							/>
+							<GliderBuildEditor
+								gliderId={mission.gliderAssetId}
+								components={gliderBuild?.components ?? []}
+								statusOptions={statusOptions}
+								missionId={mission.id}
+								defaultDate={mission.launchDate?.slice(0, 10)}
+							/>
+						</Box>
+					)}
+				</Box>
+				<Paper variant="outlined" sx={{ p: 3 }}>
+					<MissionBuild
+						structuralComponents={structuralComponents}
+						sciencePayload={sciencePayload}
+						launchDate={mission.launchDate}
+						showDiagram={glider?.platform === "slocum"}
+					/>
+				</Paper>
 			</Box>
 
 			<Box sx={{ mb: 4 }}>
