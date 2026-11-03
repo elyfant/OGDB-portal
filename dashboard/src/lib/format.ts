@@ -19,6 +19,12 @@ export function formatDate(value: string | null): string {
 
 const ACRONYM_WORDS = new Set(["ct", "do", "mr"]);
 
+// Uppercases the first letter only, so "barents" -> "Barents" but names that
+// already carry their own capitals ("DML", "Fram") are left alone.
+export function capitalizeFirst(value: string | null): string | null {
+	return value ? value[0].toUpperCase() + value.slice(1) : value;
+}
+
 export function formatAssetType(assetType: string): string {
 	const words = assetType.replace(/^slocum_/, "").split("_");
 	return words

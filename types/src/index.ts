@@ -612,6 +612,7 @@ export interface Mission {
 	piWebpage: string | null;
 	techFullName: string | null;
 	techWebpage: string | null;
+	projectUrl: string | null;
 	operatingAgency: string | null;
 	operatingAgencyId: number | null;
 	fundingAgency: string | null;

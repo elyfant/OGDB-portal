@@ -66,6 +66,7 @@ const SELECT_MISSIONS = `
     (SELECT c.webpage FROM missions m JOIN contacts c ON c.id = m.principal_investigator_id WHERE m.id = norglider_missions.id) AS "piWebpage",
     (SELECT TRIM(c.first_name || ' ' || c.last_name) FROM missions m JOIN contacts c ON c.id = m.technical_lead_id WHERE m.id = norglider_missions.id) AS "techFullName",
     (SELECT c.webpage FROM missions m JOIN contacts c ON c.id = m.technical_lead_id WHERE m.id = norglider_missions.id) AS "techWebpage",
+    (SELECT p.url FROM missions m JOIN projects p ON p.id = m.project_id WHERE m.id = norglider_missions.id) AS "projectUrl",
     (SELECT operating_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "operatingAgencyId",
     (SELECT funding_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "fundingAgencyId",
     mission_number AS "missionNumber",

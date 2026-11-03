@@ -28,7 +28,12 @@ import {
 	getSites,
 	getStatusOptions,
 } from "@/lib/api";
-import { formatCount, formatDate, statusColor } from "@/lib/format";
+import {
+	capitalizeFirst,
+	formatCount,
+	formatDate,
+	statusColor,
+} from "@/lib/format";
 import DatasetIcon from "@mui/icons-material/Dataset";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -59,9 +64,9 @@ function formatPosition(lat: number | null, lon: number | null): string {
 	return `${Math.abs(lat).toFixed(2)}°${latDir}, ${Math.abs(lon).toFixed(2)}°${lonDir}`;
 }
 
-// Contacts.webpage is free text, so a bare "example.com" would otherwise
+// Contacts.webpage / projects.url are free text, so a bare "example.com" would otherwise
 // resolve relative to the portal -- default it to https.
-function contactLink(name: string | null, webpage: string | null) {
+function externalLink(name: string | null, webpage: string | null) {
 	if (!name) return null;
 	if (!webpage) return name;
 	const href = /^https?:\/\//i.test(webpage) ? webpage : `https://${webpage}`;
@@ -281,15 +286,18 @@ export default async function MissionDetailPage({
 						label="Glider model"
 						value={glider?.platformModelFull ?? glider?.platformModel}
 					/>
-					<Field label="Site" value={mission.site} />
-					<Field label="Project" value={mission.project} />
+					<Field label="Site" value={capitalizeFirst(mission.site)} />
+					<Field
+						label="Project"
+						value={externalLink(mission.project, mission.projectUrl)}
+					/>
 					<Field
 						label="Primary investigator"
-						value={contactLink(mission.piFullName, mission.piWebpage)}
+						value={externalLink(mission.piFullName, mission.piWebpage)}
 					/>
 					<Field
 						label="Lead engineer"
-						value={contactLink(mission.techFullName, mission.techWebpage)}
+						value={externalLink(mission.techFullName, mission.techWebpage)}
 					/>
 					<Field label="Operating agency" value={mission.operatingAgency} />
 					<Field label="Funding agency" value={mission.fundingAgency} />
