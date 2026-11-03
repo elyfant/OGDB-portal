@@ -91,8 +91,13 @@ export function formatHistoryTimestamp(value: string | null): string {
 	return `${day}-${month}-${d.getFullYear()} ${hours}:${minutes}`;
 }
 
-export function formatCount(value: number | null): string {
-	return value === null ? "—" : value.toLocaleString("en-GB");
+export function formatCount(
+	value: number | null,
+	maxDecimals?: number,
+): string {
+	return value === null
+		? "—"
+		: value.toLocaleString("en-GB", { maximumFractionDigits: maxDecimals });
 }
 
 export function formatUsd(value: number | null): string {

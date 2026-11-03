@@ -242,7 +242,7 @@ export default async function MissionDetailPage({
 				/>
 				<StatTile
 					label="Total distance (km)"
-					value={formatCount(mission.distanceKm)}
+					value={formatCount(mission.distanceKm, 0)}
 					icon={StraightenIcon}
 					colorRole="aqua"
 				/>
