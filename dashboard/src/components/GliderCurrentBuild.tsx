@@ -1,9 +1,9 @@
 "use client";
 
 import GliderComponentDetailPanel from "@/components/GliderComponentDetailPanel";
+import NvsLink from "@/components/NvsLink";
 import { formatAssetType, formatDate } from "@/lib/format";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
 import MuiLink from "@mui/material/Link";
@@ -12,8 +12,10 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { GliderBuildComponent, GliderComponentDetail } from "@ogdb/types";
+import Link from "next/link";
 import { Fragment, useState } from "react";
 
 // Fixed display order — Fiona's spec. Any group not present (e.g. no
@@ -159,23 +161,24 @@ export default function GliderCurrentBuild({
 													}}
 												>
 													{c.model ?? "—"}
-													{c.modelUri && (
-														<MuiLink
-															href={c.modelUri}
-															target="_blank"
-															rel="noreferrer"
-															onClick={(e) => e.stopPropagation()}
-															sx={{
-																display: "inline-flex",
-																color: "text.secondary",
-															}}
-														>
-															<InfoOutlinedIcon sx={{ fontSize: 15 }} />
-														</MuiLink>
-													)}
+													<NvsLink uri={c.modelUri} iconSize={15} />
 												</Box>
 											</TableCell>
-											<TableCell>{c.serialNumber ?? "—"}</TableCell>
+											<TableCell>
+												{c.serialNumber ? (
+													<Tooltip title="Open asset details">
+														<MuiLink
+															component={Link}
+															href={`/assets/${c.assetId}`}
+															onClick={(e) => e.stopPropagation()}
+														>
+															{c.serialNumber}
+														</MuiLink>
+													</Tooltip>
+												) : (
+													"—"
+												)}
+											</TableCell>
 											<TableCell>{formatDate(c.installDate)}</TableCell>
 										</TableRow>
 										{detail && (
