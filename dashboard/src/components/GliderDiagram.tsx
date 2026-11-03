@@ -91,7 +91,11 @@ export default function GliderDiagram({
 							key={c.assetId}
 							size="small"
 							variant="outlined"
-							label={formatAssetType(c.assetType)}
+							label={
+								c.position
+									? `${formatAssetType(c.assetType)} (${c.position})`
+									: formatAssetType(c.assetType)
+							}
 						/>
 					))}
 				</Box>

@@ -1,35 +1,61 @@
 import type { GliderBuildComponent } from "@ogdb/types";
-import { PARTS, REFERENCE_LAYOUT } from "./slocum-g3/parts.generated";
+import { PARTS } from "./slocum-g3/parts.generated";
 
-// Slot rules and layout for a Slocum G3 diagram. The artwork and the
-// reference positions are generated from the PowerPoint deck (see
-// dashboard/scripts/pptx_to_glider_parts.py); this file holds the rules the
-// deck can't express: which asset fills which slot, and how to place it.
+// Slot rules and layout for a Slocum G3 diagram. The artwork lives in
+// slocum-g3/*.svg (embedded by scripts/build_glider_parts.py); this file
+// holds what a drawing can't express: which asset fills which slot, and how
+// the parts sit on one another.
 //
 // The shape deliberately mirrors what two database tables would hold later:
-// slots (this file's SLOTS) and model -> artwork (artFor). Moving them into
-// OGDB is then a straight copy, not a redesign.
+// slots (INLINE_SLOTS / ATTACHED_SLOTS) and model -> artwork (artFor).
+// Moving them into OGDB is then a straight copy, not a redesign.
+//
+// All sizes and offsets are deck units (1/100 inch), so the parts stay in
+// proportion to each other.
 
-export interface SlotDef {
+interface SlotBase {
 	key: string;
 	label: string;
 	assetType: string;
 	// Aliases for asset_assignments.position (free text) that select this
 	// slot. Omitted = the type alone is enough.
 	positions?: string[];
-	// Attached slots are placed relative to their parent slot; inline slots
-	// are packed left to right along the hull axis.
-	parent?: string;
+	// Artwork used when the model doesn't say otherwise (and for the dashed
+	// placeholder when nothing is assigned).
+	art: string;
 }
 
+// Packed left to right along the hull axis.
+export interface InlineSlot extends SlotBase {
+	// Vertical offset from the top of the hull.
+	dy: number;
+}
+
+// Drawn on top of a parent slot, offset from the parent's top-left corner.
+export interface AttachedSlot extends SlotBase {
+	parent: string;
+	dx: number;
+	dy: number;
+}
+
+export type SlotDef = InlineSlot | AttachedSlot;
+
 // Left to right along the glider.
-export const INLINE_SLOTS: SlotDef[] = [
-	{ key: "nose", label: "Altimeter", assetType: "slocum_altimeter" },
+export const INLINE_SLOTS: InlineSlot[] = [
+	{
+		key: "nose",
+		label: "Altimeter",
+		assetType: "slocum_altimeter",
+		art: "altimeter",
+		dy: 0,
+	},
 	{
 		key: "fore_hull",
 		label: "Fore hull",
 		assetType: "slocum_hull",
-		positions: ["fore"],
+		positions: ["fore", "forward", "fwd", "front"],
+		art: "hull_L",
+		dy: 0,
 	},
 	{
 		key: "energy_hull",
@@ -37,82 +63,118 @@ export const INLINE_SLOTS: SlotDef[] = [
 		assetType: "slocum_hull",
 		// "extended" is what some existing data calls the energy hull.
 		positions: ["energy", "extended"],
+		art: "hull_1",
+		dy: 0,
 	},
 	{
 		key: "payload_bay",
 		label: "Payload bay",
 		assetType: "slocum_payload_bay",
+		art: "payload_bay",
+		dy: 0,
 	},
 	{
 		key: "aft_hull",
 		label: "Aft hull",
 		assetType: "slocum_hull",
-		positions: ["aft"],
+		positions: ["aft", "rear"],
+		art: "hull_L",
+		dy: 0,
 	},
-	{ key: "end_cap", label: "End cap", assetType: "slocum_end_cap" },
+	{
+		// The tail fin and mast rise above the hull line, so the part is
+		// taller than the hull and starts above it.
+		key: "end_cap",
+		label: "End cap",
+		assetType: "slocum_end_cap",
+		art: "end_cap",
+		dy: -56,
+	},
 ];
 
-// Drawn after the inline slots, in this order (it's also the z-order: later
-// is on top, matching the deck).
-export const ATTACHED_SLOTS: SlotDef[] = [
+// Drawn after the inline slots, in this order -- which is also the z-order
+// (later is on top): the shafts pass over the batteries, as in the sketch.
+export const ATTACHED_SLOTS: AttachedSlot[] = [
 	{
 		key: "pitch_battery",
 		label: "Pitch battery",
 		assetType: "battery",
 		positions: ["pitch"],
+		art: "battery_pitch",
 		parent: "fore_hull",
+		dx: 119,
+		dy: 4.5,
 	},
 	{
 		key: "forward_section",
 		label: "Forward section",
 		assetType: "slocum_forward_section",
+		art: "forward_section",
 		parent: "fore_hull",
+		dx: 7,
+		dy: 3.5,
 	},
 	{
 		key: "energy_battery",
 		label: "Energy battery",
 		assetType: "battery",
 		positions: ["energy"],
+		art: "battery_pitch",
 		parent: "energy_hull",
+		dx: 35,
+		dy: 4.5,
 	},
 	{
 		key: "energy_bay",
 		label: "Energy bay",
 		assetType: "slocum_energy_bay",
+		art: "energy_bay",
 		parent: "energy_hull",
+		dx: 14,
+		dy: 0,
 	},
 	{
 		key: "ct_sensor",
 		label: "CT sensor",
 		assetType: "ct_sensor",
+		art: "ct_sensor",
 		parent: "payload_bay",
+		dx: 27,
+		dy: 72,
 	},
 	{
 		key: "aft_battery",
 		label: "Aft battery",
 		assetType: "battery",
 		positions: ["aft"],
+		art: "battery_aft",
 		parent: "aft_hull",
+		dx: 16,
+		dy: 67,
 	},
 	{
 		key: "aft_section",
 		label: "Aft section",
 		assetType: "slocum_aft_section",
+		art: "aft_section",
 		parent: "aft_hull",
+		dx: 4,
+		dy: 36,
 	},
 	{
 		key: "do_sensor",
 		label: "DO sensor",
 		assetType: "do_sensor",
+		art: "do_sensor",
 		parent: "end_cap",
+		dx: 84,
+		dy: 106,
 	},
 ];
 
-// Which drawing a given asset gets. The slot's default (from the deck) is
-// used unless the model says otherwise -- a short hull in the fore slot
-// should look short.
+// Which drawing a given asset gets. The slot's default is used unless the
+// model says otherwise -- a short hull in the fore slot should look short.
 function artFor(slot: SlotDef, component: GliderBuildComponent | null): string {
-	const fallback = REFERENCE_LAYOUT[slot.key].part;
 	const model = component?.model ?? "";
 	if (slot.assetType === "slocum_hull") {
 		if (/G-1405-L\b/i.test(model)) return "hull_L";
@@ -122,7 +184,7 @@ function artFor(slot: SlotDef, component: GliderBuildComponent | null): string {
 		if (/aft/i.test(model)) return "battery_aft";
 		if (/pitch/i.test(model)) return "battery_pitch";
 	}
-	return fallback;
+	return slot.art;
 }
 
 export interface PlacedPart {
@@ -139,7 +201,8 @@ export interface DiagramLayout {
 	parts: PlacedPart[];
 	width: number;
 	height: number;
-	// Components in the build that no slot drew (thruster, Argos tag, ...).
+	// Components in the build that no slot drew (thruster, Argos tag, or a
+	// hull whose position matches none of the hull slots).
 	notShown: GliderBuildComponent[];
 }
 
@@ -171,47 +234,38 @@ export function layoutSlocumG3(
 	const assigned = assign(components);
 	const placed = new Map<string, PlacedPart>();
 
-	// Inline: pack left to right. Each part's advance is its own width minus
-	// the overlap the deck drew between it and the next part, so a longer
-	// hull pushes everything after it along.
-	const refTop = REFERENCE_LAYOUT.fore_hull.y;
+	// Inline: pack left to right. Each part's own width is its advance, so a
+	// longer hull pushes everything after it along.
 	let cursor = 0;
-	INLINE_SLOTS.forEach((slot, i) => {
+	for (const slot of INLINE_SLOTS) {
 		const component = assigned.get(slot.key) ?? null;
 		const partId = artFor(slot, component);
 		const part = PARTS[partId];
-		const ref = REFERENCE_LAYOUT[slot.key];
 		placed.set(slot.key, {
 			slot,
 			component,
 			partId,
 			x: cursor,
-			y: ref.y - refTop,
+			y: slot.dy,
 			width: part.width,
 			height: part.height,
 		});
-		const next = INLINE_SLOTS[i + 1];
-		const overlap = next
-			? ref.x + PARTS[ref.part].width - REFERENCE_LAYOUT[next.key].x
-			: 0;
-		cursor += part.width - overlap;
-	});
+		cursor += part.width;
+	}
 
-	// Attached: offset from the parent by whatever the deck drew.
+	// Attached: offset from the parent's top-left corner.
 	for (const slot of ATTACHED_SLOTS) {
-		const parent = placed.get(slot.parent as string);
+		const parent = placed.get(slot.parent);
 		if (!parent) continue;
 		const component = assigned.get(slot.key) ?? null;
 		const partId = artFor(slot, component);
 		const part = PARTS[partId];
-		const ref = REFERENCE_LAYOUT[slot.key];
-		const parentRef = REFERENCE_LAYOUT[parent.slot.key];
 		placed.set(slot.key, {
 			slot,
 			component,
 			partId,
-			x: parent.x + (ref.x - parentRef.x),
-			y: parent.y + (ref.y - parentRef.y),
+			x: parent.x + slot.dx,
+			y: parent.y + slot.dy,
 			width: part.width,
 			height: part.height,
 		});
