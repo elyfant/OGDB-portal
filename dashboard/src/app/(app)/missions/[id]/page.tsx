@@ -3,11 +3,11 @@ import EditMissionButton from "@/components/EditMissionButton";
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import KeyFiles from "@/components/KeyFiles";
+import MissionBuild from "@/components/MissionBuild";
 import MissionFilesEditor from "@/components/MissionFilesEditor";
 import MissionTrackMapLoader from "@/components/MissionTrackMapLoader";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import RegionIcon from "@/components/RegionIcon";
-import SciencePayloadTable from "@/components/SciencePayloadTable";
 import StatTile from "@/components/StatTile";
 import MissionIridiumSection from "@/components/iridium/MissionIridiumSection";
 import { siteToArea } from "@/components/mission-stats/site-areas";
@@ -29,12 +29,7 @@ import {
 	getSites,
 	getStatusOptions,
 } from "@/lib/api";
-import {
-	formatAssetType,
-	formatCount,
-	formatDate,
-	statusColor,
-} from "@/lib/format";
+import { formatCount, formatDate, statusColor } from "@/lib/format";
 import DatasetIcon from "@mui/icons-material/Dataset";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -47,13 +42,6 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -70,16 +58,6 @@ function formatPosition(lat: number | null, lon: number | null): string {
 	const latDir = lat >= 0 ? "N" : "S";
 	const lonDir = lon >= 0 ? "E" : "W";
 	return `${Math.abs(lat).toFixed(2)}°${latDir}, ${Math.abs(lon).toFixed(2)}°${lonDir}`;
-}
-
-function EmptyTableNote({ colSpan, text }: { colSpan: number; text: string }) {
-	return (
-		<TableRow>
-			<TableCell colSpan={colSpan} sx={{ color: "text.disabled" }}>
-				{text}
-			</TableCell>
-		</TableRow>
-	);
 }
 
 // Contacts.webpage is free text, so a bare "example.com" would otherwise
@@ -443,34 +421,38 @@ export default async function MissionDetailPage({
 							display: "flex",
 							alignItems: "center",
 							justifyContent: "space-between",
-							mb: 0.5,
+							mb: 1.5,
 						}}
 					>
-						<Typography variant="h6">Science payload</Typography>
+						<Typography variant="h6">Glider build</Typography>
 						{mission.gliderAssetId && (
-							<GliderBuildEditor
-								variant="science"
-								gliderId={mission.gliderAssetId}
-								components={gliderBuild?.components ?? []}
-								statusOptions={statusOptions}
-								missionId={mission.id}
-								defaultDate={mission.launchDate?.slice(0, 10)}
-							/>
+							<Box sx={{ display: "flex", gap: 1 }}>
+								<GliderBuildEditor
+									variant="science"
+									gliderId={mission.gliderAssetId}
+									components={gliderBuild?.components ?? []}
+									statusOptions={statusOptions}
+									missionId={mission.id}
+									defaultDate={mission.launchDate?.slice(0, 10)}
+								/>
+								<GliderBuildEditor
+									gliderId={mission.gliderAssetId}
+									components={gliderBuild?.components ?? []}
+									statusOptions={statusOptions}
+									missionId={mission.id}
+									defaultDate={mission.launchDate?.slice(0, 10)}
+								/>
+							</Box>
 						)}
 					</Box>
-					<Typography
-						variant="caption"
-						color="text.secondary"
-						sx={{ mb: 1.5, display: "block" }}
-					>
-						{mission.launchDate
-							? `Calibration shown as of this mission's launch date, ${formatDate(mission.launchDate)}`
-							: "Calibration shown as of today — no launch date recorded for this mission yet"}
-					</Typography>
-					<SciencePayloadTable
-						sensors={sciencePayload}
-						asOfDate={mission.launchDate ?? new Date().toISOString()}
-					/>
+					<Paper variant="outlined" sx={{ p: 3 }}>
+						<MissionBuild
+							structuralComponents={structuralComponents}
+							sciencePayload={sciencePayload}
+							launchDate={mission.launchDate}
+							showDiagram={glider?.platform === "slocum"}
+						/>
+					</Paper>
 				</Box>
 
 				<Box>
@@ -488,68 +470,6 @@ export default async function MissionDetailPage({
 					<Paper variant="outlined" sx={{ p: 2.5 }}>
 						<KeyFiles files={missionFiles} />
 					</Paper>
-				</Box>
-
-				<Box>
-					<Box
-						sx={{
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "space-between",
-							mb: 1.5,
-						}}
-					>
-						<Typography variant="h6">Glider build</Typography>
-						{mission.gliderAssetId && (
-							<GliderBuildEditor
-								gliderId={mission.gliderAssetId}
-								components={gliderBuild?.components ?? []}
-								statusOptions={statusOptions}
-								missionId={mission.id}
-								defaultDate={mission.launchDate?.slice(0, 10)}
-							/>
-						)}
-					</Box>
-					<TableContainer component={Paper} variant="outlined">
-						<Table size="small">
-							<TableHead>
-								<TableRow>
-									<TableCell>Asset</TableCell>
-									<TableCell>Model</TableCell>
-									<TableCell>Serial number</TableCell>
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{structuralComponents.length > 0 ? (
-									structuralComponents.map((c) => (
-										<TableRow key={c.assignmentId}>
-											<TableCell sx={{ pl: 2 + (c.depth - 1) * 2 }}>
-												{formatAssetType(c.assetType)}
-												{c.position ? ` (${c.position})` : ""}
-											</TableCell>
-											<TableCell>{c.model ?? "—"}</TableCell>
-											<TableCell>
-												{c.serialNumber ? (
-													<Tooltip title="Open asset details">
-														<MuiLink
-															component={Link}
-															href={`/assets/${c.assetId}`}
-														>
-															{c.serialNumber}
-														</MuiLink>
-													</Tooltip>
-												) : (
-													"—"
-												)}
-											</TableCell>
-										</TableRow>
-									))
-								) : (
-									<EmptyTableNote colSpan={3} text="Not yet available." />
-								)}
-							</TableBody>
-						</Table>
-					</TableContainer>
 				</Box>
 			</Box>
 

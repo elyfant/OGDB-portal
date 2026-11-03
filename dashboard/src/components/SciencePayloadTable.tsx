@@ -60,10 +60,16 @@ function CoefficientGrid({
 export default function SciencePayloadTable({
 	sensors,
 	asOfDate,
+	bare = false,
 }: {
 	sensors: ScienceSensorRecord[];
 	asOfDate: string;
+	// Drop the outlined card, for when the table already sits inside one.
+	bare?: boolean;
 }) {
+	const containerProps = bare
+		? ({} as const)
+		: ({ component: Paper, variant: "outlined" } as const);
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
 	function toggle(assetId: number) {
@@ -77,7 +83,7 @@ export default function SciencePayloadTable({
 
 	if (sensors.length === 0) {
 		return (
-			<TableContainer component={Paper} variant="outlined">
+			<TableContainer {...containerProps}>
 				<Table size="small">
 					<TableBody>
 						<TableRow>
@@ -93,7 +99,7 @@ export default function SciencePayloadTable({
 	}
 
 	return (
-		<TableContainer component={Paper} variant="outlined">
+		<TableContainer {...containerProps}>
 			<Table size="small">
 				<TableHead>
 					<TableRow>
