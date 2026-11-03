@@ -82,6 +82,19 @@ function EmptyTableNote({ colSpan, text }: { colSpan: number; text: string }) {
 	);
 }
 
+// Contacts.webpage is free text, so a bare "example.com" would otherwise
+// resolve relative to the portal -- default it to https.
+function contactLink(name: string | null, webpage: string | null) {
+	if (!name) return null;
+	if (!webpage) return name;
+	const href = /^https?:\/\//i.test(webpage) ? webpage : `https://${webpage}`;
+	return (
+		<MuiLink href={href} target="_blank" rel="noreferrer">
+			{name}
+		</MuiLink>
+	);
+}
+
 export default async function MissionDetailPage({
 	params,
 }: {
@@ -293,8 +306,14 @@ export default async function MissionDetailPage({
 					/>
 					<Field label="Site" value={mission.site} />
 					<Field label="Project" value={mission.project} />
-					<Field label="PI" value={mission.pi} />
-					<Field label="Tech" value={mission.tech} />
+					<Field
+						label="Primary investigator"
+						value={contactLink(mission.piFullName, mission.piWebpage)}
+					/>
+					<Field
+						label="Lead engineer"
+						value={contactLink(mission.techFullName, mission.techWebpage)}
+					/>
 					<Field label="Operating agency" value={mission.operatingAgency} />
 					<Field label="Funding agency" value={mission.fundingAgency} />
 				</Box>

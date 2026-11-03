@@ -608,6 +608,10 @@ export interface Mission {
 	principalInvestigatorId: number | null;
 	tech: string | null;
 	technicalLeadId: number | null;
+	piFullName: string | null;
+	piWebpage: string | null;
+	techFullName: string | null;
+	techWebpage: string | null;
 	operatingAgency: string | null;
 	operatingAgencyId: number | null;
 	fundingAgency: string | null;
