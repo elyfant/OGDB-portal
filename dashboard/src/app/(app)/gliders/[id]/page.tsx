@@ -5,6 +5,7 @@ import GliderDetailTabs from "@/components/GliderDetailTabs";
 import GliderFormDialog from "@/components/GliderFormDialog";
 import GliderStatusBox from "@/components/GliderStatusBox";
 import GliderTimelineTab from "@/components/GliderTimelineTab";
+import { NvsValue } from "@/components/NvsLink";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
 import StatTile from "@/components/StatTile";
@@ -20,9 +21,8 @@ import {
 	getStatusOptions,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { formatCount, formatDate } from "@/lib/format";
+import { formatCount, formatDate, formatMoney } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RouteIcon from "@mui/icons-material/Route";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import StraightenIcon from "@mui/icons-material/Straighten";
@@ -34,26 +34,6 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-
-// Links a displayed value out to the NVS term it came from — only
-// rendered when a real URI exists, never a dead icon.
-function NvsValue({ text, uri }: { text: ReactNode; uri: string | null }) {
-	return (
-		<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-			{text}
-			{uri && (
-				<MuiLink
-					href={uri}
-					target="_blank"
-					rel="noreferrer"
-					sx={{ display: "inline-flex", color: "text.secondary" }}
-				>
-					<InfoOutlinedIcon sx={{ fontSize: 16 }} />
-				</MuiLink>
-			)}
-		</Box>
-	);
-}
 
 export default async function GliderDetailPage({
 	params,
@@ -199,9 +179,18 @@ export default async function GliderDetailPage({
 									gap: 3,
 								}}
 							>
+								<Field label="Serial number" value={glider.serialNumber} />
+								<Field label="WMO" value={glider.wmo} />
 								<Field
 									label="Purchase date"
 									value={formatDate(glider.purchaseDate)}
+								/>
+								<Field
+									label="Purchase value"
+									value={formatMoney(
+										glider.purchaseValue,
+										glider.purchaseCurrency,
+									)}
 								/>
 								<Field
 									label="Platform Model"

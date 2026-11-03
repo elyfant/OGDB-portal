@@ -1,9 +1,9 @@
 "use client";
 
+import NvsLink from "@/components/NvsLink";
 import { formatDate, formatFieldValue } from "@/lib/format";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
@@ -117,22 +117,7 @@ export default function SciencePayloadTable({
 											sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
 										>
 											{s.model ?? "—"}
-											{s.modelUri && (
-												<Tooltip title="View NVS term">
-													<MuiLink
-														href={s.modelUri}
-														target="_blank"
-														rel="noreferrer"
-														onClick={(e) => e.stopPropagation()}
-														sx={{
-															display: "inline-flex",
-															color: "text.secondary",
-														}}
-													>
-														<InfoOutlinedIcon sx={{ fontSize: 15 }} />
-													</MuiLink>
-												</Tooltip>
-											)}
+											<NvsLink uri={s.modelUri} />
 										</Box>
 									</TableCell>
 									<TableCell sx={{ fontFamily: "monospace" }}>

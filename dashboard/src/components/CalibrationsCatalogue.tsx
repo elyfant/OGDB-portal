@@ -1,10 +1,10 @@
 "use client";
 
+import NvsLink from "@/components/NvsLink";
 import { formatAssetType, formatDate, formatFieldValue } from "@/lib/format";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -322,18 +322,7 @@ function ModelSection({
 				>
 					{group.model ?? "Unspecified model"}
 				</Typography>
-				{group.modelUri && (
-					<Tooltip title="View NVS term">
-						<MuiLink
-							href={group.modelUri}
-							target="_blank"
-							rel="noreferrer"
-							sx={{ display: "inline-flex", color: "text.secondary" }}
-						>
-							<InfoOutlinedIcon sx={{ fontSize: 15 }} />
-						</MuiLink>
-					</Tooltip>
-				)}
+				<NvsLink uri={group.modelUri} iconSize={15} />
 			</Box>
 			<ModelCalibrationTable
 				rows={group.rows}
