@@ -23,12 +23,20 @@ interface SlotBase {
 	// Artwork used when the model doesn't say otherwise (and for the dashed
 	// placeholder when nothing is assigned).
 	art: string;
+	// Only drawn when something is assigned -- no dashed placeholder. For
+	// add-ons most gliders don't carry.
+	optional?: boolean;
 }
 
 // Packed left to right along the hull axis.
 export interface InlineSlot extends SlotBase {
 	// Vertical offset from the top of the hull.
 	dy: number;
+	// The section only exists if at least one of these slots has something
+	// assigned (this slot's own key counts). Otherwise it is left out
+	// altogether and its neighbours touch. Once it exists, any of its slots
+	// still empty show as dashed outlines, so the space is held.
+	presentIf?: string[];
 }
 
 // Drawn on top of a parent slot, offset from the parent's top-left corner.
@@ -65,6 +73,10 @@ export const INLINE_SLOTS: InlineSlot[] = [
 		positions: ["energy", "extended"],
 		art: "hull_1",
 		dy: 0,
+		// Not every glider has an energy section. But where one is fitted it
+		// can be recorded as only a battery or a hull (the bay's asset isn't
+		// always known), and the space still has to be there.
+		presentIf: ["energy_hull", "energy_battery", "energy_bay"],
 	},
 	{
 		key: "payload_bay",
@@ -170,6 +182,20 @@ export const ATTACHED_SLOTS: AttachedSlot[] = [
 		dx: 84,
 		dy: 106,
 	},
+	{
+		// Floats just above the glider, its probe tips level with the left
+		// end of the glider (so it hangs off the nose slot, not a hull --
+		// whatever hulls are fitted, the left edge stays put). dy is the
+		// part's height plus an 8-unit gap, lifting it clear of the hull.
+		key: "mr_sensor",
+		label: "MicroRider",
+		assetType: "mr_sensor",
+		art: "mr_sensor",
+		parent: "nose",
+		dx: 0,
+		dy: -64,
+		optional: true,
+	},
 ];
 
 // Which drawing a given asset gets. The slot's default is used unless the
@@ -238,6 +264,8 @@ export function layoutSlocumG3(
 	// longer hull pushes everything after it along.
 	let cursor = 0;
 	for (const slot of INLINE_SLOTS) {
+		if (slot.presentIf && !slot.presentIf.some((k) => assigned.has(k)))
+			continue;
 		const component = assigned.get(slot.key) ?? null;
 		const partId = artFor(slot, component);
 		const part = PARTS[partId];
@@ -258,6 +286,7 @@ export function layoutSlocumG3(
 		const parent = placed.get(slot.parent);
 		if (!parent) continue;
 		const component = assigned.get(slot.key) ?? null;
+		if (slot.optional && !component) continue;
 		const partId = artFor(slot, component);
 		const part = PARTS[partId];
 		placed.set(slot.key, {
