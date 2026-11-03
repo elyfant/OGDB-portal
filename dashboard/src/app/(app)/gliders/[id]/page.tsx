@@ -2,6 +2,7 @@ import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import GliderCurrentBuild from "@/components/GliderCurrentBuild";
 import GliderDetailTabs from "@/components/GliderDetailTabs";
+import GliderDiagram from "@/components/GliderDiagram";
 import GliderFormDialog from "@/components/GliderFormDialog";
 import GliderStatusBox from "@/components/GliderStatusBox";
 import GliderTimelineTab from "@/components/GliderTimelineTab";
@@ -257,6 +258,11 @@ export default async function GliderDetailPage({
 								statusOptions={statusOptions}
 							/>
 						</Box>
+						{glider.platform === "slocum" && (
+							<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+								<GliderDiagram components={build.components} />
+							</Paper>
+						)}
 						<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 							<GliderCurrentBuild
 								components={build.components}
