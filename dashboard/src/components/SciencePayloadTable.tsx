@@ -17,6 +17,7 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { ScienceSensorRecord } from "@ogdb/types";
+import Link from "next/link";
 import { Fragment, useState } from "react";
 
 function CoefficientGrid({
@@ -135,7 +136,19 @@ export default function SciencePayloadTable({
 										</Box>
 									</TableCell>
 									<TableCell sx={{ fontFamily: "monospace" }}>
-										{s.serialNumber ?? "—"}
+										{s.serialNumber ? (
+											<Tooltip title="Open asset details">
+												<MuiLink
+													component={Link}
+													href={`/assets/${s.assetId}`}
+													onClick={(e) => e.stopPropagation()}
+												>
+													{s.serialNumber}
+												</MuiLink>
+											</Tooltip>
+										) : (
+											"—"
+										)}
 									</TableCell>
 									<TableCell>
 										<Box

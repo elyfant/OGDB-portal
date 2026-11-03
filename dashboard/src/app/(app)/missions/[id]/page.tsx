@@ -53,6 +53,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -508,7 +509,20 @@ export default async function MissionDetailPage({
 												{c.position ? ` (${c.position})` : ""}
 											</TableCell>
 											<TableCell>{c.model ?? "—"}</TableCell>
-											<TableCell>{c.serialNumber ?? "—"}</TableCell>
+											<TableCell>
+												{c.serialNumber ? (
+													<Tooltip title="Open asset details">
+														<MuiLink
+															component={Link}
+															href={`/assets/${c.assetId}`}
+														>
+															{c.serialNumber}
+														</MuiLink>
+													</Tooltip>
+												) : (
+													"—"
+												)}
+											</TableCell>
 										</TableRow>
 									))
 								) : (
