@@ -178,7 +178,17 @@ export default function GliderTimelineTab({
 				lifecycle={lifecycle}
 			/>
 
-			<AssetTimelineSection events={allEvents} />
+			<AssetTimelineSection
+				events={allEvents}
+				// Only servicing-type events are editable in place (the same
+				// dialog the accordions use); missions and calibrations are
+				// edited on their own pages.
+				canEditEvent={(e) => canEdit && servicingByTimelineId.has(e.id)}
+				onEditEvent={(e) => {
+					const raw = servicingByTimelineId.get(e.id);
+					if (raw) controlsRef.current?.openForEdit(raw);
+				}}
+			/>
 
 			<Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
 				History

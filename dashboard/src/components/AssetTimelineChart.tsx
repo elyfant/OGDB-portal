@@ -6,10 +6,13 @@ import {
 	type TimelineEvent,
 	timelineDateLabel,
 } from "@/lib/timeline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -198,10 +201,47 @@ function CardExtras({
 	);
 }
 
+// Deliberately faint until the card is hovered/focused, so a column of
+// cards doesn't read as a column of buttons. Absolutely positioned in the
+// card's top-right corner; the card's padding keeps text clear of it.
+function EditButton({ onClick }: { onClick: () => void }) {
+	return (
+		<Tooltip title="Edit event">
+			<IconButton
+				size="small"
+				aria-label="Edit event"
+				className="timeline-edit-button"
+				onClick={(e) => {
+					// The card itself toggles notes / navigates on click.
+					e.stopPropagation();
+					onClick();
+				}}
+				sx={{
+					position: "absolute",
+					top: 2,
+					right: 2,
+					p: 0.5,
+					opacity: 0.35,
+					color: "text.secondary",
+					"&:hover, &:focus-visible": { opacity: 1 },
+				}}
+			>
+				<EditOutlinedIcon sx={{ fontSize: 15 }} />
+			</IconButton>
+		</Tooltip>
+	);
+}
+
 export default function AssetTimelineChart({
 	events,
+	canEditEvent,
+	onEditEvent,
 }: {
 	events: TimelineEvent[];
+	// Both must be given for the per-card edit button to show; which
+	// events are editable (and what editing means) is the caller's call.
+	canEditEvent?: (event: TimelineEvent) => boolean;
+	onEditEvent?: (event: TimelineEvent) => void;
 }) {
 	const router = useRouter();
 	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -209,6 +249,9 @@ export default function AssetTimelineChart({
 		() => layout(events, expandedIds),
 		[events, expandedIds],
 	);
+
+	const showEdit = (event: TimelineEvent) =>
+		Boolean(onEditEvent && canEditEvent?.(event));
 
 	function toggleExpanded(id: string) {
 		setExpandedIds((prev) => {
@@ -315,8 +358,12 @@ export default function AssetTimelineChart({
 										borderRadius: 1.5,
 										px: 1.5,
 										py: 0.75,
+										position: "relative",
 									}}
 								>
+									{showEdit(event) && (
+										<EditButton onClick={() => onEditEvent?.(event)} />
+									)}
 									<Box
 										sx={{
 											display: "flex",
@@ -377,8 +424,12 @@ export default function AssetTimelineChart({
 								justifyContent: "center",
 								gap: 0.25,
 								cursor: clickable ? "pointer" : "default",
+								position: "relative",
 							}}
 						>
+							{showEdit(event) && (
+								<EditButton onClick={() => onEditEvent?.(event)} />
+							)}
 							<Typography
 								variant="caption"
 								sx={{ fontWeight: 700, color: meta.color }}

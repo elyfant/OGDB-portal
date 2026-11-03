@@ -36,9 +36,14 @@ const CHIP_KINDS: TimelineEventKind[] = [
 export default function AssetTimelineSection({
 	events,
 	hiddenKinds = [],
+	canEditEvent,
+	onEditEvent,
 }: {
 	events: TimelineEvent[];
 	hiddenKinds?: TimelineEventKind[];
+	// Passed straight through to the chart's per-card edit button.
+	canEditEvent?: (event: TimelineEvent) => boolean;
+	onEditEvent?: (event: TimelineEvent) => void;
 }) {
 	const chipKinds = CHIP_KINDS.filter((k) => !hiddenKinds.includes(k));
 	const [activeKinds, setActiveKinds] = useState<Set<TimelineEventKind>>(
@@ -81,7 +86,11 @@ export default function AssetTimelineSection({
 				})}
 			</Box>
 
-			<AssetTimelineChart events={visibleEvents} />
+			<AssetTimelineChart
+				events={visibleEvents}
+				canEditEvent={canEditEvent}
+				onEditEvent={onEditEvent}
+			/>
 		</Box>
 	);
 }
