@@ -17,10 +17,18 @@ import Link from "next/link";
 // sensors aren't in this list: they come from the mission's science payload
 // (with calibration as of launch) and get their own section below.
 const GROUPS: { group: string; label: string }[] = [
-	{ group: "structural", label: "Structural" },
+	{ group: "structural", label: "Sections" },
+	{ group: "hull", label: "Hulls" },
 	{ group: "power", label: "Power" },
 	{ group: "tracking", label: "Tracking" },
 ];
+
+// Same split as GliderCurrentBuild: hulls are stored with the other
+// structural parts, so they're pulled out by asset type; "structural" is
+// then just the sections.
+function displayGroup(c: GliderBuildComponent): string {
+	return c.assetType === "slocum_hull" ? "hull" : c.assetTypeGroup;
+}
 
 // Same fixed column layout as GliderCurrentBuild, so every group's table
 // lines up -- each group renders its own <Table> under its heading.
@@ -72,7 +80,7 @@ export default function MissionBuild({
 
 	const groups = GROUPS.map((g) => ({
 		...g,
-		items: structuralComponents.filter((c) => c.assetTypeGroup === g.group),
+		items: structuralComponents.filter((c) => displayGroup(c) === g.group),
 	})).filter((g) => g.items.length > 0);
 
 	if (diagramComponents.length === 0) {

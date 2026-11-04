@@ -20,13 +20,23 @@ import { Fragment, useState } from "react";
 
 // Fixed display order — Fiona's spec. Any group not present (e.g. no
 // tracking assets on this glider) is skipped rather than shown empty.
-const GROUP_ORDER = ["structural", "power", "sensor", "tracking"];
+//
+// "hull" isn't an asset type group in the database (hulls live in
+// "structural" with the sections), so it's split out by asset type below.
+// "structural" therefore means the sections: anything assigned that isn't
+// a hull, power or a sensor.
+const GROUP_ORDER = ["structural", "hull", "power", "sensor", "tracking"];
 const GROUP_LABEL: Record<string, string> = {
-	structural: "Structural",
+	structural: "Sections",
+	hull: "Hulls",
 	power: "Power",
-	sensor: "Science sensors",
+	sensor: "Science",
 	tracking: "Tracking",
 };
+
+function displayGroup(c: GliderBuildComponent): string {
+	return c.assetType === "slocum_hull" ? "hull" : c.assetTypeGroup;
+}
 
 // Fixed so the Asset/Model/Serial/Install date columns line up across
 // every group's table, not just within one — each group renders its own
@@ -70,7 +80,7 @@ export default function GliderCurrentBuild({
 
 	const groups = GROUP_ORDER.map((group) => ({
 		group,
-		items: components.filter((c) => c.assetTypeGroup === group),
+		items: components.filter((c) => displayGroup(c) === group),
 	})).filter((g) => g.items.length > 0);
 
 	return (
