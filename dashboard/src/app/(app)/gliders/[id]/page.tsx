@@ -252,11 +252,19 @@ export default async function GliderDetailPage({
 							}}
 						>
 							<Typography variant="h6">Current build</Typography>
-							<GliderBuildEditor
-								gliderId={glider.id}
-								components={build.components}
-								statusOptions={statusOptions}
-							/>
+							<Box sx={{ display: "flex", gap: 1 }}>
+								<GliderBuildEditor
+									variant="science"
+									gliderId={glider.id}
+									components={build.components}
+									statusOptions={statusOptions}
+								/>
+								<GliderBuildEditor
+									gliderId={glider.id}
+									components={build.components}
+									statusOptions={statusOptions}
+								/>
+							</Box>
 						</Box>
 						{glider.platform === "slocum" && (
 							<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
