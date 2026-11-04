@@ -188,6 +188,20 @@ export const ATTACHED_SLOTS: AttachedSlot[] = [
 		dy: 106,
 	},
 	{
+		// Hangs off the end cap's tail, behind the DO sensor: the nacelle
+		// bolts to the end of the tail stub and the propeller trails it.
+		// dy lines the nacelle up with the stub's centre line. Not every
+		// glider has one, so no dashed placeholder.
+		key: "thruster",
+		label: "Thruster",
+		assetType: "slocum_thruster",
+		art: "thruster",
+		parent: "end_cap",
+		dx: 148,
+		dy: 81,
+		optional: true,
+	},
+	{
 		// Floats just above the glider, its probe tips level with the left
 		// end of the glider (so it hangs off the nose slot, not a hull --
 		// whatever hulls are fitted, the left edge stays put). dy is the
