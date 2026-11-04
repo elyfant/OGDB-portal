@@ -117,7 +117,7 @@ export const ATTACHED_SLOTS: AttachedSlot[] = [
 		positions: ["fore"],
 		art: "battery_pitch",
 		parent: "fore_hull",
-		dx: 119,
+		dx: 125,
 		dy: 4.5,
 	},
 	{
@@ -126,8 +126,10 @@ export const ATTACHED_SLOTS: AttachedSlot[] = [
 		assetType: "slocum_forward_section",
 		art: "forward_section",
 		parent: "fore_hull",
-		dx: 7,
-		dy: 3.5,
+		// The collar is the full height of the hull and sits flush with its
+		// left end.
+		dx: 0,
+		dy: 0,
 	},
 	{
 		key: "energy_battery",
