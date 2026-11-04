@@ -61,7 +61,7 @@ export const INLINE_SLOTS: InlineSlot[] = [
 		key: "fore_hull",
 		label: "Fore hull",
 		assetType: "slocum_hull",
-		positions: ["fore", "forward", "fwd", "front"],
+		positions: ["fore"],
 		art: "hull_L",
 		dy: 0,
 	},
@@ -69,7 +69,8 @@ export const INLINE_SLOTS: InlineSlot[] = [
 		key: "energy_hull",
 		label: "Energy hull",
 		assetType: "slocum_hull",
-		// "extended" is what some existing data calls the energy hull.
+		// "extended" is what some older data calls the energy hull; the build
+		// editor only offers "energy" now. Drop this once that data is fixed.
 		positions: ["energy", "extended"],
 		art: "hull_1",
 		dy: 0,
@@ -89,7 +90,7 @@ export const INLINE_SLOTS: InlineSlot[] = [
 		key: "aft_hull",
 		label: "Aft hull",
 		assetType: "slocum_hull",
-		positions: ["aft", "rear"],
+		positions: ["aft"],
 		art: "hull_L",
 		dy: 0,
 	},
@@ -108,10 +109,12 @@ export const INLINE_SLOTS: InlineSlot[] = [
 // (later is on top): the shafts pass over the batteries, as in the sketch.
 export const ATTACHED_SLOTS: AttachedSlot[] = [
 	{
-		key: "pitch_battery",
-		label: "Pitch battery",
+		key: "fore_battery",
+		label: "Fore battery",
 		assetType: "battery",
-		positions: ["pitch"],
+		// Positions are fore / energy / aft. "Pitch" is only a battery
+		// *model* (it picks the drawing, in artFor below).
+		positions: ["fore"],
 		art: "battery_pitch",
 		parent: "fore_hull",
 		dx: 119,

@@ -1,6 +1,7 @@
 "use client";
 
 import { applyBuildChanges, searchAssets } from "@/lib/api-client";
+import { ASSET_POSITIONS, positionLabel } from "@/lib/asset-positions";
 import { formatAssetType } from "@/lib/format";
 import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
@@ -455,6 +456,12 @@ export default function GliderBuildEditor({
 			}
 		}
 		for (const add of additions) {
+			if (ASSET_POSITIONS[add.assetType] && !add.position) {
+				setError(
+					`Pick a position (${ASSET_POSITIONS[add.assetType].map(positionLabel).join(", ")}) for the new ${formatAssetType(add.assetType)}.`,
+				);
+				return;
+			}
 			if (add.picker.mode === "existing" && !add.picker.selectedId) {
 				setError(
 					"Pick an asset for the new component, or switch it to + New asset.",
@@ -723,7 +730,12 @@ export default function GliderBuildEditor({
 									size="small"
 									value={add.assetType}
 									onChange={(e) =>
-										updateAddition(add.id, { assetType: e.target.value })
+										// A position from the previous type may not be valid
+										// for the new one.
+										updateAddition(add.id, {
+											assetType: e.target.value,
+											position: "",
+										})
 									}
 									sx={{ flex: 1 }}
 								>
@@ -733,14 +745,34 @@ export default function GliderBuildEditor({
 										</MenuItem>
 									))}
 								</Select>
-								<TextField
-									size="small"
-									label="Position (optional)"
-									value={add.position}
-									onChange={(e) =>
-										updateAddition(add.id, { position: e.target.value })
-									}
-								/>
+								{ASSET_POSITIONS[add.assetType] ? (
+									<TextField
+										select
+										required
+										size="small"
+										label="Position"
+										value={add.position}
+										onChange={(e) =>
+											updateAddition(add.id, { position: e.target.value })
+										}
+										sx={{ minWidth: 120 }}
+									>
+										{ASSET_POSITIONS[add.assetType].map((p) => (
+											<MenuItem key={p} value={p}>
+												{positionLabel(p)}
+											</MenuItem>
+										))}
+									</TextField>
+								) : (
+									<TextField
+										size="small"
+										label="Position (optional)"
+										value={add.position}
+										onChange={(e) =>
+											updateAddition(add.id, { position: e.target.value })
+										}
+									/>
+								)}
 								<Button
 									size="small"
 									color="error"

@@ -707,6 +707,50 @@ async function resolveOrCreateAsset(
 	return assetId;
 }
 
+// Allowed asset_assignments.position values, for the asset types where the
+// position means something (the glider diagram places hulls and batteries by
+// it). Other types keep a free-text position. "pitch" is deliberately not
+// here: it names a battery *model*, never a location.
+//
+// Keep in step with dashboard/src/lib/asset-positions.ts -- @ogdb/types is
+// types-only at runtime, so the list can't be shared from there.
+const ASSET_POSITIONS: Record<string, readonly string[]> = {
+	slocum_hull: ["fore", "energy", "aft"],
+	battery: ["fore", "energy", "aft"],
+};
+
+async function assertValidPosition(
+	client: PoolClient,
+	childAssetId: number,
+	position: string | null,
+	// "add" must choose a position; "replace" inherits the old row's, and
+	// older rows may have none (a null position is left alone).
+	mode: "add" | "replace",
+): Promise<void> {
+	const type = await client.query(
+		`SELECT at.name FROM assets a
+       JOIN asset_types at ON at.id = a.asset_type_id
+      WHERE a.id = $1`,
+		[childAssetId],
+	);
+	const assetType: string | undefined = type.rows[0]?.name;
+	const allowed = assetType ? ASSET_POSITIONS[assetType] : undefined;
+	if (!assetType || !allowed) return;
+	if (position === null) {
+		if (mode === "add") {
+			throw new BadRequestException(
+				`A ${assetType} needs a position: ${allowed.join(", ")}.`,
+			);
+		}
+		return;
+	}
+	if (!allowed.includes(position)) {
+		throw new BadRequestException(
+			`"${position}" is not a valid position for a ${assetType}; use ${allowed.join(", ")}.`,
+		);
+	}
+}
+
 // Applies a batch of BuildChange entries inside an already-open
 // transaction -- the caller owns BEGIN/COMMIT/ROLLBACK. Shared by
 // GlidersService.applyBuildChanges (editing an existing glider's live
@@ -741,6 +785,7 @@ export async function applyBuildChangesTx(
 				change.newAsset,
 			);
 			await assertValidParent(client, childAssetId, parentAssetId);
+			await assertValidPosition(client, childAssetId, position, "replace");
 
 			await client.query(
 				"UPDATE asset_assignments SET end_date = $1, updated_at = now(), changed_by = $2 WHERE id = $3",
@@ -794,6 +839,12 @@ export async function applyBuildChangesTx(
 				change.newAsset,
 			);
 			await assertValidParent(client, childAssetId, change.parentAssetId);
+			await assertValidPosition(
+				client,
+				childAssetId,
+				change.position ?? null,
+				"add",
+			);
 			await client.query(
 				`INSERT INTO asset_assignments
            (child_asset_id, parent_asset_id, start_date, position, mission_id, notes, changed_by)
