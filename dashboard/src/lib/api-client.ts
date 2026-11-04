@@ -324,6 +324,24 @@ export async function updateGlider(
 	return res.json();
 }
 
+export async function uploadBatteryModelSds(
+	modelId: number,
+	file: File,
+): Promise<void> {
+	const form = new FormData();
+	form.append("sds", file);
+	const res = await fetch(`/api/battery-models/${modelId}/safety-data-sheet`, {
+		method: "POST",
+		body: form,
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to upload safety data sheet: ${res.status}`,
+		);
+	}
+}
+
 export async function recordBatteryMeasurement(
 	assetId: number,
 	input: RecordBatteryMeasurementInput,

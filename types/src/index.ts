@@ -276,6 +276,11 @@ export interface BatteryModelSpec {
 	unClassification: string | null;
 	// Resolved platform label (NVS name, or the platform's own name/model).
 	platform: string | null;
+	// The model's current safety data sheet -- the latest document of type
+	// "safety_data_sheet" owned by this model (older uploads stay on record).
+	// Served by GET /api/documents/{id}/file. Null if none uploaded yet.
+	sdsDocumentId: number | null;
+	sdsFileName: string | null;
 }
 
 export interface BatteryDetail {

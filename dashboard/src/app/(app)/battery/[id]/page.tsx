@@ -3,6 +3,7 @@ import AssetChangeLog from "@/components/AssetChangeLog";
 import AssetServicingTimeline from "@/components/AssetServicingTimeline";
 import AssetStatusHistoryTable from "@/components/AssetStatusHistoryTable";
 import BatteryFormDialog from "@/components/BatteryFormDialog";
+import BatterySdsControls from "@/components/BatterySdsControls";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import {
@@ -206,12 +207,32 @@ export default async function BatteryDetailPage({
 				</Box>
 			</Paper>
 
-			<Typography variant="h6" sx={{ mb: 0.5 }}>
-				Specs
-			</Typography>
-			<Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-				Information about the battery model, shared by every pack of this model.
-			</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "flex-start",
+					justifyContent: "space-between",
+					flexWrap: "wrap",
+					gap: 2,
+					mb: 1.5,
+				}}
+			>
+				<Box>
+					<Typography variant="h6" sx={{ mb: 0.5 }}>
+						Specs
+					</Typography>
+					<Typography variant="body2" color="text.secondary">
+						Information about the battery model, shared by every pack of this
+						model.
+					</Typography>
+				</Box>
+				<BatterySdsControls
+					modelId={battery.batteryModelId}
+					sdsDocumentId={spec?.sdsDocumentId ?? null}
+					sdsFileName={spec?.sdsFileName ?? null}
+					canEdit={canEdit}
+				/>
+			</Box>
 			<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 				<Box
 					sx={{

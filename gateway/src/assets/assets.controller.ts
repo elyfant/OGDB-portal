@@ -35,6 +35,23 @@ import { UpdateAssetDto } from "./dto/update-asset.dto";
 // not something this endpoint handles).
 const MAX_CERTIFICATE_BYTES = 20 * 1024 * 1024;
 
+// A battery model's safety data sheet -- one PDF per upload, same cap as
+// certificates, in a multipart field named "sds".
+const SDS_INTERCEPTOR = FileInterceptor("sds", {
+	storage: memoryStorage(),
+	limits: { fileSize: MAX_CERTIFICATE_BYTES },
+	fileFilter: (_req, file, callback) => {
+		if (file.mimetype !== "application/pdf") {
+			callback(
+				new BadRequestException("Safety data sheets must be a PDF file."),
+				false,
+			);
+			return;
+		}
+		callback(null, true);
+	},
+});
+
 // Shared by every endpoint that accepts a certificate upload (record,
 // update, and the read-only parse-preview below) -- one PDF-only,
 // size-capped multipart field named "certificate".
@@ -171,6 +188,21 @@ export class AssetsController {
 	@Get(":id/battery")
 	getBattery(@Param("id", ParseIntPipe) id: number) {
 		return this.assets.getBatteryForAsset(id);
+	}
+
+	// Keyed by battery MODEL id, not asset id -- a safety data sheet is the
+	// manufacturer's, shared by every pack of the model. Lives here because
+	// the battery pages are the only caller; the literal "battery-models"
+	// segment can't collide with the numeric ":id" routes.
+	@Roles("editor", "admin")
+	@Post("battery-models/:modelId/safety-data-sheet")
+	@UseInterceptors(SDS_INTERCEPTOR)
+	recordBatteryModelSds(
+		@Param("modelId", ParseIntPipe) modelId: number,
+		@CurrentUser() user: JwtPayload,
+		@UploadedFile() file?: Express.Multer.File,
+	) {
+		return this.assets.recordBatteryModelSds(modelId, file, user.sub);
 	}
 
 	@Roles("editor", "admin")

@@ -27,7 +27,10 @@ import {
 	NO_GENERIC_DETAILS,
 } from "../common/asset-tables";
 import { PG_POOL } from "../db/db.constants";
-import { DocumentsService } from "../documents/documents.service";
+import {
+	DocumentsService,
+	originalNameFromReference,
+} from "../documents/documents.service";
 import { fetchBuildTree } from "../gliders/build.helpers";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { RecordBatteryMeasurementDto } from "./dto/record-battery-measurement.dto";
@@ -212,6 +215,11 @@ const SELECT_BATTERIES = `
   LEFT JOIN asset_status_options aso ON aso.id = cas.status_id
 `;
 
+// documents.document_type for a battery model's safety data sheet. The
+// current one is the latest such row owned by the model; superseded ones
+// stay on record.
+const BATTERY_SDS_DOCUMENT_TYPE = "safety_data_sheet";
+
 @Injectable()
 export class AssetsService {
 	constructor(
@@ -265,14 +273,23 @@ export class AssetsService {
               bm.nominal_watt_hours AS "wattHours",
               bm.chemistry,
               bm.un_classification AS "unClassification",
-              COALESCE(nt.label, p.name || ' ' || p.model) AS platform
+              COALESCE(nt.label, p.name || ' ' || p.model) AS platform,
+              sds.id AS "sdsDocumentId",
+              sds.file_reference AS "sdsFileReference"
        FROM asset_battery_details abd
        JOIN battery_models bm ON bm.id = abd.battery_model_id
        LEFT JOIN platforms p ON p.id = bm.platform_id
        LEFT JOIN nvs_terms nt ON nt.id = p.b76_model_id
+       LEFT JOIN LATERAL (
+         SELECT d.id, d.file_reference FROM documents d
+         WHERE d.battery_model_id = bm.id AND d.document_type = $2
+         ORDER BY d.created_at DESC, d.id DESC
+         LIMIT 1
+       ) sds ON true
        WHERE abd.asset_id = $1`,
-			[id],
+			[id, BATTERY_SDS_DOCUMENT_TYPE],
 		);
+		const { sdsFileReference, ...specRow } = spec.rows[0] ?? {};
 
 		const measurements = await this.pool.query(
 			`SELECT id,
@@ -289,7 +306,14 @@ export class AssetsService {
 		);
 
 		return {
-			spec: spec.rows[0] ?? null,
+			spec: spec.rows[0]
+				? {
+						...specRow,
+						sdsFileName: sdsFileReference
+							? originalNameFromReference(sdsFileReference)
+							: null,
+					}
+				: null,
 			instituteId: detail.rows[0]?.instituteId ?? null,
 			institute: detail.rows[0]?.institute ?? null,
 			batteryModelId: detail.rows[0]?.batteryModelId ?? null,
@@ -297,6 +321,47 @@ export class AssetsService {
 			dateOfManufacture: detail.rows[0]?.dateOfManufacture ?? null,
 			measurements: measurements.rows,
 		};
+	}
+
+	// Upload a model's safety data sheet (PDF). Always an INSERT -- a
+	// revised sheet becomes the new "latest" and the old one stays on
+	// record (see BATTERY_SDS_DOCUMENT_TYPE). The file is written first
+	// (a unique UUID path, so nothing can collide) and removed again if
+	// the row can't be saved, so a failed upload leaves no orphan.
+	async recordBatteryModelSds(
+		modelId: number,
+		file: Express.Multer.File | undefined,
+		userId: number,
+	): Promise<void> {
+		if (!file) {
+			throw new BadRequestException("Attach the safety data sheet as a PDF.");
+		}
+		const model = await this.pool.query(
+			"SELECT 1 FROM battery_models WHERE id = $1",
+			[modelId],
+		);
+		if (model.rows.length === 0) {
+			throw new NotFoundException(`Battery model ${modelId} not found`);
+		}
+
+		const { fileReference } = await this.documents.saveUploadedFile(file);
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+			await this.documents.createDocumentRecord(client, {
+				batteryModelId: modelId,
+				documentType: BATTERY_SDS_DOCUMENT_TYPE,
+				fileReference,
+				changedBy: userId,
+			});
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			await this.documents.removeFile(fileReference);
+			throw err;
+		} finally {
+			client.release();
+		}
 	}
 
 	// Always an INSERT -- asset_battery_measurements is an append-only
