@@ -21,16 +21,18 @@ import { Fragment, useState } from "react";
 // Fixed display order — Fiona's spec. Any group not present (e.g. no
 // tracking assets on this glider) is skipped rather than shown empty.
 //
+// Science sensors aren't listed here: ScienceBuildTable shows them, with
+// their parameters and calibration, the same way on every page.
+//
 // "hull" isn't an asset type group in the database (hulls live in
 // "structural" with the sections), so it's split out by asset type below.
 // "structural" therefore means the sections: anything assigned that isn't
 // a hull, power or a sensor.
-const GROUP_ORDER = ["structural", "hull", "power", "sensor", "tracking"];
+const GROUP_ORDER = ["structural", "hull", "power", "tracking"];
 const GROUP_LABEL: Record<string, string> = {
 	structural: "Sections",
 	hull: "Hulls",
 	power: "Power",
-	sensor: "Science",
 	tracking: "Tracking",
 };
 
@@ -46,20 +48,14 @@ const COLUMN_WIDTHS = ["34%", "34%", "17%", "15%"];
 
 export default function GliderCurrentBuild({
 	components,
-	componentDetails,
+	componentDetails = [],
 }: {
 	components: GliderBuildComponent[];
-	componentDetails: GliderComponentDetail[];
+	// Rows with a detail record expand to show it; without any (a mission's
+	// build as of launch has none loaded) the rows are plain.
+	componentDetails?: GliderComponentDetail[];
 }) {
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
-
-	if (components.length === 0) {
-		return (
-			<Typography color="text.disabled">
-				No components currently assigned.
-			</Typography>
-		);
-	}
 
 	const typeByAssetId = new Map(
 		components.map((c) => [c.assetId, c.assetType]),
@@ -82,6 +78,8 @@ export default function GliderCurrentBuild({
 		group,
 		items: components.filter((c) => displayGroup(c) === group),
 	})).filter((g) => g.items.length > 0);
+
+	if (groups.length === 0) return null;
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>

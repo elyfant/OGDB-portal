@@ -1,8 +1,8 @@
+import BuildPanel from "@/components/BuildPanel";
 import EditMissionButton from "@/components/EditMissionButton";
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
 import KeyFiles from "@/components/KeyFiles";
-import MissionBuild from "@/components/MissionBuild";
 import MissionFilesEditor from "@/components/MissionFilesEditor";
 import MissionTrackMapLoader from "@/components/MissionTrackMapLoader";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
@@ -449,10 +449,11 @@ export default async function MissionDetailPage({
 					)}
 				</Box>
 				<Paper variant="outlined" sx={{ p: 3 }}>
-					<MissionBuild
-						structuralComponents={structuralComponents}
-						sciencePayload={sciencePayload}
-						launchDate={mission.launchDate}
+					<BuildPanel
+						mode="mission"
+						components={structuralComponents}
+						sensors={sciencePayload}
+						asOfDate={mission.launchDate ?? new Date().toISOString()}
 						showDiagram={glider?.platform === "slocum"}
 					/>
 				</Paper>

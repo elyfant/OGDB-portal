@@ -1,8 +1,7 @@
+import BuildPanel from "@/components/BuildPanel";
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
-import GliderCurrentBuild from "@/components/GliderCurrentBuild";
 import GliderDetailTabs from "@/components/GliderDetailTabs";
-import GliderDiagram from "@/components/GliderDiagram";
 import GliderFormDialog from "@/components/GliderFormDialog";
 import GliderStatusBox from "@/components/GliderStatusBox";
 import GliderTimelineTab from "@/components/GliderTimelineTab";
@@ -33,6 +32,7 @@ import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import type { SensorCalRecord } from "@ogdb/types";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -66,6 +66,13 @@ export default async function GliderDetailPage({
 		getContacts(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
+
+	// Full calibration history per sensor, for the Current build's science
+	// rows to expand into.
+	const calibrationHistory: Record<number, SensorCalRecord[]> = {};
+	for (const d of build.componentDetails) {
+		if (d.calibrations) calibrationHistory[d.assetId] = d.calibrations;
+	}
 
 	const platformModel = glider.platform
 		? [glider.platform, glider.platformModel].filter(Boolean).join(" ")
@@ -266,15 +273,15 @@ export default async function GliderDetailPage({
 								/>
 							</Box>
 						</Box>
-						{glider.platform === "slocum" && (
-							<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
-								<GliderDiagram components={build.components} />
-							</Paper>
-						)}
 						<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
-							<GliderCurrentBuild
+							<BuildPanel
+								mode="current"
 								components={build.components}
+								sensors={build.sciencePayload}
+								asOfDate={new Date().toISOString()}
+								showDiagram={glider.platform === "slocum"}
 								componentDetails={build.componentDetails}
+								calibrationHistory={calibrationHistory}
 							/>
 						</Paper>
 					</>

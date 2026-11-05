@@ -816,6 +816,8 @@ export interface ScienceSensorRecord {
 	assetId: number;
 	assetType: string;
 	serialNumber: string | null;
+	// When this sensor's assignment started (on or before the as-of date).
+	installDate: string | null;
 	model: string | null;
 	modelUri: string | null;
 	measuredParameters: MeasuredParameter[];
@@ -1221,6 +1223,9 @@ export interface ApplyBuildChangesInput {
 export interface GliderBuild {
 	components: GliderBuildComponent[];
 	componentDetails: GliderComponentDetail[];
+	// The science sensors as of today, in the same shape as a mission's
+	// science payload (parameters, calibration in effect, install date).
+	sciencePayload: ScienceSensorRecord[];
 	deployments: GliderDeployment[];
 	// Same shape as the fleet-wide MissionsSummary, scoped to this glider's
 	// own missions — reused rather than a new type since the fields match

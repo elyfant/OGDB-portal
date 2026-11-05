@@ -45,8 +45,13 @@ function CoefficientTable({ record }: { record: SensorCalRecord }) {
 // same "all coefficients, not just current" requirement.
 export default function CalibrationHistory({
 	calibrations,
+	firstLabel = "current",
 }: {
 	calibrations: SensorCalRecord[];
+	// What to call the newest record. "current" suits a live build; a
+	// mission's build shows only the record in effect at launch, which
+	// isn't necessarily current.
+	firstLabel?: string;
 }) {
 	if (calibrations.length === 0) {
 		return (
@@ -62,7 +67,7 @@ export default function CalibrationHistory({
 					<AccordionSummary expandIcon={<ExpandMoreIcon />}>
 						<Typography variant="body2">
 							Calibrated {formatDate(record.date)}
-							{i === 0 ? " (current)" : ""}
+							{i === 0 ? ` (${firstLabel})` : ""}
 						</Typography>
 					</AccordionSummary>
 					<AccordionDetails>

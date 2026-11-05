@@ -250,15 +250,15 @@ async function fetchCalibrationAsOf(
 		const hasServiceEvent = CAL_TABLES_WITH_SERVICE_EVENT.has(table);
 		const documentJoin = hasServiceEvent
 			? `LEFT JOIN LATERAL (
-					SELECT id FROM documents
+					SELECT id, file_reference FROM documents
 					WHERE service_event_id = c.service_event_id
 					AND file_reference ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-'
 					ORDER BY created_at DESC LIMIT 1
 				 ) doc ON true`
 			: "";
 		const documentSelect = hasServiceEvent
-			? `, doc.id AS "documentId"`
-			: `, NULL::int AS "documentId"`;
+			? `, doc.id AS "documentId", doc.file_reference AS "documentFileReference"`
+			: `, NULL::int AS "documentId", NULL AS "documentFileReference"`;
 
 		const result = await pool.query(
 			`SELECT DISTINCT ON (c.asset_id) c.*${documentSelect}
@@ -276,6 +276,7 @@ async function fetchCalibrationAsOf(
 				created_at,
 				service_event_id,
 				documentId,
+				documentFileReference,
 				[dateColumn]: date,
 				...coefficients
 			} = row;
@@ -283,6 +284,9 @@ async function fetchCalibrationAsOf(
 				date,
 				coefficients,
 				documentId: documentId ?? null,
+				documentName: documentFileReference
+					? originalNameFromReference(documentFileReference)
+					: null,
 			});
 		}
 	}
@@ -315,6 +319,7 @@ export async function getMissionSciencePayload(
 			assetId: c.assetId,
 			assetType: c.assetType,
 			serialNumber: c.serialNumber,
+			installDate: c.installDate,
 			model: info?.model ?? null,
 			modelUri: info?.uri ?? null,
 			measuredParameters: measuredParameters.get(c.assetId) ?? [],
@@ -604,12 +609,20 @@ export async function getGliderBuild(
 		componentDetails,
 		deployments,
 		missionsSummary,
+		sciencePayload,
 	] = await Promise.all([
 		fetchStatusHistory(pool, allAssetIds),
 		fetchModels(pool, rawBuildTree),
 		fetchComponentDetails(pool, rawBuildTree),
 		fetchDeployments(pool, gliderAssetId),
 		fetchMissionsSummary(pool, gliderAssetId),
+		// The same shape the mission page uses, as of today: the Current
+		// build's science table and a mission's are one component.
+		getMissionSciencePayload(
+			pool,
+			gliderAssetId,
+			new Date().toISOString().slice(0, 10),
+		),
 	]);
 	const buildTree = rawBuildTree.map((c) => {
 		const info = models.get(c.assetId);
@@ -625,6 +638,7 @@ export async function getGliderBuild(
 	return {
 		components: buildTree,
 		componentDetails,
+		sciencePayload,
 		deployments,
 		missionsSummary,
 		statusHistory,
