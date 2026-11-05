@@ -29,7 +29,10 @@ export default function GliderDiagram({
 				aria-label="Glider build diagram"
 				sx={{
 					display: "block",
-					width: "100%",
+					// On very large screens the full-width glider is overwhelming:
+					// hold it to 75% of the box (xl = 1536px and up), centred.
+					width: { xs: "100%", xl: "75%" },
+					mx: "auto",
 					height: "auto",
 					maxHeight: 320,
 					color: "text.disabled",
