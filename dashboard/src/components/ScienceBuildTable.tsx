@@ -2,10 +2,8 @@
 
 import CalibrationHistory from "@/components/CalibrationHistory";
 import NvsLink from "@/components/NvsLink";
-import PasteCalibrationDialog from "@/components/PasteCalibrationDialog";
 import { formatAssetType, formatDate } from "@/lib/format";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import DescriptionIcon from "@mui/icons-material/Description";
 import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
 import MuiLink from "@mui/material/Link";
@@ -20,10 +18,10 @@ import type { ScienceSensorRecord, SensorCalRecord } from "@ogdb/types";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 
-// Asset / L22 model / Parameters / Serial number / Last calibration /
-// Certificate / Install date. Fixed so the columns hold their widths when a
-// row expands.
-const COLUMN_WIDTHS = ["14%", "16%", "20%", "12%", "13%", "15%", "10%"];
+// Asset / L22 model / Parameters / Serial number / Last calibration (a link
+// to the certificate when there is one) / Install date. Fixed so the columns
+// hold their widths when a row expands.
+const COLUMN_WIDTHS = ["16%", "18%", "24%", "14%", "16%", "12%"];
 
 // The science sensors of a build -- today's on a glider's Current build, or
 // as of launch on a mission's Glider build. Same columns and same row
@@ -77,8 +75,7 @@ export default function ScienceBuildTable({
 					<TableCell sx={{ width: COLUMN_WIDTHS[4] }}>
 						Last calibration
 					</TableCell>
-					<TableCell sx={{ width: COLUMN_WIDTHS[5] }}>Certificate</TableCell>
-					<TableCell sx={{ width: COLUMN_WIDTHS[6] }}>Install date</TableCell>
+					<TableCell sx={{ width: COLUMN_WIDTHS[5] }}>Install date</TableCell>
 				</TableRow>
 			</TableHead>
 			<TableBody>
@@ -134,36 +131,24 @@ export default function ScienceBuildTable({
 										"—"
 									)}
 								</TableCell>
-								<TableCell>{formatDate(s.calibration?.date ?? null)}</TableCell>
 								<TableCell>
 									{s.calibration?.documentId != null ? (
-										<MuiLink
-											href={`/api/documents/${s.calibration.documentId}/file`}
-											target="_blank"
-											rel="noreferrer"
-											onClick={(e) => e.stopPropagation()}
-											sx={{
-												display: "inline-flex",
-												alignItems: "center",
-												gap: 0.5,
-												fontSize: 12.5,
-												maxWidth: "100%",
-											}}
+										<Tooltip
+											title={
+												s.calibration.documentName ?? "Calibration certificate"
+											}
 										>
-											<DescriptionIcon sx={{ fontSize: 14, flexShrink: 0 }} />
-											<Box
-												component="span"
-												sx={{
-													overflow: "hidden",
-													textOverflow: "ellipsis",
-													whiteSpace: "nowrap",
-												}}
+											<MuiLink
+												href={`/api/documents/${s.calibration.documentId}/file`}
+												target="_blank"
+												rel="noreferrer"
+												onClick={(e) => e.stopPropagation()}
 											>
-												{s.calibration.documentName ?? "Certificate"}
-											</Box>
-										</MuiLink>
+												{formatDate(s.calibration.date)}
+											</MuiLink>
+										</Tooltip>
 									) : (
-										"—"
+										formatDate(s.calibration?.date ?? null)
 									)}
 								</TableCell>
 								<TableCell>{formatDate(s.installDate)}</TableCell>
@@ -199,23 +184,9 @@ export default function ScienceBuildTable({
 													latest
 												</Typography>
 											)}
-											<Box
-												sx={{
-													display: "flex",
-													alignItems: "center",
-													justifyContent: "space-between",
-												}}
-											>
-												<Typography variant="subtitle2">
-													{typeLabel} calibration information
-												</Typography>
-												{mode === "current" && (
-													<PasteCalibrationDialog
-														assetId={s.assetId}
-														assetType={s.assetType}
-													/>
-												)}
-											</Box>
+											<Typography variant="subtitle2">
+												{typeLabel} calibration information
+											</Typography>
 											<CalibrationHistory
 												calibrations={history}
 												firstLabel={
