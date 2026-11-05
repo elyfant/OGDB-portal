@@ -184,9 +184,6 @@ export default function ScienceBuildTable({
 													latest
 												</Typography>
 											)}
-											<Typography variant="subtitle2">
-												{typeLabel} calibration information
-											</Typography>
 											<CalibrationHistory
 												calibrations={history}
 												firstLabel={
