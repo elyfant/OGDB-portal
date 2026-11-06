@@ -5,11 +5,10 @@ import {
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
-import type { Glider, GliderBuild } from "@ogdb/types";
+import type { CreatedMission, Glider, GliderBuild } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
-import { applyBuildChangesTx, getGliderBuild } from "./build.helpers";
-import type { ApplyBuildChangesDto } from "./dto/apply-build-changes.dto";
+import { getGliderBuild, seedMissionBuildTx } from "./build.helpers";
 import type { CreateGliderDto } from "./dto/create-glider.dto";
 import type { UpdateGliderDto } from "./dto/update-glider.dto";
 
@@ -194,36 +193,45 @@ export class GlidersService {
 		}
 	}
 
-	// Applies a batch of build changes as one transaction -- a "replace" is
-	// logically one action (close old, open new), not two independent API
-	// calls, so a failure partway through can't leave the build half-swapped.
-	async applyBuildChanges(
+	// Starts a workshop mission: the glider being prepared in the lab. Only
+	// the glider is known, so the mission gets a placeholder name and no
+	// number (assigned when it becomes active) and starts as a copy of the
+	// last flown build. The mission page is where its build is then edited.
+	// One workshop per glider: a second would be two competing "next builds".
+	async createWorkshop(
 		gliderAssetId: number,
-		dto: ApplyBuildChangesDto,
 		userId: number,
-	): Promise<GliderBuild> {
-		await this.findOne(gliderAssetId);
-
+	): Promise<CreatedMission> {
+		const glider = await this.findOne(gliderAssetId);
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
-			await applyBuildChangesTx(
-				client,
-				dto.changes,
-				dto.effectiveDate,
-				dto.missionId ?? null,
-				dto.notes,
-				userId,
+			const existing = await client.query(
+				`SELECT m.id FROM missions m JOIN status s ON s.id = m.status_id
+         WHERE m.glider_asset_id = $1 AND s.name = 'workshop'`,
+				[gliderAssetId],
 			);
+			if (existing.rows.length > 0) {
+				throw new ConflictException(
+					`${glider.name} already has a workshop mission (id ${existing.rows[0].id}).`,
+				);
+			}
+			const inserted = await client.query(
+				`INSERT INTO missions (mission_name, glider_asset_id, status_id, changed_by)
+         VALUES ($1, $2, (SELECT id FROM status WHERE name = 'workshop'), $3)
+         RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
+				[`workshop-${glider.name.toLowerCase()}`, gliderAssetId, userId],
+			);
+			const created: CreatedMission = inserted.rows[0];
+			await seedMissionBuildTx(client, created.id, gliderAssetId, userId);
 			await client.query("COMMIT");
+			return created;
 		} catch (err) {
 			await client.query("ROLLBACK");
 			throw err instanceof HttpException ? err : mapDbError(err);
 		} finally {
 			client.release();
 		}
-
-		return getGliderBuild(this.pool, gliderAssetId);
 	}
 
 	async remove(id: number): Promise<void> {

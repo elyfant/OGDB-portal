@@ -31,7 +31,7 @@ import {
 	DocumentsService,
 	originalNameFromReference,
 } from "../documents/documents.service";
-import { fetchBuildTree } from "../gliders/build.helpers";
+import { fetchLatestBuildTree } from "../gliders/build.helpers";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { RecordBatteryMeasurementDto } from "./dto/record-battery-measurement.dto";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
@@ -627,29 +627,18 @@ export class AssetsService {
 	// today. See docs/design/derived-glider-status.md.
 	//
 	// dto.childAssetIds (retiring only, ignored on return-to-service) is
-	// the reviewed set of this glider's currently attached components that
-	// retire WITH it: decommissioned alongside the glider, same
-	// date/reason, but their asset_assignments row is left OPEN on
-	// purpose -- for most of a glider's life its parts never move, so that
-	// open row is the useful historical record of "this was the final
-	// build", not something to tidy away.
-	//
-	// Everything else the live build tree actually contains -- present,
-	// but NOT in childAssetIds -- is the opposite case: a part being
-	// pulled off this glider for reuse elsewhere (e.g. gna's do_sensor and
-	// eco_sensor). Those are NOT decommissioned, and their assignment IS
-	// closed (end_date = the decommission date), because leaving it open
-	// would keep them looking "still attached to a retired glider" and
-	// block reassigning them anywhere else.
-	//
-	// childAssetIds is validated against the live build tree
-	// (fetchBuildTree, same query the build editor uses) rather than
-	// trusted as-is -- a non-glider asset has an empty build tree, so this
-	// whole block is naturally a no-op for anything that isn't one.
+	// the reviewed set of this glider's components that retire WITH it:
+	// decommissioned alongside the glider, same date/reason. They are
+	// validated against the glider's latest recorded build (its last flown
+	// mission) rather than trusted as-is, and a non-glider asset has no
+	// build, so this is naturally a no-op for anything that isn't one.
+	// Components left out of the set are NOT decommissioned -- parts pulled
+	// off for reuse elsewhere. Nothing needs "closing" for them any more:
+	// a mission's build is a record of what flew, and only OPEN (active,
+	// scheduled, workshop) builds can conflict over an asset.
 	// Distinguishing "no childAssetIds sent" (skip all of this -- e.g. a
-	// bare asset with no build) from "childAssetIds: []" (a glider whose
-	// tree really is empty, or where nothing at all should stay attached)
-	// is why this checks `!== undefined` rather than truthiness.
+	// bare asset with no build) from "childAssetIds: []" is why this checks
+	// `!== undefined` rather than truthiness.
 	async setDecommission(
 		id: number,
 		dto: SetDecommissionDto,
@@ -660,15 +649,10 @@ export class AssetsService {
 		const reason = date ? (dto.reason ?? null) : null;
 
 		let retainIds: number[] = [];
-		let releaseAssignmentIds: number[] = [];
 		if (date && dto.childAssetIds !== undefined) {
-			const tree = await fetchBuildTree(this.pool, id);
+			const tree = await fetchLatestBuildTree(this.pool, id);
 			const attached = new Set(tree.map((c) => c.assetId));
 			retainIds = dto.childAssetIds.filter((childId) => attached.has(childId));
-			const retainSet = new Set(retainIds);
-			releaseAssignmentIds = tree
-				.filter((c) => !retainSet.has(c.assetId) && c.assignmentId != null)
-				.map((c) => c.assignmentId as number);
 		}
 
 		const client = await this.pool.connect();
@@ -688,14 +672,6 @@ export class AssetsService {
                  updated_at = now(), changed_by = $4
            WHERE id = ANY($1)`,
 					[retainIds, date, reason, userId],
-				);
-			}
-			if (releaseAssignmentIds.length) {
-				await client.query(
-					`UPDATE asset_assignments
-             SET end_date = $2, updated_at = now(), changed_by = $3
-           WHERE id = ANY($1) AND end_date IS NULL`,
-					[releaseAssignmentIds, date, userId],
 				);
 			}
 			await client.query("COMMIT");

@@ -1,21 +1,23 @@
 import {
 	BadRequestException,
+	ConflictException,
+	HttpException,
 	Inject,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
 import type {
+	ApplyBuildChangesResult,
 	CreatedMission,
-	GliderBuildComponent,
 	GliderDeployment,
 	Mission,
+	MissionBuild,
 	MissionFile,
 	MissionFilesSaveResult,
 	MissionMapEntry,
 	MissionTrackPoint,
 	MissionsLeaderboard,
 	MissionsSummary,
-	ScienceSensorRecord,
 } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
@@ -25,14 +27,24 @@ import {
 	originalNameFromReference,
 } from "../documents/documents.service";
 import {
-	applyBuildChangesTx,
-	getMissionSciencePayload,
-	getMissionStructuralComponents,
+	applyMissionBuildChangesTx,
+	copyMissionBuildTx,
+	getBuildWarnings,
+	getMissionBuild,
+	nextMissionNumberTx,
+	seedMissionBuildTx,
 } from "../gliders/build.helpers";
+import type { ApplyMissionBuildChangesDto } from "./dto/apply-mission-build-changes.dto";
+import type { CopyMissionBuildDto } from "./dto/copy-mission-build.dto";
 import type { CreateMissionDto } from "./dto/create-mission.dto";
 import type { SaveMissionFilesDto } from "./dto/save-mission-files.dto";
 import type { UpdateMissionDto } from "./dto/update-mission.dto";
-import { buildMissionName } from "./mission-name.helper";
+import {
+	buildMissionName,
+	buildPlannedMissionName,
+	buildWorkshopMissionName,
+	isProvisionalMissionName,
+} from "./mission-name.helper";
 
 const DAYS_EXPR =
 	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
@@ -124,45 +136,78 @@ export class MissionsService {
 		return result.rows[0];
 	}
 
-	// Science Payload is always "as of this mission's launch date" -- a
-	// mission with no glider linked, or no launch date recorded yet, has
-	// nothing to resolve a build tree against.
-	async getSciencePayload(id: number): Promise<ScienceSensorRecord[]> {
-		const mission = await this.findOne(id);
-		if (!mission.gliderAssetId || !mission.launchDate) return [];
-		return getMissionSciencePayload(
-			this.pool,
-			mission.gliderAssetId,
-			mission.launchDate,
-		);
+	// One mission's build: what was (or will be) on the glider for it, with
+	// the science payload as of its launch date.
+	async getBuild(id: number): Promise<MissionBuild> {
+		await this.findOne(id);
+		return getMissionBuild(this.pool, id);
 	}
 
-	// Same "as of this mission's launch date" reasoning as
-	// getSciencePayload above, just for the non-sensor build components.
-	async getStructuralComponents(id: number): Promise<GliderBuildComponent[]> {
-		const mission = await this.findOne(id);
-		if (!mission.gliderAssetId || !mission.launchDate) return [];
-		return getMissionStructuralComponents(
-			this.pool,
-			mission.gliderAssetId,
-			mission.launchDate,
-		);
+	// Edits ONE mission's build, in one transaction. Allowed at any status:
+	// the lab often records a build long after the mission flew, and a
+	// mission's build has no dates, so an edit can't touch another mission
+	// or the glider's history.
+	async applyBuildChanges(
+		id: number,
+		dto: ApplyMissionBuildChangesDto,
+		userId: number,
+	): Promise<ApplyBuildChangesResult> {
+		await this.findOne(id);
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+			await applyMissionBuildChangesTx(
+				client,
+				id,
+				dto.changes,
+				dto.notes,
+				userId,
+			);
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+		return { warnings: await getBuildWarnings(this.pool, id) };
 	}
 
-	// Every mission a given asset was actually attached to a glider for --
-	// the reverse of getSciencePayload/getStructuralComponents above (asset
-	// -> missions instead of mission -> assets). Reads asset_assignments.
-	// mission_id directly rather than inferring it from date overlap: every
-	// assignment change made through GliderBuildEditor from a mission page
-	// (applyBuildChangesTx in build.helpers.ts) already stamps mission_id
-	// on the row, so this is exact, not a guess. The tradeoff is that it
-	// only sees assignments made through the app -- the original historical
-	// backfill's 88 rows never got mission_id populated (see
-	// docs/design/build-hierarchy.md's "real remaining gaps"), so an asset
-	// with only pre-app assignment history shows no missions here yet.
-	// Exception: a Slocum aft section has no asset_assignments rows at all
-	// (it's a 1:1 identity link on asset_slocum_aft_section_details), so
-	// its deployments are looked up as its glider's -- see the query.
+	// Replaces this mission's build with a copy of another's -- how a
+	// scheduled mission is brought in step with the previous mission, or a
+	// mission with no recorded build gets one.
+	async copyBuild(
+		id: number,
+		dto: CopyMissionBuildDto,
+		userId: number,
+	): Promise<ApplyBuildChangesResult> {
+		const mission = await this.findOne(id);
+		const source = await this.findOne(dto.sourceMissionId);
+		if (mission.gliderAssetId !== source.gliderAssetId) {
+			throw new BadRequestException(
+				"A build can only be copied between missions of the same glider.",
+			);
+		}
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+			await copyMissionBuildTx(client, source.id, id, userId);
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+		return { warnings: await getBuildWarnings(this.pool, id) };
+	}
+
+	// Every mission a given asset was part of -- the reverse of getBuild
+	// (asset -> missions instead of mission -> assets), read straight from
+	// mission_build_items, so it is exact rather than inferred from dates.
+	// Workshop missions are left out: an asset in one is being prepared, not
+	// flown. A Slocum aft section is its glider's identity, so it is in every
+	// build of its glider and the same query covers it.
 	async getForAsset(assetId: number): Promise<GliderDeployment[]> {
 		const asset = await this.pool.query("SELECT 1 FROM assets WHERE id = $1", [
 			assetId,
@@ -177,16 +222,10 @@ export class MissionsService {
               nm.launch_date AS "launchDate", nm.recovery_date AS "recoveryDate",
               nm.dives, nm.distance_km AS "distanceKm"
        FROM norglider_missions nm
-       JOIN missions m ON m.id = nm.id
-       WHERE m.id IN (
-               SELECT aa.mission_id FROM asset_assignments aa WHERE aa.child_asset_id = $1
+       WHERE nm.id IN (
+               SELECT i.mission_id FROM mission_build_items i WHERE i.asset_id = $1
              )
-          -- A Slocum aft section is its glider's identity (1:1 link, no
-          -- asset_assignments row), so its deployments ARE the glider's.
-          OR m.glider_asset_id = (
-               SELECT glider_asset_id FROM asset_slocum_aft_section_details
-               WHERE asset_id = $1
-             )
+         AND nm.status IS DISTINCT FROM 'workshop'
        ORDER BY nm.launch_date DESC NULLS LAST`,
 			[assetId],
 		);
@@ -321,16 +360,81 @@ export class MissionsService {
          FROM tracks
          WHERE missions_id = nm.id
        ) t ON true
+       WHERE nm.status IS DISTINCT FROM 'workshop'
        ORDER BY nm.launch_date DESC NULLS LAST`,
 		);
 		return result.rows;
 	}
 
-	// Creates the mission row and applies its initial glider build (if
-	// any) in one transaction -- a partial save (mission created, build
-	// changes lost, or vice versa) shouldn't be possible. mission_name is
-	// always computed here, never taken from the client, so it can't
-	// drift from the naming convention.
+	// What each status must have on record. WORKSHOP is a glider being
+	// prepared -- only the glider is known. SCHEDULED means the glider has
+	// been assigned a mission (so project and site), launch date optional.
+	// Anything past that (active, recovered, ...) also needs a launch date.
+	private assertFieldsForStatus(
+		statusName: string,
+		dto: CreateMissionDto,
+	): void {
+		if (statusName === "workshop") return;
+		if (!dto.projectId || !dto.siteId) {
+			throw new BadRequestException(
+				`A ${statusName} mission needs a project and a site.`,
+			);
+		}
+		if (statusName !== "scheduled" && !dto.launchDate) {
+			throw new BadRequestException(
+				`A ${statusName} mission needs a launch date.`,
+			);
+		}
+	}
+
+	// mission_name is always computed here, never taken from the client, so
+	// it can't drift from the naming convention. Placeholders ("workshop-...",
+	// "..._planned") are replaced by the real name once the data exists --
+	// see isProvisionalMissionName.
+	private async computeMissionName(
+		client: import("pg").PoolClient,
+		statusName: string,
+		dto: CreateMissionDto,
+	): Promise<string> {
+		const names = await client.query(
+			`SELECT
+         (SELECT glider_name FROM asset_glider_details WHERE asset_id = $1) AS "gliderName",
+         (SELECT name FROM projects WHERE id = $2) AS "projectName",
+         (SELECT name FROM sites WHERE id = $3) AS "siteName"`,
+			[dto.gliderAssetId, dto.projectId ?? null, dto.siteId ?? null],
+		);
+		const { gliderName, projectName, siteName } = names.rows[0];
+		if (!gliderName) throw new NotFoundException("Glider not found.");
+		if (statusName === "workshop") return buildWorkshopMissionName(gliderName);
+		if (!projectName || !siteName) {
+			throw new NotFoundException(
+				"Project or site not found -- can't build a mission name.",
+			);
+		}
+		return dto.launchDate
+			? buildMissionName(gliderName, projectName, siteName, dto.launchDate)
+			: buildPlannedMissionName(gliderName, projectName, siteName);
+	}
+
+	private async statusNameOf(
+		client: import("pg").PoolClient,
+		statusId: number,
+	): Promise<string> {
+		const result = await client.query("SELECT name FROM status WHERE id = $1", [
+			statusId,
+		]);
+		if (result.rows.length === 0) {
+			throw new BadRequestException(`Unknown mission status ${statusId}.`);
+		}
+		return result.rows[0].name;
+	}
+
+	// Creates the mission row and seeds its build in one transaction -- a
+	// partial save (mission created, no build, or vice versa) shouldn't be
+	// possible. The build starts as a copy of the glider's last flown one
+	// and is then edited on the mission page. The permanent mission_number
+	// is assigned here only for missions past planning (or taken from the
+	// form for historical entries); a workshop/scheduled mission has none yet.
 	async createMission(
 		dto: CreateMissionDto,
 		userId: number,
@@ -339,25 +443,30 @@ export class MissionsService {
 		try {
 			await client.query("BEGIN");
 
-			const names = await client.query(
-				`SELECT
-           (SELECT glider_name FROM asset_glider_details WHERE asset_id = $1) AS "gliderName",
-           (SELECT name FROM projects WHERE id = $2) AS "projectName",
-           (SELECT name FROM sites WHERE id = $3) AS "siteName"`,
-				[dto.gliderAssetId, dto.projectId, dto.siteId],
-			);
-			const { gliderName, projectName, siteName } = names.rows[0];
-			if (!gliderName || !projectName || !siteName) {
-				throw new NotFoundException(
-					"Glider, project, or site not found -- can't build a mission name.",
+			const statusName = await this.statusNameOf(client, dto.statusId);
+			this.assertFieldsForStatus(statusName, dto);
+			if (statusName === "workshop") {
+				const existing = await client.query(
+					`SELECT m.id FROM missions m JOIN status s ON s.id = m.status_id
+           WHERE m.glider_asset_id = $1 AND s.name = 'workshop'`,
+					[dto.gliderAssetId],
 				);
+				if (existing.rows.length > 0) {
+					throw new ConflictException(
+						`This glider already has a workshop mission (id ${existing.rows[0].id}).`,
+					);
+				}
 			}
-			const missionName = buildMissionName(
-				gliderName,
-				projectName,
-				siteName,
-				dto.launchDate,
+			const missionName = await this.computeMissionName(
+				client,
+				statusName,
+				dto,
 			);
+			const isPlanning =
+				statusName === "workshop" || statusName === "scheduled";
+			const missionNumber =
+				dto.missionNumber ??
+				(isPlanning ? null : await nextMissionNumberTx(client));
 
 			const inserted = await client.query(
 				`INSERT INTO missions (
@@ -376,17 +485,17 @@ export class MissionsService {
            $26
          ) RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
-					dto.missionNumber,
+					missionNumber,
 					missionName,
 					dto.gliderAssetId,
 					dto.statusId,
-					dto.projectId,
-					dto.siteId,
+					dto.projectId ?? null,
+					dto.siteId ?? null,
 					dto.principalInvestigatorId ?? null,
 					dto.technicalLeadId ?? null,
 					dto.operatingAgencyId ?? null,
 					dto.fundingAgencyId ?? null,
-					dto.launchDate,
+					dto.launchDate ?? null,
 					dto.launchLatitude ?? null,
 					dto.launchLongitude ?? null,
 					dto.launchCruiseId ?? null,
@@ -406,41 +515,34 @@ export class MissionsService {
 			);
 			const created: CreatedMission = inserted.rows[0];
 
-			if (dto.buildChanges && dto.buildChanges.length > 0) {
-				await applyBuildChangesTx(
-					client,
-					dto.buildChanges,
-					dto.launchDate,
-					created.id,
-					null,
-					userId,
-				);
-			}
+			await seedMissionBuildTx(client, created.id, dto.gliderAssetId, userId);
 
 			await client.query("COMMIT");
 			return created;
 		} catch (err) {
 			await client.query("ROLLBACK");
-			throw err;
+			throw mapMissionDbError(err);
 		} finally {
 			client.release();
 		}
 	}
 
-	// Same shape as createMission -- UPDATE instead of INSERT, and any
-	// build changes are dated to this mission's own launch date (not
-	// "today"), with mission_id pointing at the existing row rather than
-	// a freshly created one.
+	// Same shape as createMission -- UPDATE instead of INSERT. The build is
+	// not touched here: it is edited through its own endpoints.
 	//
-	// Two columns are deliberately NOT written on edit (see "Mission
+	// Two columns are deliberately NOT freely rewritten on edit (see "Mission
 	// identifiers" in OGDB's alembic/design-notes.md):
 	// - mission_number is the permanent mission identifier (the NNN- prefix
-	//   of the mission's data folder). OGDB enforces this with a trigger;
-	//   a changed number is rejected here first with a readable 400.
+	//   of the mission's data folder). A mission that already has one can't
+	//   change it (OGDB enforces this with a trigger; a changed number is
+	//   rejected here first with a readable 400). One that has none -- a
+	//   workshop/scheduled mission -- is given the next number the moment it
+	//   is no longer one of those, i.e. when it becomes active.
 	// - mission_name is the historical label the mission was known by
-	//   (e.g. "agf311811_2016"), set once at create. The computed
-	//   glider_project_site_monYYYY name is norglider_missions
-	//   .std_mission_name, which follows edits automatically.
+	//   (e.g. "agf311811_2016"), set once at create -- except a placeholder
+	//   ("workshop-durin", "..._planned"), which is replaced once the data to
+	//   name it with exists. The computed glider_project_site_monYYYY name is
+	//   norglider_missions.std_mission_name, which follows edits automatically.
 	//
 	// launch_date / end_date_science / recovery_date are timestamps, but the
 	// form only edits the date. If the submitted date matches the stored
@@ -455,7 +557,11 @@ export class MissionsService {
 		userId: number,
 	): Promise<CreatedMission> {
 		const existing = await this.findOne(id);
-		if (Number(dto.missionNumber) !== Number(existing.missionNumber)) {
+		if (
+			existing.missionNumber !== null &&
+			dto.missionNumber != null &&
+			Number(dto.missionNumber) !== Number(existing.missionNumber)
+		) {
 			throw new BadRequestException(
 				`Mission number is permanent and can't be changed (mission #${existing.missionNumber}).`,
 			);
@@ -464,16 +570,37 @@ export class MissionsService {
 		try {
 			await client.query("BEGIN");
 
-			const names = await client.query(
-				`SELECT
-           (SELECT glider_name FROM asset_glider_details WHERE asset_id = $1) AS "gliderName",
-           (SELECT name FROM projects WHERE id = $2) AS "projectName",
-           (SELECT name FROM sites WHERE id = $3) AS "siteName"`,
-				[dto.gliderAssetId, dto.projectId, dto.siteId],
-			);
-			const { gliderName, projectName, siteName } = names.rows[0];
-			if (!gliderName || !projectName || !siteName) {
-				throw new NotFoundException("Glider, project, or site not found.");
+			const statusName = await this.statusNameOf(client, dto.statusId);
+			this.assertFieldsForStatus(statusName, dto);
+			if (statusName === "workshop") {
+				const other = await client.query(
+					`SELECT m.id FROM missions m JOIN status s ON s.id = m.status_id
+           WHERE m.glider_asset_id = $1 AND s.name = 'workshop' AND m.id <> $2`,
+					[dto.gliderAssetId, id],
+				);
+				if (other.rows.length > 0) {
+					throw new ConflictException(
+						`This glider already has a workshop mission (id ${other.rows[0].id}).`,
+					);
+				}
+			}
+			const isPlanning =
+				statusName === "workshop" || statusName === "scheduled";
+
+			// Number: kept if it has one; otherwise assigned once it is past
+			// planning (form value for a historical entry, else the next one).
+			let assignedNumber: number | null = null;
+			if (existing.missionNumber === null && !isPlanning) {
+				assignedNumber =
+					dto.missionNumber ?? (await nextMissionNumberTx(client));
+			}
+
+			let newName: string | null = null;
+			if (
+				existing.missionName &&
+				isProvisionalMissionName(existing.missionName)
+			) {
+				newName = await this.computeMissionName(client, statusName, dto);
 			}
 
 			const updated = await client.query(
@@ -492,19 +619,21 @@ export class MissionsService {
            recovery_latitude = $15,
            recovery_longitude = $16, recovery_cruise_id = $17,
            volume = $18, weight_in_air = $19, density = $20, dives = $21, distance_km = $22,
-           iridium_minutes = $23, changed_by = $24, updated_at = now()
+           iridium_minutes = $23, changed_by = $24, updated_at = now(),
+           mission_number = COALESCE(mission_number, $26::integer),
+           mission_name = COALESCE($27::text, mission_name)
          WHERE id = $25
          RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
 					dto.gliderAssetId,
 					dto.statusId,
-					dto.projectId,
-					dto.siteId,
+					dto.projectId ?? null,
+					dto.siteId ?? null,
 					dto.principalInvestigatorId ?? null,
 					dto.technicalLeadId ?? null,
 					dto.operatingAgencyId ?? null,
 					dto.fundingAgencyId ?? null,
-					dto.launchDate,
+					dto.launchDate ?? null,
 					dto.launchLatitude ?? null,
 					dto.launchLongitude ?? null,
 					dto.launchCruiseId ?? null,
@@ -521,26 +650,17 @@ export class MissionsService {
 					dto.iridiumMinutes ?? null,
 					userId,
 					id,
+					assignedNumber,
+					newName,
 				],
 			);
 			const result: CreatedMission = updated.rows[0];
-
-			if (dto.buildChanges && dto.buildChanges.length > 0) {
-				await applyBuildChangesTx(
-					client,
-					dto.buildChanges,
-					dto.launchDate,
-					id,
-					null,
-					userId,
-				);
-			}
 
 			await client.query("COMMIT");
 			return result;
 		} catch (err) {
 			await client.query("ROLLBACK");
-			throw err;
+			throw mapMissionDbError(err);
 		} finally {
 			client.release();
 		}
@@ -554,6 +674,7 @@ export class MissionsService {
         ROUND(COALESCE(SUM(distance_km), 0)::numeric)::int AS "totalDistanceKm",
         COALESCE(SUM(${DAYS_EXPR}), 0)::int AS "totalDays"
       FROM norglider_missions
+      WHERE status IS DISTINCT FROM 'workshop'
     `);
 		return result.rows[0];
 	}
@@ -568,7 +689,7 @@ export class MissionsService {
           COALESCE(SUM(distance_km), 0) AS "totalDistanceKm",
           COALESCE(SUM(${DAYS_EXPR}), 0)::int AS "totalDays"
         FROM norglider_missions
-        WHERE glider IS NOT NULL
+        WHERE glider IS NOT NULL AND status IS DISTINCT FROM 'workshop'
         GROUP BY glider
       `),
 				this.pool.query(`
@@ -656,4 +777,21 @@ export class MissionsService {
 			mostSiteDays: topSite.rows[0] ?? null,
 		};
 	}
+}
+
+// A unique clash on a mission's name is the one DB error a user can cause
+// through the form (two planned missions that would get the same name).
+function mapMissionDbError(err: unknown): Error {
+	if (err instanceof HttpException) return err;
+	if (
+		err &&
+		typeof err === "object" &&
+		"code" in err &&
+		(err as { code: string }).code === "23505"
+	) {
+		return new ConflictException(
+			"A mission with that name or number already exists.",
+		);
+	}
+	return err instanceof Error ? err : new Error(String(err));
 }

@@ -38,27 +38,6 @@ import type {
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-// Types that can attach directly under a glider -- mirrors gateway's
-// VALID_PARENT_TYPES (common/asset-tables.ts), the glider-child subset
-// only. slocum_aft_section is excluded -- a Slocum's aft section is its
-// identity (a 1:1 link on asset_slocum_aft_section_details, not an
-// assignment), set when the section is matched to its glider, not here.
-const ADDABLE_TO_GLIDER_TYPES = [
-	"ct_sensor",
-	"do_sensor",
-	"eco_sensor",
-	"mr_sensor",
-	"battery",
-	"argos_tag",
-	"nose_cone",
-	"slocum_forward_section",
-	"slocum_end_cap",
-	"slocum_hull",
-	"slocum_altimeter",
-	"slocum_energy_bay",
-	"slocum_thruster",
-];
-
 interface FormState {
 	missionNumber: string;
 	gliderAssetId: number | "";
@@ -155,10 +134,6 @@ function toNumberOrNull(raw: string): number | null {
 	return Number.isNaN(n) ? null : n;
 }
 
-type Picker =
-	| { mode: "replace"; assignmentId: number; assetType: string }
-	| { mode: "add" };
-
 // Same modal for both creating a mission and editing an existing one --
 // "edit" just skips the autopopulate box (there's no "previous mission"
 // concept when you're already editing a specific one), seeds every
@@ -204,20 +179,6 @@ export default function MissionFormDialog({
 		message: string;
 	} | null>(null);
 
-	// assignmentId is always set here: loadBuild filters out the core aft
-	// section (the one component with a null assignmentId).
-	const [buildComponents, setBuildComponents] = useState<
-		(GliderBuildComponent & { assignmentId: number })[]
-	>([]);
-	const [buildLoading, setBuildLoading] = useState(false);
-	const [pendingChanges, setPendingChanges] = useState<BuildChange[]>([]);
-	const [picker, setPicker] = useState<Picker | null>(null);
-	const [pickerAssetType, setPickerAssetType] = useState(
-		ADDABLE_TO_GLIDER_TYPES[0],
-	);
-	const [pickerQuery, setPickerQuery] = useState("");
-	const [pickerResults, setPickerResults] = useState<AssetSearchResult[]>([]);
-
 	const scheduledStatusId = useMemo(
 		() =>
 			missionStatuses.find((s) => s.name.toLowerCase() === "scheduled")?.id ??
@@ -225,46 +186,9 @@ export default function MissionFormDialog({
 		[missionStatuses],
 	);
 
-	const suggestedMissionNumber = useMemo(() => {
-		const max = missions.reduce(
-			(m, mission) => Math.max(m, mission.missionNumber ?? 0),
-			0,
-		);
-		return String(max + 1);
-	}, [missions]);
-
-	async function loadBuild(gliderAssetId: number) {
-		setBuildLoading(true);
-		setPendingChanges([]);
-		try {
-			const build = await getGliderBuildClient(gliderAssetId);
-			// Drop the core aft section (assignmentId null) -- a Slocum's aft
-			// section is its identity, not a component you replace per mission.
-			setBuildComponents(
-				build.components.filter(
-					(c): c is GliderBuildComponent & { assignmentId: number } =>
-						c.assignmentId != null,
-				),
-			);
-		} catch {
-			setBuildComponents([]);
-		} finally {
-			setBuildLoading(false);
-		}
-	}
-
 	function resetAll() {
-		setForm({
-			...emptyForm(),
-			missionNumber: suggestedMissionNumber,
-			statusId: scheduledStatusId,
-		});
+		setForm({ ...emptyForm(), statusId: scheduledStatusId });
 		setAutopopulateId("");
-		setBuildComponents([]);
-		setPendingChanges([]);
-		setPicker(null);
-		setPickerQuery("");
-		setPickerResults([]);
 		setError(null);
 	}
 
@@ -282,23 +206,16 @@ export default function MissionFormDialog({
 	// editing -- mission?.id going from unset to set covers both "start
 	// editing" and "close then edit the same row again" (the parent nulls
 	// mission on close, so id genuinely changes each time).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: loadBuild/mission object identity deliberately excluded -- keying on mission?.id avoids re-seeding on every parent render
+	// biome-ignore lint/correctness/useExhaustiveDependencies: mission object identity deliberately excluded -- keying on mission?.id avoids re-seeding on every parent render
 	useEffect(() => {
 		if (mode !== "edit" || !mission) return;
 		setForm(formFromMission(mission));
 		setAutopopulateId("");
-		setPendingChanges([]);
-		setPicker(null);
-		setPickerQuery("");
-		setPickerResults([]);
 		setError(null);
-		if (mission.gliderAssetId) loadBuild(mission.gliderAssetId);
-		else setBuildComponents([]);
 	}, [mode, mission?.id]);
 
 	function handleGliderChange(id: number) {
 		setForm((s) => ({ ...s, gliderAssetId: id }));
-		loadBuild(id);
 	}
 
 	function handleAutopopulate(missionId: number) {
@@ -335,8 +252,13 @@ export default function MissionFormDialog({
 			// L1/L2 dataset pointers belong to the source mission's data --
 			// nothing to carry over to a mission that hasn't happened yet.
 		}));
-		if (source.gliderAssetId) loadBuild(source.gliderAssetId);
 	}
+
+	const statusName =
+		missionStatuses.find((s) => s.id === form.statusId)?.name.toLowerCase() ??
+		"";
+	const isWorkshop = statusName === "workshop";
+	const isScheduled = statusName === "scheduled";
 
 	const gliderName = useMemo(
 		() => gliders.find((g) => g.id === form.gliderAssetId)?.name ?? null,
@@ -357,92 +279,6 @@ export default function MissionFormDialog({
 		form.launchDate || null,
 	);
 
-	useEffect(() => {
-		if (!picker) return;
-		const assetType =
-			picker.mode === "replace" ? picker.assetType : pickerAssetType;
-		const handle = setTimeout(() => {
-			searchAssets(assetType, pickerQuery)
-				.then(setPickerResults)
-				.catch(() => setPickerResults([]));
-		}, 250);
-		return () => clearTimeout(handle);
-	}, [picker, pickerAssetType, pickerQuery]);
-
-	function openReplacePicker(
-		component: GliderBuildComponent & { assignmentId: number },
-	) {
-		setPicker({
-			mode: "replace",
-			assignmentId: component.assignmentId,
-			assetType: component.assetType,
-		});
-		setPickerQuery("");
-		setPickerResults([]);
-	}
-
-	function openAddPicker() {
-		setPicker({ mode: "add" });
-		setPickerAssetType(ADDABLE_TO_GLIDER_TYPES[0]);
-		setPickerQuery("");
-		setPickerResults([]);
-	}
-
-	function pickAsset(result: AssetSearchResult) {
-		if (!picker) return;
-		if (picker.mode === "replace") {
-			setPendingChanges((prev) => [
-				...prev.filter(
-					(c) =>
-						!(c.action === "replace" && c.assignmentId === picker.assignmentId),
-				),
-				{
-					action: "replace",
-					assignmentId: picker.assignmentId,
-					childAssetId: result.id,
-				},
-			]);
-		} else if (form.gliderAssetId) {
-			setPendingChanges((prev) => [
-				...prev,
-				{
-					action: "add",
-					parentAssetId: form.gliderAssetId as number,
-					childAssetId: result.id,
-				},
-			]);
-		}
-		setPicker(null);
-	}
-
-	function undoReplace(assignmentId: number) {
-		setPendingChanges((prev) =>
-			prev.filter(
-				(c) => !(c.action === "replace" && c.assignmentId === assignmentId),
-			),
-		);
-	}
-
-	function removeAddition(index: number) {
-		setPendingChanges((prev) => {
-			const additions = prev.filter((c) => c.action === "add");
-			const target = additions[index];
-			return prev.filter((c) => c !== target);
-		});
-	}
-
-	function replacementFor(assignmentId: number) {
-		const change = pendingChanges.find(
-			(c) => c.action === "replace" && c.assignmentId === assignmentId,
-		);
-		if (!change || change.action !== "replace" || !change.childAssetId) {
-			return null;
-		}
-		return change.childAssetId;
-	}
-
-	const additions = pendingChanges.filter((c) => c.action === "add");
-
 	function dismissBanner() {
 		setBanner(null);
 		router.refresh();
@@ -450,29 +286,30 @@ export default function MissionFormDialog({
 
 	async function handleSave() {
 		setError(null);
-		const missionNumber = Number(form.missionNumber);
-		if (!form.missionNumber.trim() || Number.isNaN(missionNumber)) {
-			setError("Mission number is required.");
+		// What a mission must have depends on its status: a workshop is just
+		// a glider being prepared; scheduled adds a project and site; anything
+		// further along (active, recovered, ...) also needs a launch date.
+		const missionNumber = form.missionNumber.trim()
+			? Number(form.missionNumber)
+			: null;
+		if (missionNumber !== null && Number.isNaN(missionNumber)) {
+			setError("Mission number must be a number.");
+			return;
+		}
+		if (!form.statusId) {
+			setError("Status is required.");
 			return;
 		}
 		if (!form.gliderAssetId) {
 			setError("Glider is required.");
 			return;
 		}
-		if (!form.projectId) {
-			setError("Project is required.");
+		if (!isWorkshop && (!form.projectId || !form.siteId)) {
+			setError("Project and site are required.");
 			return;
 		}
-		if (!form.siteId) {
-			setError("Site is required.");
-			return;
-		}
-		if (!form.launchDate) {
+		if (!isWorkshop && !isScheduled && !form.launchDate) {
 			setError("Launch date is required.");
-			return;
-		}
-		if (!form.statusId) {
-			setError("Status is required.");
 			return;
 		}
 
@@ -482,9 +319,9 @@ export default function MissionFormDialog({
 				missionNumber,
 				gliderAssetId: form.gliderAssetId as number,
 				statusId: form.statusId as number,
-				projectId: form.projectId as number,
-				siteId: form.siteId as number,
-				launchDate: form.launchDate,
+				projectId: form.projectId || null,
+				siteId: form.siteId || null,
+				launchDate: form.launchDate || null,
 				principalInvestigatorId: form.principalInvestigatorId || null,
 				technicalLeadId: form.technicalLeadId || null,
 				operatingAgencyId: form.operatingAgencyId || null,
@@ -503,7 +340,6 @@ export default function MissionFormDialog({
 				dives: toNumberOrNull(form.dives),
 				distanceKm: toNumberOrNull(form.distanceKm),
 				iridiumMinutes: toNumberOrNull(form.iridiumMinutes),
-				buildChanges: pendingChanges.length > 0 ? pendingChanges : undefined,
 			};
 			const result =
 				mode === "edit" && mission
@@ -514,8 +350,8 @@ export default function MissionFormDialog({
 				severity: "success",
 				message:
 					mode === "edit"
-						? `Norglider mission #${result.missionNumber} successfully updated!`
-						: `Norglider mission #${result.missionNumber} successfully created!`,
+						? `Mission ${result.missionNumber != null ? `#${result.missionNumber}` : result.missionName} successfully updated!`
+						: `Mission ${result.missionNumber != null ? `#${result.missionNumber}` : result.missionName} successfully created!`,
 			});
 		} catch (err) {
 			setBanner({
@@ -592,20 +428,20 @@ export default function MissionFormDialog({
 
 					<Section label="Identity">
 						<Grid>
-							<Field label="Mission number" required>
+							<Field label="Mission number">
 								<TextField
 									size="small"
 									fullWidth
-									disabled={mode === "edit"}
 									value={form.missionNumber}
 									onChange={(e) =>
 										setForm((s) => ({ ...s, missionNumber: e.target.value }))
 									}
 									helperText={
-										mode === "create"
-											? "Suggested next number — editable"
-											: "Permanent identifier — can't be changed"
+										form.missionNumber
+											? "Permanent identifier — can't be changed once set"
+											: "Assigned automatically when the mission becomes active"
 									}
+									disabled={mode === "edit" && !!mission?.missionNumber}
 								/>
 							</Field>
 							<Field label="Mission name" required span={2}>
@@ -663,14 +499,14 @@ export default function MissionFormDialog({
 
 					<Section label="Project & people">
 						<Grid>
-							<Field label="Project" required>
+							<Field label="Project" required={!isWorkshop}>
 								<LookupSelect
 									value={form.projectId}
 									options={projects}
 									onChange={(v) => setForm((s) => ({ ...s, projectId: v }))}
 								/>
 							</Field>
-							<Field label="Site" required>
+							<Field label="Site" required={!isWorkshop}>
 								<LookupSelect
 									value={form.siteId}
 									options={sites}
@@ -718,7 +554,7 @@ export default function MissionFormDialog({
 
 					<Section label="Launch">
 						<Grid>
-							<Field label="Launch date" required>
+							<Field label="Launch date" required={!isWorkshop && !isScheduled}>
 								<TextField
 									size="small"
 									fullWidth
@@ -914,203 +750,6 @@ export default function MissionFormDialog({
 								/>
 							</Field>
 						</Grid>
-					</Section>
-
-					<Section label="Glider build">
-						{!form.gliderAssetId ? (
-							<Typography variant="body2" color="text.disabled">
-								Select a glider above to see its current build.
-							</Typography>
-						) : buildLoading ? (
-							<Typography variant="body2" color="text.disabled">
-								Loading build…
-							</Typography>
-						) : (
-							<>
-								<TableContainer
-									component={Box}
-									sx={{
-										border: "1px solid",
-										borderColor: "divider",
-										borderRadius: 1,
-									}}
-								>
-									<Table size="small">
-										<TableHead>
-											<TableRow>
-												<TableCell>Asset</TableCell>
-												<TableCell>Model</TableCell>
-												<TableCell>Serial number</TableCell>
-												<TableCell style={{ width: 1 }} />
-											</TableRow>
-										</TableHead>
-										<TableBody>
-											{buildComponents.map((c) => {
-												const replacedWith = replacementFor(c.assignmentId);
-												const isPickingHere =
-													picker?.mode === "replace" &&
-													picker.assignmentId === c.assignmentId;
-												return (
-													<TableRow key={c.assignmentId}>
-														<TableCell>
-															{formatAssetType(c.assetType)}
-															{c.position ? ` (${c.position})` : ""}
-														</TableCell>
-														<TableCell>{c.model ?? "—"}</TableCell>
-														<TableCell sx={{ fontFamily: "monospace" }}>
-															{replacedWith ? (
-																<>
-																	<s style={{ opacity: 0.5 }}>
-																		{c.serialNumber}
-																	</s>{" "}
-																	→ asset #{replacedWith}
-																</>
-															) : (
-																(c.serialNumber ?? "—")
-															)}
-														</TableCell>
-														<TableCell>
-															{replacedWith ? (
-																<Button
-																	size="small"
-																	onClick={() => undoReplace(c.assignmentId)}
-																>
-																	Undo
-																</Button>
-															) : isPickingHere ? null : (
-																<Button
-																	size="small"
-																	onClick={() => openReplacePicker(c)}
-																>
-																	Replace
-																</Button>
-															)}
-														</TableCell>
-													</TableRow>
-												);
-											})}
-											{additions.map((change, i) => {
-												if (change.action !== "add") return null;
-												return (
-													<TableRow key={`add-${change.childAssetId}-${i}`}>
-														<TableCell
-															colSpan={2}
-															sx={{ color: "success.main" }}
-														>
-															+ New asset (asset #{change.childAssetId})
-														</TableCell>
-														<TableCell />
-														<TableCell>
-															<Button
-																size="small"
-																onClick={() => removeAddition(i)}
-															>
-																Undo
-															</Button>
-														</TableCell>
-													</TableRow>
-												);
-											})}
-										</TableBody>
-									</Table>
-								</TableContainer>
-
-								{picker && (
-									<Box
-										sx={{
-											mt: 1.5,
-											p: 1.5,
-											border: "1px solid",
-											borderColor: "divider",
-											borderRadius: 1,
-										}}
-									>
-										{picker.mode === "add" && (
-											<TextField
-												select
-												size="small"
-												label="Asset type"
-												value={pickerAssetType}
-												onChange={(e) => {
-													setPickerAssetType(e.target.value);
-													setPickerResults([]);
-												}}
-												sx={{ mb: 1, minWidth: 220 }}
-											>
-												{ADDABLE_TO_GLIDER_TYPES.map((t) => (
-													<MenuItem key={t} value={t}>
-														{formatAssetType(t)}
-													</MenuItem>
-												))}
-											</TextField>
-										)}
-										<TextField
-											size="small"
-											fullWidth
-											placeholder="Search by serial number…"
-											value={pickerQuery}
-											onChange={(e) => setPickerQuery(e.target.value)}
-										/>
-										<Box
-											sx={{
-												mt: 1,
-												border: "1px solid",
-												borderColor: "divider",
-												borderRadius: 1,
-												maxHeight: 160,
-												overflowY: "auto",
-											}}
-										>
-											{pickerResults.map((r) => (
-												<Box
-													key={r.id}
-													onClick={() => pickAsset(r)}
-													sx={{
-														display: "flex",
-														justifyContent: "space-between",
-														gap: 1,
-														px: 1.25,
-														py: 0.75,
-														cursor: "pointer",
-														fontSize: 13,
-														"&:hover": { bgcolor: "action.hover" },
-													}}
-												>
-													<span style={{ fontFamily: "monospace" }}>
-														SN {r.serialNumber ?? "—"}
-													</span>
-													<Typography variant="body2" color="text.secondary">
-														{r.model ?? "—"}
-													</Typography>
-												</Box>
-											))}
-											{pickerResults.length === 0 && (
-												<Typography
-													variant="body2"
-													color="text.disabled"
-													sx={{ px: 1.25, py: 0.75 }}
-												>
-													No matches.
-												</Typography>
-											)}
-										</Box>
-										<Button
-											size="small"
-											sx={{ mt: 1 }}
-											onClick={() => setPicker(null)}
-										>
-											Cancel
-										</Button>
-									</Box>
-								)}
-
-								{!picker && (
-									<Button size="small" sx={{ mt: 1.5 }} onClick={openAddPicker}>
-										+ Add asset
-									</Button>
-								)}
-							</>
-						)}
 					</Section>
 
 					{error && (

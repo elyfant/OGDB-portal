@@ -722,12 +722,17 @@ export interface LookupOption {
 // siteId/launchDate are the only fields the dialog treats as required;
 // everything else is nullable/omittable.
 export interface CreateMissionInput {
-	missionNumber: number;
+	// Permanent facility-wide number. Leave out for a workshop/scheduled
+	// mission; it is assigned when the mission becomes active.
+	missionNumber?: number | null;
 	gliderAssetId: number;
 	statusId: number;
-	projectId: number;
-	siteId: number;
-	launchDate: string;
+	// A workshop mission needs only the glider. Scheduled needs project and
+	// site; an active/recovered mission also needs a launch date. The
+	// gateway enforces this per status.
+	projectId?: number | null;
+	siteId?: number | null;
+	launchDate?: string | null;
 	principalInvestigatorId?: number | null;
 	technicalLeadId?: number | null;
 	operatingAgencyId?: number | null;
@@ -746,10 +751,6 @@ export interface CreateMissionInput {
 	dives?: number | null;
 	distanceKm?: number | null;
 	iridiumMinutes?: number | null;
-	// The new mission's initial build, applied in the same transaction as
-	// the mission row itself -- omit/empty when the glider's current live
-	// build already covers it (most redeployments need no changes at all).
-	buildChanges?: BuildChange[];
 }
 
 export interface CreatedMission {
@@ -759,18 +760,18 @@ export interface CreatedMission {
 }
 
 export interface GliderBuildComponent {
-	// null for the Slocum aft section: it's a 1:1 identity link on
-	// asset_slocum_aft_section_details.glider_asset_id, grafted into the
-	// build tree as a synthetic node, not a swappable asset_assignments
-	// row -- so it can't be replaced or removed through the build editor.
-	assignmentId: number | null;
+	// mission_build_items.id -- the row to replace/remove in this mission's
+	// build. The Slocum aft section is one too (stored so a mission's build
+	// is complete on its own), but it is the glider's identity: the editor
+	// never offers to replace or remove it.
+	itemId: number;
 	assetId: number;
+	// The glider, or the part this one is mounted in (e.g. a payload bay).
 	parentAssetId: number;
 	assetType: string;
 	assetTypeGroup: string;
 	serialNumber: string | null;
 	position: string | null;
-	installDate: string | null;
 	depth: number;
 	// Only populated for science sensors (NVS L22 model), batteries
 	// (battery_models.model), and hulls (hull_models.teledyne_part_number)
@@ -816,8 +817,6 @@ export interface ScienceSensorRecord {
 	assetId: number;
 	assetType: string;
 	serialNumber: string | null;
-	// When this sensor's assignment started (on or before the as-of date).
-	installDate: string | null;
 	model: string | null;
 	modelUri: string | null;
 	measuredParameters: MeasuredParameter[];
@@ -1174,23 +1173,22 @@ export interface NewAssetInput {
 	model?: string | null;
 }
 
-// The three actions the build editor can take on a component. "replace"
-// and "remove" both close an existing open assignment; "replace" opens a
-// new one under the same parent/position, "remove" doesn't. "add" opens
-// one with no assignment to close. All changes in one request are applied
-// as a single transaction (see ApplyBuildChangesInput). "replace"/"add"
-// take exactly one of childAssetId (existing asset) or newAsset (create
-// it first, same transaction).
+// The three actions the build editor can take on a mission's build.
+// "replace" swaps the asset in an existing item (keeping its position and
+// anything mounted in it), "remove" deletes the item (and what is mounted
+// in it), "add" creates one. All changes in one request are applied as a
+// single transaction. "replace"/"add" take exactly one of childAssetId
+// (existing asset) or newAsset (create it first, same transaction).
 export interface BuildChangeReplace {
 	action: "replace";
-	assignmentId: number;
+	itemId: number;
 	childAssetId?: number;
 	newAsset?: NewAssetInput;
 }
 
 export interface BuildChangeRemove {
 	action: "remove";
-	assignmentId: number;
+	itemId: number;
 	// Setting a status alongside the removal is optional -- most removals
 	// happen because the part is going somewhere specific (calibration,
 	// factory repair), but not always known at entry time.
@@ -1200,6 +1198,8 @@ export interface BuildChangeRemove {
 
 export interface BuildChangeAdd {
 	action: "add";
+	// The glider's asset id for something mounted directly on it, or the
+	// asset id of a part already in this mission's build (e.g. a payload bay).
 	parentAssetId: number;
 	childAssetId?: number;
 	newAsset?: NewAssetInput;
@@ -1212,20 +1212,57 @@ export type BuildChange =
 	| BuildChangeAdd;
 
 export interface ApplyBuildChangesInput {
-	effectiveDate: string;
-	// Set when opened from a mission page; null when opened from the
-	// glider page for a servicing-log-driven change.
-	missionId?: number | null;
 	notes?: string | null;
 	changes: BuildChange[];
 }
 
+export interface ApplyBuildChangesResult {
+	// Soft problems the save went through with, e.g. a sensor that is also in
+	// another glider's open mission build. Two ACTIVE builds claiming the same
+	// asset is refused outright instead.
+	warnings: string[];
+}
+
+// Copy another mission's build over this one (replacing it).
+export interface CopyBuildInput {
+	sourceMissionId: number;
+}
+
+// A mission as the glider page refers to it.
+export interface BuildMissionRef {
+	id: number;
+	missionNumber: number | null;
+	missionName: string | null;
+	stdMissionName: string | null;
+	status: string | null;
+	launchDate: string | null;
+	recoveryDate: string | null;
+}
+
+// One mission's build: what was (or will be) on the glider for it.
+export interface MissionBuild {
+	// False when nothing is on record for this mission yet ("build not
+	// recorded"), as opposed to a recorded build that happens to be empty.
+	recorded: boolean;
+	components: GliderBuildComponent[];
+	// Science sensors, with the calibration in effect on the mission's launch
+	// date (today, for a mission that has not launched).
+	sciencePayload: ScienceSensorRecord[];
+	warnings: string[];
+}
+
 export interface GliderBuild {
+	// The build of the last mission that flew (see buildMission) -- a
+	// read-only view. Builds are edited on their mission.
 	components: GliderBuildComponent[];
 	componentDetails: GliderComponentDetail[];
-	// The science sensors as of today, in the same shape as a mission's
-	// science payload (parameters, calibration in effect, install date).
 	sciencePayload: ScienceSensorRecord[];
+	// Which mission the build above belongs to; null when the glider has not
+	// flown (or no launched mission has a build on record).
+	buildMission: BuildMissionRef | null;
+	// The mission being prepared for this glider: its workshop, or else its
+	// earliest scheduled mission. null when nothing is planned.
+	nextMission: BuildMissionRef | null;
 	deployments: GliderDeployment[];
 	// Same shape as the fleet-wide MissionsSummary, scoped to this glider's
 	// own missions — reused rather than a new type since the fields match

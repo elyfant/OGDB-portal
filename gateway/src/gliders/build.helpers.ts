@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import type {
 	BuildChange,
+	BuildMissionRef,
 	GliderBuild,
 	GliderBuildComponent,
 	GliderComponentDetail,
@@ -12,6 +13,7 @@ import type {
 	GliderEditHistoryItem,
 	GliderStatusHistoryItem,
 	MeasuredParameter,
+	MissionBuild,
 	MissionsSummary,
 	NewAssetInput,
 	ScienceSensorRecord,
@@ -34,74 +36,123 @@ import { originalNameFromReference } from "../documents/documents.service";
 const DAYS_EXPR =
 	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
 
-// $2 (asOfDate) defaults to CURRENT_DATE via COALESCE when not passed --
-// existing callers (always "today", e.g. the glider detail page's
-// Current Build) don't need a second query variant. An assignment is
-// "active as of date D" when it started on/before D and either hasn't
-// ended, or ended after D -- reconstructs the build as it looked on any
-// past date, not just the live one.
-const BUILD_TREE_SQL = `
-  WITH RECURSIVE build AS (
-    -- Swappable components assigned directly under the glider.
-    SELECT aa.id AS assignment_id, aa.child_asset_id AS asset_id, aa.parent_asset_id,
-           aa.start_date, aa.position, 1 AS depth
-    FROM asset_assignments aa
-    WHERE aa.parent_asset_id = $1
-      AND aa.start_date <= COALESCE($2, CURRENT_DATE)
-      AND (aa.end_date IS NULL OR aa.end_date > COALESCE($2, CURRENT_DATE))
-    UNION ALL
-    -- The glider's identity-defining Slocum aft section. It's a 1:1 link
-    -- on asset_slocum_aft_section_details.glider_asset_id, not an
-    -- asset_assignments row (see OGDB xxxx_glider_core_aft_section), so
-    -- it's grafted in here as a synthetic depth-1 node: assignment_id is
-    -- NULL (nothing to close/replace -- it's not swappable), start_date
-    -- falls back to the glider's purchase date. Included regardless of
-    -- $2 (asOfDate) -- the aft section IS the glider for its whole life.
-    -- The recursive term below still reaches anything parented under it.
-    SELECT NULL::int AS assignment_id, aft.asset_id, $1 AS parent_asset_id,
-           COALESCE(g.purchase_date, aft.date_manufactured) AS start_date,
-           NULL AS position, 1 AS depth
-    FROM asset_slocum_aft_section_details aft
-    JOIN assets g ON g.id = $1
-    WHERE aft.glider_asset_id = $1
-    UNION ALL
-    SELECT aa.id, aa.child_asset_id, aa.parent_asset_id, aa.start_date, aa.position, build.depth + 1
-    FROM asset_assignments aa
-    JOIN build ON aa.parent_asset_id = build.asset_id
-    WHERE aa.start_date <= COALESCE($2, CURRENT_DATE)
-      AND (aa.end_date IS NULL OR aa.end_date > COALESCE($2, CURRENT_DATE))
-  )
-  SELECT
-    build.assignment_id AS "assignmentId",
-    build.asset_id AS "assetId",
-    build.parent_asset_id AS "parentAssetId",
-    build.start_date AS "installDate",
-    build.position,
-    build.depth,
-    a.serial_number AS "serialNumber",
-    at.name AS "assetType",
-    atg.name AS "assetTypeGroup"
-  FROM build
-  JOIN assets a ON a.id = build.asset_id
-  JOIN asset_types at ON at.id = a.asset_type_id
-  JOIN asset_type_groups atg ON atg.id = at.group_id
-  ORDER BY build.depth, at.name, a.serial_number
-`;
+type Db = Pool | PoolClient;
 
-// Exported for AssetsService.setDecommission -- validating a "retire
-// these components along with the glider" request against the glider's
-// actual live build tree, so a stale/tampered client request can't
-// decommission something that isn't (or is no longer) really attached.
-export async function fetchBuildTree(
+// A mission's build is never edited on the glider: every build belongs to a
+// mission (mission_build_items), and a mission's status says whether it is
+// still being prepared. "workshop" = glider being prepared, only the glider
+// known; "scheduled" = assigned a mission; "active" = at sea.
+const PRE_LAUNCH_STATUSES = ["workshop", "scheduled"];
+
+// A component before models are looked up.
+type RawComponent = Omit<GliderBuildComponent, "model" | "modelUri">;
+
+// One mission's build items, as a flat list with each part's depth
+// (0 = mounted directly on the glider is depth 1, matching the old tree).
+// The aft section is an ordinary item here (see OGDB
+// xxxx_mission_build_items), so nothing is grafted in on read.
+async function fetchMissionTree(
+	db: Db,
+	missionId: number,
+): Promise<RawComponent[]> {
+	const result = await db.query(
+		`SELECT i.id AS "itemId", i.asset_id AS "assetId",
+            i.parent_item_id AS "parentItemId",
+            COALESCE(p.asset_id, m.glider_asset_id) AS "parentAssetId",
+            i."position" AS position,
+            a.serial_number AS "serialNumber",
+            at.name AS "assetType", atg.name AS "assetTypeGroup"
+     FROM mission_build_items i
+     JOIN missions m ON m.id = i.mission_id
+     LEFT JOIN mission_build_items p ON p.id = i.parent_item_id
+     JOIN assets a ON a.id = i.asset_id
+     JOIN asset_types at ON at.id = a.asset_type_id
+     JOIN asset_type_groups atg ON atg.id = at.group_id
+     WHERE i.mission_id = $1`,
+		[missionId],
+	);
+	const parentOf = new Map<number, number | null>(
+		result.rows.map((r) => [r.itemId, r.parentItemId]),
+	);
+	const depthOf = (itemId: number): number => {
+		let depth = 1;
+		let current = parentOf.get(itemId) ?? null;
+		// The composite FK rules out cycles; the bound is belt and braces.
+		while (current !== null && depth < 20) {
+			depth++;
+			current = parentOf.get(current) ?? null;
+		}
+		return depth;
+	};
+	return result.rows
+		.map(({ parentItemId: _parent, ...r }) => ({
+			...r,
+			depth: depthOf(r.itemId),
+		}))
+		.sort(
+			(a, b) =>
+				a.depth - b.depth ||
+				a.assetType.localeCompare(b.assetType) ||
+				(a.serialNumber ?? "").localeCompare(b.serialNumber ?? ""),
+		);
+}
+
+// Exported for AssetsService.setDecommission: the glider's most recent
+// recorded build -- what "retire these components along with the glider"
+// is validated against.
+export async function fetchLatestBuildTree(
 	pool: Pool,
 	gliderAssetId: number,
-	asOfDate?: string | null,
 ): Promise<GliderBuildComponent[]> {
-	const result = await pool.query(BUILD_TREE_SQL, [
-		gliderAssetId,
-		asOfDate ?? null,
-	]);
-	return result.rows;
+	const mission = await fetchLastFlownMission(pool, gliderAssetId);
+	if (!mission) return [];
+	const raw = await fetchMissionTree(pool, mission.id);
+	const models = await fetchModels(pool, raw);
+	return raw.map((c) => {
+		const info = models.get(c.assetId);
+		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
+	});
+}
+
+const MISSION_REF_SELECT = `
+  SELECT m.id, m.mission_number AS "missionNumber", m.mission_name AS "missionName",
+         nm.std_mission_name AS "stdMissionName", s.name AS status,
+         m.launch_date::date::text AS "launchDate",
+         m.recovery_date::date::text AS "recoveryDate"
+  FROM missions m
+  LEFT JOIN status s ON s.id = m.status_id
+  LEFT JOIN norglider_missions nm ON nm.id = m.id`;
+
+// The last mission that actually flew: launched, and not merely scheduled.
+// "Last flown build" on the glider page is this mission's build.
+async function fetchLastFlownMission(
+	db: Db,
+	gliderAssetId: number,
+): Promise<BuildMissionRef | null> {
+	const result = await db.query(
+		`${MISSION_REF_SELECT}
+     WHERE m.glider_asset_id = $1 AND m.launch_date IS NOT NULL
+       AND COALESCE(s.name, '') <> ALL($2)
+     ORDER BY m.launch_date DESC, m.id DESC
+     LIMIT 1`,
+		[gliderAssetId, PRE_LAUNCH_STATUSES],
+	);
+	return result.rows[0] ?? null;
+}
+
+// The mission being prepared: the earliest workshop/scheduled mission.
+async function fetchNextMission(
+	db: Db,
+	gliderAssetId: number,
+): Promise<BuildMissionRef | null> {
+	const result = await db.query(
+		`${MISSION_REF_SELECT}
+     WHERE m.glider_asset_id = $1 AND s.name = ANY($2)
+     ORDER BY m.launch_date ASC NULLS FIRST, m.id ASC
+     LIMIT 1`,
+		[gliderAssetId, PRE_LAUNCH_STATUSES],
+	);
+	return result.rows[0] ?? null;
 }
 
 // "Model" is resolved differently per type: science sensors (NVS L22),
@@ -114,9 +165,14 @@ interface ModelInfo {
 	uri: string | null;
 }
 
+type ModelLookup = Pick<
+	GliderBuildComponent,
+	"assetId" | "assetType" | "assetTypeGroup"
+>;
+
 async function fetchModels(
 	pool: Pool,
-	buildTree: GliderBuildComponent[],
+	buildTree: ModelLookup[],
 ): Promise<Map<number, ModelInfo>> {
 	const models = new Map<number, ModelInfo>();
 
@@ -294,60 +350,103 @@ async function fetchCalibrationAsOf(
 	return byAsset;
 }
 
-// Science Payload for one glider as of one date -- everything here uses
-// that date, not "today": which sensors were actually attached (via
-// fetchBuildTree's asOfDate), and which calibration was in effect on
-// each (fetchCalibrationAsOf), not whatever they're calibrated to now.
-export async function getMissionSciencePayload(
+// Science sensors with their parameters and the calibration in effect on
+// `asOfDate` (not whatever they are calibrated to now -- an old mission shows
+// the calibration that was actually in use on it).
+async function buildSciencePayload(
 	pool: Pool,
-	gliderAssetId: number,
+	components: GliderBuildComponent[],
 	asOfDate: string,
 ): Promise<ScienceSensorRecord[]> {
-	const buildTree = await fetchBuildTree(pool, gliderAssetId, asOfDate);
-	const sensors = buildTree.filter((c) => c.assetTypeGroup === "sensor");
+	const sensors = components.filter((c) => c.assetTypeGroup === "sensor");
 	const sensorIds = sensors.map((c) => c.assetId);
-
-	const [models, measuredParameters, calibrations] = await Promise.all([
-		fetchModels(pool, sensors),
+	const [measuredParameters, calibrations] = await Promise.all([
 		fetchMeasuredParameters(pool, sensorIds),
 		fetchCalibrationAsOf(pool, sensorIds, asOfDate),
 	]);
-
-	return sensors.map((c) => {
-		const info = models.get(c.assetId);
-		return {
-			assetId: c.assetId,
-			assetType: c.assetType,
-			serialNumber: c.serialNumber,
-			installDate: c.installDate,
-			model: info?.model ?? null,
-			modelUri: info?.uri ?? null,
-			measuredParameters: measuredParameters.get(c.assetId) ?? [],
-			calibration: calibrations.get(c.assetId) ?? null,
-			asOfDate,
-		};
-	});
+	return sensors.map((c) => ({
+		assetId: c.assetId,
+		assetType: c.assetType,
+		serialNumber: c.serialNumber,
+		model: c.model,
+		modelUri: c.modelUri,
+		measuredParameters: measuredParameters.get(c.assetId) ?? [],
+		calibration: calibrations.get(c.assetId) ?? null,
+		asOfDate,
+	}));
 }
 
-// Non-sensor build components (structural/power/tracking) for the
-// mission page's "Glider build" table, as of that mission's own launch
-// date — the counterpart to getMissionSciencePayload above. Without
-// this, that table fell back to today's live build tree regardless of
-// which mission you were viewing, which is fine for the glider's most
-// recent mission but wrong for any older one once its own history has
-// actually been backfilled.
-export async function getMissionStructuralComponents(
+async function withModels(
 	pool: Pool,
-	gliderAssetId: number,
-	asOfDate: string,
+	raw: RawComponent[],
 ): Promise<GliderBuildComponent[]> {
-	const buildTree = await fetchBuildTree(pool, gliderAssetId, asOfDate);
-	const structural = buildTree.filter((c) => c.assetTypeGroup !== "sensor");
-	const models = await fetchModels(pool, structural);
-	return structural.map((c) => {
+	const models = await fetchModels(pool, raw);
+	return raw.map((c) => {
 		const info = models.get(c.assetId);
 		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
 	});
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Assets in this mission's build that another glider's OPEN mission (active,
+// scheduled or workshop) also lists. A different glider's build can't
+// physically hold the same sensor at the same time. Missions of the same
+// glider are ignored on purpose: a workshop is seeded as a copy of the last
+// build, so they share everything by design.
+async function fetchBuildWarnings(
+	db: Db,
+	missionId: number,
+): Promise<string[]> {
+	const result = await db.query(
+		`SELECT at.name AS "assetType", a.serial_number AS "serialNumber",
+            agd.glider_name AS glider, om.mission_name AS "missionName",
+            om.mission_number AS "missionNumber", os.name AS status
+     FROM mission_build_items i
+     JOIN missions m ON m.id = i.mission_id
+     JOIN mission_build_items oi ON oi.asset_id = i.asset_id AND oi.mission_id <> i.mission_id
+     JOIN missions om ON om.id = oi.mission_id
+                     AND om.glider_asset_id IS DISTINCT FROM m.glider_asset_id
+     JOIN status os ON os.id = om.status_id AND os.name IN ('active', 'scheduled', 'workshop')
+     JOIN assets a ON a.id = i.asset_id
+     JOIN asset_types at ON at.id = a.asset_type_id
+     LEFT JOIN asset_glider_details agd ON agd.asset_id = om.glider_asset_id
+     WHERE i.mission_id = $1
+     ORDER BY at.name, a.serial_number`,
+		[missionId],
+	);
+	return result.rows.map((r) =>
+		`${r.assetType} ${r.serialNumber ?? ""} is also in the ${r.status} build of ${r.glider ?? "another glider"} (${r.missionNumber != null ? `mission ${r.missionNumber}` : r.missionName}).`.replace(
+			/\s+/g,
+			" ",
+		),
+	);
+}
+
+// One mission's build for the mission page: components, science payload as
+// of the launch date, and any overlap warnings.
+export async function getMissionBuild(
+	pool: Pool,
+	missionId: number,
+): Promise<MissionBuild> {
+	const mission = await pool.query(
+		`SELECT launch_date::date::text AS "launchDate" FROM missions WHERE id = $1`,
+		[missionId],
+	);
+	if (mission.rows.length === 0) {
+		throw new NotFoundException(`Mission ${missionId} not found`);
+	}
+	const raw = await fetchMissionTree(pool, missionId);
+	const components = await withModels(pool, raw);
+	const [sciencePayload, warnings] = await Promise.all([
+		buildSciencePayload(
+			pool,
+			components,
+			mission.rows[0].launchDate ?? today(),
+		),
+		fetchBuildWarnings(pool, missionId),
+	]);
+	return { recorded: raw.length > 0, components, sciencePayload, warnings };
 }
 
 // Full detail-table row + full cal history per component, for the
@@ -357,7 +456,7 @@ export async function getMissionStructuralComponents(
 // table, not just science sensors.
 async function fetchComponentDetails(
 	pool: Pool,
-	buildTree: GliderBuildComponent[],
+	buildTree: ModelLookup[],
 ): Promise<GliderComponentDetail[]> {
 	const results = await Promise.all(
 		buildTree.map(async (c): Promise<GliderComponentDetail> => {
@@ -485,10 +584,18 @@ async function fetchStatusHistory(
 async function fetchEditHistory(
 	pool: Pool,
 	gliderAssetId: number,
-	buildTree: GliderBuildComponent[],
+	buildTree: ModelLookup[],
 	statusHistory: GliderStatusHistoryItem[],
 ): Promise<GliderEditHistoryItem[]> {
 	const allAssetIds = [gliderAssetId, ...buildTree.map((c) => c.assetId)];
+	const buildItemIds: number[] = (
+		await pool.query(
+			`SELECT i.id FROM mission_build_items i
+       JOIN missions m ON m.id = i.mission_id
+       WHERE m.glider_asset_id = $1`,
+			[gliderAssetId],
+		)
+	).rows.map((r) => r.id);
 
 	const typeResult = await pool.query(
 		`SELECT a.id AS "assetId", at.name AS "assetType"
@@ -506,12 +613,9 @@ async function fetchEditHistory(
 	const groups: { table: string; ids: number[] }[] = [
 		{ table: "assets", ids: allAssetIds },
 		{
-			// The core aft section's synthetic build row has assignmentId
-			// null (it's a 1:1 column, not an assignment) -- drop it here.
-			table: "asset_assignments",
-			ids: buildTree
-				.map((c) => c.assignmentId)
-				.filter((id): id is number => id != null),
+			// Every build change on any of this glider's missions.
+			table: "mission_build_items",
+			ids: buildItemIds,
 		},
 		{ table: "asset_status_history", ids: statusHistory.map((s) => s.id) },
 	];
@@ -573,6 +677,7 @@ async function fetchDeployments(
      FROM norglider_missions nm
      JOIN missions m ON m.id = nm.id
      WHERE m.glider_asset_id = $1
+       AND nm.status IS DISTINCT FROM 'workshop'
      ORDER BY nm.launch_date DESC NULLS LAST`,
 		[gliderAssetId],
 	);
@@ -590,44 +695,45 @@ async function fetchMissionsSummary(
        ROUND(COALESCE(SUM(distance_km), 0)::numeric)::int AS "totalDistanceKm",
        COALESCE(SUM(${DAYS_EXPR}), 0)::int AS "totalDays"
      FROM missions
-     WHERE glider_asset_id = $1`,
+     WHERE glider_asset_id = $1
+       AND COALESCE((SELECT name FROM status WHERE id = status_id), '') <> 'workshop'`,
 		[gliderAssetId],
 	);
 	return result.rows[0];
 }
 
+// The glider page: a read-only view of the last flown mission's build, plus
+// pointers to that mission and to the one being prepared. Builds are edited
+// on their mission, never here.
 export async function getGliderBuild(
 	pool: Pool,
 	gliderAssetId: number,
 ): Promise<GliderBuild> {
-	const rawBuildTree = await fetchBuildTree(pool, gliderAssetId);
+	const [buildMission, nextMission] = await Promise.all([
+		fetchLastFlownMission(pool, gliderAssetId),
+		fetchNextMission(pool, gliderAssetId),
+	]);
+	const rawBuildTree = buildMission
+		? await fetchMissionTree(pool, buildMission.id)
+		: [];
 	const allAssetIds = [gliderAssetId, ...rawBuildTree.map((c) => c.assetId)];
 
 	const [
 		statusHistory,
-		models,
+		buildTree,
 		componentDetails,
 		deployments,
 		missionsSummary,
-		sciencePayload,
 	] = await Promise.all([
 		fetchStatusHistory(pool, allAssetIds),
-		fetchModels(pool, rawBuildTree),
+		withModels(pool, rawBuildTree),
 		fetchComponentDetails(pool, rawBuildTree),
 		fetchDeployments(pool, gliderAssetId),
 		fetchMissionsSummary(pool, gliderAssetId),
-		// The same shape the mission page uses, as of today: the Current
-		// build's science table and a mission's are one component.
-		getMissionSciencePayload(
-			pool,
-			gliderAssetId,
-			new Date().toISOString().slice(0, 10),
-		),
 	]);
-	const buildTree = rawBuildTree.map((c) => {
-		const info = models.get(c.assetId);
-		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
-	});
+	// Calibration as of today: this panel shows each sensor's current
+	// calibration, where a mission's own page shows the one at its launch.
+	const sciencePayload = await buildSciencePayload(pool, buildTree, today());
 	const editHistory = await fetchEditHistory(
 		pool,
 		gliderAssetId,
@@ -639,6 +745,8 @@ export async function getGliderBuild(
 		components: buildTree,
 		componentDetails,
 		sciencePayload,
+		buildMission,
+		nextMission,
 		deployments,
 		missionsSummary,
 		statusHistory,
@@ -765,33 +873,115 @@ async function assertValidPosition(
 	}
 }
 
-// Applies a batch of BuildChange entries inside an already-open
-// transaction -- the caller owns BEGIN/COMMIT/ROLLBACK. Shared by
-// GlidersService.applyBuildChanges (editing an existing glider's live
-// build) and MissionsService.createMission (setting a brand-new
-// mission's initial build in the very same transaction as the mission
-// row itself, so a failure partway through can't create a mission with
-// no build or vice versa).
-export async function applyBuildChangesTx(
+// What an editor save needs to know about the mission it is editing.
+interface MissionForBuild {
+	id: number;
+	gliderAssetId: number | null;
+	status: string | null;
+}
+
+async function fetchMissionForBuild(
 	client: PoolClient,
+	missionId: number,
+): Promise<MissionForBuild> {
+	const result = await client.query(
+		`SELECT m.id, m.glider_asset_id AS "gliderAssetId", s.name AS status
+     FROM missions m LEFT JOIN status s ON s.id = m.status_id
+     WHERE m.id = $1`,
+		[missionId],
+	);
+	if (result.rows.length === 0) {
+		throw new NotFoundException(`Mission ${missionId} not found`);
+	}
+	if (result.rows[0].gliderAssetId === null) {
+		throw new BadRequestException(
+			"This mission has no glider, so it has no build to edit.",
+		);
+	}
+	return result.rows[0];
+}
+
+async function assetTypeName(
+	client: PoolClient,
+	assetId: number,
+): Promise<string | null> {
+	const result = await client.query(
+		`SELECT at.name FROM assets a JOIN asset_types at ON at.id = a.asset_type_id
+     WHERE a.id = $1`,
+		[assetId],
+	);
+	return result.rows[0]?.name ?? null;
+}
+
+// The Slocum aft section is the glider's identity (a 1:1 link), seeded into
+// every build. It is never added, replaced or removed by hand.
+const CORE_TYPE = "slocum_aft_section";
+
+// Two ACTIVE builds claiming one asset is a physical impossibility, so it is
+// refused. Planned (workshop/scheduled) overlaps only warn -- see
+// fetchBuildWarnings.
+async function assertNotInOtherActiveBuild(
+	client: PoolClient,
+	mission: MissionForBuild,
+	assetId: number,
+): Promise<void> {
+	if (mission.status !== "active") return;
+	const result = await client.query(
+		`SELECT om.mission_name AS "missionName", om.mission_number AS "missionNumber",
+            agd.glider_name AS glider
+     FROM mission_build_items oi
+     JOIN missions om ON om.id = oi.mission_id
+     JOIN status os ON os.id = om.status_id AND os.name = 'active'
+     LEFT JOIN asset_glider_details agd ON agd.asset_id = om.glider_asset_id
+     WHERE oi.asset_id = $1 AND oi.mission_id <> $2
+       AND om.glider_asset_id IS DISTINCT FROM $3
+     LIMIT 1`,
+		[assetId, mission.id, mission.gliderAssetId],
+	);
+	if (result.rows.length > 0) {
+		const o = result.rows[0];
+		throw new ConflictException(
+			`That asset is already in the build of the active mission ${o.missionNumber ?? o.missionName} (${o.glider ?? "another glider"}).`,
+		);
+	}
+}
+
+// Applies a batch of BuildChange entries to ONE mission's build inside an
+// already-open transaction -- the caller owns BEGIN/COMMIT/ROLLBACK. A
+// mission's build has no dates, so nothing here can touch another mission
+// or the glider's history: that separation is the point of
+// mission_build_items.
+export async function applyMissionBuildChangesTx(
+	client: PoolClient,
+	missionId: number,
 	changes: BuildChange[],
-	effectiveDate: string,
-	missionId: number | null,
 	notes: string | null | undefined,
 	userId: number,
 ): Promise<void> {
+	const mission = await fetchMissionForBuild(client, missionId);
+	const gliderAssetId = mission.gliderAssetId as number;
+
 	for (const change of changes) {
 		if (change.action === "replace") {
 			const old = await client.query(
-				"SELECT parent_asset_id, position FROM asset_assignments WHERE id = $1 AND end_date IS NULL FOR UPDATE",
-				[change.assignmentId],
+				`SELECT i.parent_item_id, i."position", i.asset_id, p.asset_id AS parent_asset_id
+         FROM mission_build_items i
+         LEFT JOIN mission_build_items p ON p.id = i.parent_item_id
+         WHERE i.id = $1 AND i.mission_id = $2 FOR UPDATE OF i`,
+				[change.itemId, missionId],
 			);
 			if (old.rows.length === 0) {
 				throw new ConflictException(
-					`Assignment ${change.assignmentId} is not currently open -- it may have already been changed.`,
+					`Build item ${change.itemId} is not in this mission's build -- it may have already been changed.`,
 				);
 			}
-			const { parent_asset_id: parentAssetId, position } = old.rows[0];
+			const { position, asset_id: oldAssetId } = old.rows[0];
+			const parentAssetId = old.rows[0].parent_asset_id ?? gliderAssetId;
+			if ((await assetTypeName(client, oldAssetId)) === CORE_TYPE) {
+				throw new BadRequestException(
+					"The aft section is the glider itself and can't be replaced here.",
+				);
+			}
 			const childAssetId = await resolveOrCreateAsset(
 				client,
 				userId,
@@ -800,46 +990,45 @@ export async function applyBuildChangesTx(
 			);
 			await assertValidParent(client, childAssetId, parentAssetId);
 			await assertValidPosition(client, childAssetId, position, "replace");
-
-			await client.query(
-				"UPDATE asset_assignments SET end_date = $1, updated_at = now(), changed_by = $2 WHERE id = $3",
-				[effectiveDate, userId, change.assignmentId],
-			);
-			await client.query(
-				`INSERT INTO asset_assignments
-           (child_asset_id, parent_asset_id, start_date, position, mission_id, notes, changed_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-				[
-					childAssetId,
-					parentAssetId,
-					effectiveDate,
-					position,
-					missionId,
-					notes ?? null,
-					userId,
-				],
-			);
+			await assertNotInOtherActiveBuild(client, mission, childAssetId);
+			try {
+				// In place: the item keeps its position and whatever is mounted
+				// in it (e.g. sensors in a replaced payload bay).
+				await client.query(
+					`UPDATE mission_build_items
+           SET asset_id = $1, notes = COALESCE($2, notes), changed_by = $3, updated_at = now()
+           WHERE id = $4`,
+					[childAssetId, notes ?? null, userId, change.itemId],
+				);
+			} catch (err) {
+				throw mapDuplicateItem(err);
+			}
 		} else if (change.action === "remove") {
 			const old = await client.query(
-				"SELECT child_asset_id FROM asset_assignments WHERE id = $1 AND end_date IS NULL FOR UPDATE",
-				[change.assignmentId],
+				`SELECT asset_id FROM mission_build_items
+         WHERE id = $1 AND mission_id = $2 FOR UPDATE`,
+				[change.itemId, missionId],
 			);
 			if (old.rows.length === 0) {
 				throw new ConflictException(
-					`Assignment ${change.assignmentId} is not currently open -- it may have already been changed.`,
+					`Build item ${change.itemId} is not in this mission's build -- it may have already been changed.`,
 				);
 			}
-			await client.query(
-				"UPDATE asset_assignments SET end_date = $1, updated_at = now(), changed_by = $2 WHERE id = $3",
-				[effectiveDate, userId, change.assignmentId],
-			);
+			if ((await assetTypeName(client, old.rows[0].asset_id)) === CORE_TYPE) {
+				throw new BadRequestException(
+					"The aft section is the glider itself and can't be removed here.",
+				);
+			}
+			// ON DELETE CASCADE takes whatever was mounted in it too.
+			await client.query("DELETE FROM mission_build_items WHERE id = $1", [
+				change.itemId,
+			]);
 			if (change.newStatusId) {
 				await client.query(
-					"INSERT INTO asset_status_history (asset_id, status_id, effective_date, notes, changed_by) VALUES ($1, $2, $3, $4, $5)",
+					"INSERT INTO asset_status_history (asset_id, status_id, effective_date, notes, changed_by) VALUES ($1, $2, CURRENT_DATE, $3, $4)",
 					[
-						old.rows[0].child_asset_id,
+						old.rows[0].asset_id,
 						change.newStatusId,
-						effectiveDate,
 						change.statusNotes ?? null,
 						userId,
 					],
@@ -852,6 +1041,24 @@ export async function applyBuildChangesTx(
 				change.childAssetId,
 				change.newAsset,
 			);
+			if ((await assetTypeName(client, childAssetId)) === CORE_TYPE) {
+				throw new BadRequestException(
+					"The aft section is the glider itself and can't be added here.",
+				);
+			}
+			let parentItemId: number | null = null;
+			if (change.parentAssetId !== gliderAssetId) {
+				const parent = await client.query(
+					"SELECT id FROM mission_build_items WHERE mission_id = $1 AND asset_id = $2",
+					[missionId, change.parentAssetId],
+				);
+				if (parent.rows.length === 0) {
+					throw new ConflictException(
+						"The part it is mounted in is not in this mission's build.",
+					);
+				}
+				parentItemId = parent.rows[0].id;
+			}
 			await assertValidParent(client, childAssetId, change.parentAssetId);
 			await assertValidPosition(
 				client,
@@ -859,24 +1066,140 @@ export async function applyBuildChangesTx(
 				change.position ?? null,
 				"add",
 			);
-			await client.query(
-				`INSERT INTO asset_assignments
-           (child_asset_id, parent_asset_id, start_date, position, mission_id, notes, changed_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-				[
-					childAssetId,
-					change.parentAssetId,
-					effectiveDate,
-					change.position ?? null,
-					missionId,
-					notes ?? null,
-					userId,
-				],
-			);
+			await assertNotInOtherActiveBuild(client, mission, childAssetId);
+			try {
+				await client.query(
+					`INSERT INTO mission_build_items
+             (mission_id, asset_id, parent_item_id, "position", notes, changed_by)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+					[
+						missionId,
+						childAssetId,
+						parentItemId,
+						change.position ?? null,
+						notes ?? null,
+						userId,
+					],
+				);
+			} catch (err) {
+				throw mapDuplicateItem(err);
+			}
 		} else {
 			throw new BadRequestException(
 				`Unknown change action: ${JSON.stringify(change)}`,
 			);
 		}
 	}
+}
+
+function mapDuplicateItem(err: unknown): Error {
+	if (
+		err &&
+		typeof err === "object" &&
+		"code" in err &&
+		(err as { code: string }).code === "23505"
+	) {
+		return new ConflictException("That asset is already in this build.");
+	}
+	return err instanceof Error ? err : new Error(String(err));
+}
+
+// Warnings after a save -- same list the mission page shows persistently.
+export async function getBuildWarnings(
+	pool: Pool,
+	missionId: number,
+): Promise<string[]> {
+	return fetchBuildWarnings(pool, missionId);
+}
+
+// Replaces `toMissionId`'s build with a copy of `fromMissionId`'s. Parents
+// are inserted before their children so parent_item_id can be remapped.
+export async function copyMissionBuildTx(
+	client: PoolClient,
+	fromMissionId: number,
+	toMissionId: number,
+	userId: number,
+): Promise<number> {
+	if (fromMissionId === toMissionId) {
+		throw new BadRequestException("A mission can't copy its own build.");
+	}
+	const source = await client.query(
+		`SELECT id, asset_id, parent_item_id, "position"
+     FROM mission_build_items WHERE mission_id = $1`,
+		[fromMissionId],
+	);
+	await client.query("DELETE FROM mission_build_items WHERE mission_id = $1", [
+		toMissionId,
+	]);
+	const newIdByOld = new Map<number, number>();
+	let remaining = source.rows;
+	while (remaining.length > 0) {
+		const ready = remaining.filter(
+			(r) => r.parent_item_id === null || newIdByOld.has(r.parent_item_id),
+		);
+		if (ready.length === 0) break; // unreachable given the composite FK
+		for (const r of ready) {
+			const inserted = await client.query(
+				`INSERT INTO mission_build_items
+           (mission_id, asset_id, parent_item_id, "position", notes, changed_by)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+				[
+					toMissionId,
+					r.asset_id,
+					r.parent_item_id === null ? null : newIdByOld.get(r.parent_item_id),
+					r.position,
+					`copied from mission id ${fromMissionId}`,
+					userId,
+				],
+			);
+			newIdByOld.set(r.id, inserted.rows[0].id);
+		}
+		remaining = remaining.filter((r) => !newIdByOld.has(r.id));
+	}
+	return newIdByOld.size;
+}
+
+// A new mission's starting build: a copy of the last flown build of the same
+// glider (the physical glider is what it was when it came back), or -- for a
+// glider that has not flown with a recorded build -- just its aft section.
+export async function seedMissionBuildTx(
+	client: PoolClient,
+	missionId: number,
+	gliderAssetId: number,
+	userId: number,
+): Promise<void> {
+	const source = await client.query(
+		`SELECT m.id FROM missions m
+     LEFT JOIN status s ON s.id = m.status_id
+     WHERE m.glider_asset_id = $1 AND m.id <> $2 AND m.launch_date IS NOT NULL
+       AND COALESCE(s.name, '') <> ALL($3)
+       AND EXISTS (SELECT 1 FROM mission_build_items i WHERE i.mission_id = m.id)
+     ORDER BY m.launch_date DESC, m.id DESC
+     LIMIT 1`,
+		[gliderAssetId, missionId, PRE_LAUNCH_STATUSES],
+	);
+	if (source.rows.length > 0) {
+		await copyMissionBuildTx(client, source.rows[0].id, missionId, userId);
+		return;
+	}
+	await client.query(
+		`INSERT INTO mission_build_items (mission_id, asset_id, changed_by)
+     SELECT $1, aft.asset_id, $3
+     FROM asset_slocum_aft_section_details aft
+     WHERE aft.glider_asset_id = $2`,
+		[missionId, gliderAssetId, userId],
+	);
+}
+
+// The next permanent mission number: highest in use + 1, under an advisory
+// lock so two simultaneous activations can't draw the same one. (The UNIQUE
+// constraint would catch a clash, but as an error, not a retry.)
+export async function nextMissionNumberTx(client: PoolClient): Promise<number> {
+	await client.query(
+		"SELECT pg_advisory_xact_lock(hashtext('mission_number'))",
+	);
+	const result = await client.query(
+		"SELECT COALESCE(MAX(mission_number), 0) + 1 AS next FROM missions",
+	);
+	return Number(result.rows[0].next);
 }

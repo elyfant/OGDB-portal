@@ -14,7 +14,7 @@ export async function POST(
 
 	const { id } = await params;
 	const body = await request.text();
-	const res = await fetch(`${API_URL}/gliders/${id}/build-changes`, {
+	const res = await fetch(`${API_URL}/missions/${id}/build/copy`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",

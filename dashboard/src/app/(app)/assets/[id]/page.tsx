@@ -111,10 +111,10 @@ export default async function AssetDetailPage({
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
-	// GET /assets/:id/missions reads asset_assignments.mission_id directly
-	// -- only populated for assignments made through GliderBuildEditor
-	// (see MissionsService.getForAsset), so an asset whose only history is
-	// the original pre-app backfill shows no missions here yet.
+	// GET /assets/:id/missions reads mission_build_items directly: every
+	// mission whose recorded build includes this asset (see
+	// MissionsService.getForAsset). A mission with no recorded build
+	// contributes nothing, however the asset was really used.
 	const events: TimelineEvent[] = [
 		...calibrations.map(calibrationToTimelineEvent),
 		...servicingEvents.map(servicingEventToTimelineEvent),

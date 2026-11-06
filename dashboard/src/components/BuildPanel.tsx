@@ -24,13 +24,17 @@ export default function BuildPanel({
 	showDiagram,
 	componentDetails,
 	calibrationHistory,
+	emptyMessage,
+	calibrationNote,
 }: {
-	// "current": the live build. "mission": the build as of a mission's
-	// launch date.
+	// "current": the last flown build, with each sensor's current
+	// calibration. "mission": one mission's build, with the calibration in
+	// effect at its launch.
 	mode: "current" | "mission";
 	components: GliderBuildComponent[];
 	sensors: ScienceSensorRecord[];
-	// The date the build is as of: launch date for a mission, otherwise today.
+	// The date calibrations are as of: launch date for a mission, otherwise
+	// today.
 	asOfDate: string;
 	// The diagram only exists for Slocum gliders so far.
 	showDiagram: boolean;
@@ -38,15 +42,21 @@ export default function BuildPanel({
 	// the live build).
 	componentDetails?: GliderComponentDetail[];
 	calibrationHistory?: Record<number, SensorCalRecord[]>;
+	// Shown instead of the table when the build has nothing in it.
+	emptyMessage?: string;
+	// Overrides the mission-mode caption under "Science" (e.g. a mission that
+	// has not launched has no launch date to be "as of").
+	calibrationNote?: string;
 }) {
 	const nonScience = components.filter((c) => c.assetTypeGroup !== "sensor");
 
 	if (nonScience.length === 0 && sensors.length === 0) {
 		return (
 			<Typography color="text.disabled">
-				{mode === "mission"
-					? "No build recorded for this mission yet."
-					: "No components currently assigned."}
+				{emptyMessage ??
+					(mode === "mission"
+						? "No build recorded for this mission yet."
+						: "No build recorded yet.")}
 			</Typography>
 		);
 	}
@@ -54,14 +64,13 @@ export default function BuildPanel({
 	// The diagram is drawn from build components, and the science sensors
 	// come back in their own shape, so fold them into the same one.
 	const sensorComponents: GliderBuildComponent[] = sensors.map((s) => ({
-		assignmentId: null,
+		itemId: 0,
 		assetId: s.assetId,
 		parentAssetId: 0,
 		assetType: s.assetType,
 		assetTypeGroup: "sensor",
 		serialNumber: s.serialNumber,
 		position: null,
-		installDate: s.installDate,
 		depth: 1,
 		model: s.model,
 		modelUri: s.modelUri,
@@ -94,8 +103,8 @@ export default function BuildPanel({
 						color="text.secondary"
 						sx={{ mb: 1, display: "block" }}
 					>
-						Calibration and install date shown as of this mission's launch date,{" "}
-						{formatDate(asOfDate)}
+						{calibrationNote ??
+							`Calibration shown as of this mission's launch date, ${formatDate(asOfDate)}`}
 					</Typography>
 				)}
 				<ScienceBuildTable

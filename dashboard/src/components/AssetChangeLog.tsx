@@ -24,6 +24,7 @@ const TABLE_LABEL: Record<string, string> = {
 	asset_status_history: "Status",
 	asset_service_events: "Servicing",
 	asset_assignments: "Assignment",
+	mission_build_items: "Mission build",
 	asset_faults: "Fault",
 	documents: "Document",
 	asset_battery_measurements: "Battery measurement",

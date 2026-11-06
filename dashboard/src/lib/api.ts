@@ -15,7 +15,6 @@ import type {
 	DatasetProcessingStatus,
 	Glider,
 	GliderBuild,
-	GliderBuildComponent,
 	GliderDeployment,
 	IridiumGliderMonth,
 	IridiumMissionCost,
@@ -24,6 +23,7 @@ import type {
 	IridiumSummary,
 	LookupOption,
 	Mission,
+	MissionBuild,
 	MissionFile,
 	MissionMapEntry,
 	MissionTrackPoint,
@@ -35,7 +35,6 @@ import type {
 	RmaAsset,
 	RmaCatalogueRow,
 	RmaEvent,
-	ScienceSensorRecord,
 	ServicingEvent,
 	ServicingEventTypeOption,
 } from "@ogdb/types";
@@ -285,26 +284,10 @@ export async function getMissionTracks(
 	return res.json();
 }
 
-export async function getMissionSciencePayload(
-	id: number,
-): Promise<ScienceSensorRecord[]> {
-	const res = await apiFetch(`/missions/${id}/science-payload`);
+export async function getMissionBuild(id: number): Promise<MissionBuild> {
+	const res = await apiFetch(`/missions/${id}/build`);
 	if (!res.ok) {
-		throw new Error(
-			`Failed to fetch science payload for mission ${id}: ${res.status}`,
-		);
-	}
-	return res.json();
-}
-
-export async function getMissionStructuralComponents(
-	id: number,
-): Promise<GliderBuildComponent[]> {
-	const res = await apiFetch(`/missions/${id}/structural-components`);
-	if (!res.ok) {
-		throw new Error(
-			`Failed to fetch structural components for mission ${id}: ${res.status}`,
-		);
+		throw new Error(`Failed to fetch build for mission ${id}: ${res.status}`);
 	}
 	return res.json();
 }

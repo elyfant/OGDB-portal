@@ -2,6 +2,7 @@
 
 import type {
 	ApplyBuildChangesInput,
+	ApplyBuildChangesResult,
 	ApplyDatasetStagesInput,
 	Asset,
 	AssetSearchResult,
@@ -60,11 +61,13 @@ export async function searchAssets(
 	return res.json();
 }
 
-export async function applyBuildChanges(
-	gliderId: number,
+// Edits one mission's build. Resolves with any overlap warnings (e.g. a
+// sensor also in another glider's open build) -- the save itself went through.
+export async function applyMissionBuildChanges(
+	missionId: number,
 	input: ApplyBuildChangesInput,
-): Promise<GliderBuild> {
-	const res = await fetch(`/api/gliders/${gliderId}/build-changes`, {
+): Promise<ApplyBuildChangesResult> {
+	const res = await fetch(`/api/missions/${missionId}/build-changes`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(input),
@@ -74,6 +77,39 @@ export async function applyBuildChanges(
 		throw new Error(
 			data?.message ?? `Failed to save build changes: ${res.status}`,
 		);
+	}
+	return res.json();
+}
+
+// Replaces a mission's build with a copy of another mission's (same glider).
+export async function copyMissionBuild(
+	missionId: number,
+	sourceMissionId: number,
+): Promise<ApplyBuildChangesResult> {
+	const res = await fetch(`/api/missions/${missionId}/build/copy`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ sourceMissionId }),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to copy build: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Starts the glider's workshop mission (the glider being prepared).
+export async function createWorkshop(
+	gliderId: number,
+): Promise<CreatedMission> {
+	const res = await fetch(`/api/gliders/${gliderId}/workshop`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: "{}",
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to start workshop: ${res.status}`);
 	}
 	return res.json();
 }

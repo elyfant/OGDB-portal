@@ -239,17 +239,16 @@ export default function AddServicingEventDialog({
 		}
 
 		if (isDecommission) {
-			// Checked = retires with the glider (decommissioned, stays
-			// assigned). Everything else currently attached is freed up
-			// instead (not decommissioned, unassigned) -- see
-			// DecommissionInput.childAssetIds. Always sent as an array (even
+			// Checked = retires with the glider (decommissioned). Everything
+			// else in its latest build is left alone, free to be reused --
+			// see DecommissionInput.childAssetIds. Always sent as an array (even
 			// empty), never omitted, so the gateway knows a build tree was
 			// actually reviewed here.
 			const retiredWithGlider = buildComponents
 				.map((c) => c.assetId)
 				.filter((componentId) => !excludedChildIds.has(componentId));
-			const freedUp = buildComponents.filter(
-				(c) => excludedChildIds.has(c.assetId) && c.assignmentId != null,
+			const freedUp = buildComponents.filter((c) =>
+				excludedChildIds.has(c.assetId),
 			).length;
 			setSaving(true);
 			try {
@@ -426,7 +425,7 @@ export default function AddServicingEventDialog({
 
 					{isDecommission && buildLoading && (
 						<Typography variant="body2" color="text.disabled">
-							Loading current build…
+							Loading last flown build…
 						</Typography>
 					)}
 
@@ -440,9 +439,9 @@ export default function AddServicingEventDialog({
 								}}
 							>
 								<Typography variant="body2" color="text.secondary">
-									Currently attached components — checked ones retire with the
-									glider; unchecked ones are freed up (unassigned, kept in
-									service) for reuse elsewhere:
+									Components in its last flown build — checked ones retire with
+									the glider; unchecked ones stay in service, free for reuse
+									elsewhere:
 								</Typography>
 								<Button
 									size="small"

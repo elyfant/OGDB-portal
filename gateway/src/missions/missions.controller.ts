@@ -16,6 +16,8 @@ import { memoryStorage } from "multer";
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
+import { ApplyMissionBuildChangesDto } from "./dto/apply-mission-build-changes.dto";
+import { CopyMissionBuildDto } from "./dto/copy-mission-build.dto";
 import { CreateMissionDto } from "./dto/create-mission.dto";
 import { SaveMissionFilesDto } from "./dto/save-mission-files.dto";
 import { UpdateMissionDto } from "./dto/update-mission.dto";
@@ -118,14 +120,29 @@ export class MissionsController {
 		return this.missions.findOne(id);
 	}
 
-	@Get(":id/science-payload")
-	getSciencePayload(@Param("id", ParseIntPipe) id: number) {
-		return this.missions.getSciencePayload(id);
+	@Get(":id/build")
+	getBuild(@Param("id", ParseIntPipe) id: number) {
+		return this.missions.getBuild(id);
 	}
 
-	@Get(":id/structural-components")
-	getStructuralComponents(@Param("id", ParseIntPipe) id: number) {
-		return this.missions.getStructuralComponents(id);
+	@Roles("editor", "admin")
+	@Post(":id/build-changes")
+	applyBuildChanges(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: ApplyMissionBuildChangesDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.missions.applyBuildChanges(id, dto, user.sub);
+	}
+
+	@Roles("editor", "admin")
+	@Post(":id/build/copy")
+	copyBuild(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: CopyMissionBuildDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.missions.copyBuild(id, dto, user.sub);
 	}
 
 	@Get(":id/files")

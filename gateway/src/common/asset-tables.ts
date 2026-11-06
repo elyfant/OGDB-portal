@@ -340,5 +340,7 @@ export const AUDITED_ASSET_ID_TABLES: string[] = [
 	"firmware_history",
 	"rma_assets",
 	"asset_sensor_parameters",
+	// A mission's build: which missions this asset was part of.
+	"mission_build_items",
 	...Object.values(CAL_TABLES).map(([table]) => table),
 ];

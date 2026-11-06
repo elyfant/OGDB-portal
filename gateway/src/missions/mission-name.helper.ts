@@ -34,3 +34,23 @@ export function buildMissionName(
 	const mmmyyyy = `${MONTH_ABBR[date.getUTCMonth()]}${date.getUTCFullYear()}`;
 	return [gliderName, projectName, siteName, mmmyyyy].map(slugPart).join("_");
 }
+
+// Placeholder names. A workshop mission knows only its glider; a scheduled
+// one without a launch date has no month to name it by. Both are replaced
+// by buildMissionName once the data exists (see MissionsService.updateMission).
+export function buildWorkshopMissionName(gliderName: string): string {
+	return `workshop-${gliderName.toLowerCase()}`;
+}
+
+export function buildPlannedMissionName(
+	gliderName: string,
+	projectName: string,
+	siteName: string,
+): string {
+	const base = [gliderName, projectName, siteName].map(slugPart).join("_");
+	return `${base}_planned`;
+}
+
+export function isProvisionalMissionName(name: string): boolean {
+	return name.startsWith("workshop-") || name.endsWith("_planned");
+}

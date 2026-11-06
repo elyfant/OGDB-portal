@@ -1,6 +1,6 @@
 "use client";
 
-import { applyBuildChanges, searchAssets } from "@/lib/api-client";
+import { applyMissionBuildChanges, searchAssets } from "@/lib/api-client";
 import { ASSET_POSITIONS, positionLabel } from "@/lib/asset-positions";
 import { formatAssetType } from "@/lib/format";
 import EditIcon from "@mui/icons-material/Edit";
@@ -8,7 +8,6 @@ import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -47,9 +46,8 @@ const SCIENCE_ASSET_TYPES = new Set([
 ]);
 
 // slocum_aft_section is absent on purpose: a Slocum's aft section is its
-// identity (a 1:1 link, not a swappable assignment -- see gateway
-// VALID_PARENT_TYPES), so it can't be added or replaced through this
-// editor.
+// identity, seeded into every build, so it can't be added, replaced or
+// removed through this editor (the gateway refuses it too).
 const ALL_ASSET_TYPES = [
 	"slocum_forward_section",
 	"slocum_end_cap",
@@ -283,20 +281,24 @@ function AssetPicker({
 	);
 }
 
+// Edits ONE mission's build. A mission's build has no dates, so there is no
+// effective date to pick and an edit cannot touch any other mission or the
+// glider's other builds.
 export default function GliderBuildEditor({
 	gliderId,
 	components,
 	statusOptions,
 	missionId,
-	defaultDate,
+	missionLabel,
 	variant = "build",
 	triggerLabel,
 }: {
 	gliderId: number;
 	components: GliderBuildComponent[];
 	statusOptions: AssetStatusOption[];
-	missionId?: number;
-	defaultDate?: string;
+	missionId: number;
+	// What the dialog calls the mission it is editing (name or number).
+	missionLabel?: string;
 	// "build" -> everything except science sensors; "science" -> only the
 	// science sensors. Same dialog, disjoint asset-type scope.
 	variant?: "build" | "science";
@@ -310,24 +312,18 @@ export default function GliderBuildEditor({
 	const addRowLabel = isScience
 		? "+ Add a science sensor"
 		: "+ Add a component that isn't replacing anything";
-	// The dialog only ever touches assignments it renders -- scope the
+	// The dialog only ever touches build items it renders -- scope the
 	// component list so the science editor can't reach structural/power rows
-	// (and vice versa). Components with no assignmentId (the Slocum aft
-	// section, a 1:1 identity link rather than a swappable assignment) are
-	// excluded from both -- they can't be replaced or removed here; they
-	// still show on the read-only Current Build view.
+	// (and vice versa). The Slocum aft section is the glider itself: it is in
+	// every build but can't be replaced or removed here.
 	const scopedComponents = (
 		isScience
 			? components.filter((c) => SCIENCE_ASSET_TYPES.has(c.assetType))
 			: components.filter((c) => !SCIENCE_ASSET_TYPES.has(c.assetType))
-	).filter(
-		(c): c is GliderBuildComponent & { assignmentId: number } =>
-			c.assignmentId != null,
-	);
+	).filter((c) => c.assetType !== "slocum_aft_section");
 
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
-	const [effectiveDate, setEffectiveDate] = useState(defaultDate ?? "");
 	const [notes, setNotes] = useState("");
 	const [rows, setRows] = useState<Record<number, RowState>>({});
 	const [additions, setAdditions] = useState<AdditionState[]>([]);
@@ -354,14 +350,14 @@ export default function GliderBuildEditor({
 		router.refresh();
 	}
 
-	function rowFor(assignmentId: number): RowState {
-		return rows[assignmentId] ?? emptyRow();
+	function rowFor(itemId: number): RowState {
+		return rows[itemId] ?? emptyRow();
 	}
 
-	function updateRow(assignmentId: number, patch: Partial<RowState>) {
+	function updateRow(itemId: number, patch: Partial<RowState>) {
 		setRows((r) => ({
 			...r,
-			[assignmentId]: { ...rowFor(assignmentId), ...patch },
+			[itemId]: { ...rowFor(itemId), ...patch },
 		}));
 	}
 
@@ -400,15 +396,10 @@ export default function GliderBuildEditor({
 
 	async function handleSave() {
 		setError(null);
-		if (!effectiveDate) {
-			setError("Pick an effective date.");
-			return;
-		}
-
 		const changes: BuildChange[] = [];
 		const summaryLines: string[] = [];
 		for (const c of scopedComponents) {
-			const row = rowFor(c.assignmentId);
+			const row = rowFor(c.itemId);
 			const label = `${formatAssetType(c.assetType)}${c.position ? ` (${c.position})` : ""}`;
 			if (row.action === "replace") {
 				if (row.picker.mode === "existing" && !row.picker.selectedId) {
@@ -425,7 +416,7 @@ export default function GliderBuildEditor({
 				}
 				changes.push({
 					action: "replace",
-					assignmentId: c.assignmentId,
+					itemId: c.itemId,
 					childAssetId:
 						row.picker.mode === "existing"
 							? (row.picker.selectedId ?? undefined)
@@ -445,7 +436,7 @@ export default function GliderBuildEditor({
 			} else if (row.action === "remove") {
 				changes.push({
 					action: "remove",
-					assignmentId: c.assignmentId,
+					itemId: c.itemId,
 					newStatusId: row.statusId || null,
 					statusNotes: row.statusNotes || null,
 				});
@@ -500,12 +491,11 @@ export default function GliderBuildEditor({
 
 		setSaving(true);
 		try {
-			await applyBuildChanges(gliderId, {
-				effectiveDate,
-				missionId: missionId ?? null,
+			const result = await applyMissionBuildChanges(missionId, {
 				notes: notes || null,
 				changes,
 			});
+			summaryLines.push(...result.warnings.map((w) => `Warning: ${w}`));
 			setOpen(false);
 			setRows({});
 			setAdditions([]);
@@ -541,24 +531,12 @@ export default function GliderBuildEditor({
 			>
 				<DialogTitle>{dialogTitle}</DialogTitle>
 				<DialogContent dividers>
-					<Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 3 }}>
-						<TextField
-							type="date"
-							size="small"
-							label="Effective date"
-							value={effectiveDate}
-							onChange={(e) => setEffectiveDate(e.target.value)}
-							disabled={!!missionId}
-							InputLabelProps={{ shrink: true }}
-						/>
-						{missionId && (
-							<Chip
-								size="small"
-								label={`Linked to mission #${missionId}`}
-								color="info"
-							/>
-						)}
-					</Box>
+					<Alert severity="info" sx={{ mb: 3 }}>
+						Editing the build of{" "}
+						<strong>{missionLabel ?? `mission #${missionId}`}</strong>. Changes
+						apply to this mission only -- other missions' builds are not
+						touched.
+					</Alert>
 
 					{groups.map(({ group, items }) => (
 						<Box key={group} sx={{ mb: 2.5 }}>
@@ -569,10 +547,10 @@ export default function GliderBuildEditor({
 								{GROUP_LABEL[group]}
 							</Typography>
 							{items.map((c) => {
-								const row = rowFor(c.assignmentId);
+								const row = rowFor(c.itemId);
 								return (
 									<Box
-										key={c.assignmentId}
+										key={c.itemId}
 										sx={{
 											borderTop: "1px solid",
 											borderColor: "divider",
@@ -606,7 +584,7 @@ export default function GliderBuildEditor({
 												exclusive
 												value={row.action}
 												onChange={(_, value) =>
-													value && updateRow(c.assignmentId, { action: value })
+													value && updateRow(c.itemId, { action: value })
 												}
 											>
 												<ToggleButton value="keep" color="success">
@@ -646,9 +624,7 @@ export default function GliderBuildEditor({
 												<AssetPicker
 													assetType={c.assetType}
 													picker={row.picker}
-													onChange={(picker) =>
-														updateRow(c.assignmentId, { picker })
-													}
+													onChange={(picker) => updateRow(c.itemId, { picker })}
 												/>
 											</Box>
 										)}
@@ -673,9 +649,8 @@ export default function GliderBuildEditor({
 													Removed, no replacement
 												</Typography>
 												<Typography variant="caption" color="error.main">
-													Closes this assignment on{" "}
-													{effectiveDate || "the effective date"} — nothing new
-													opens.
+													Removes it from this mission's build — nothing
+													replaces it.
 												</Typography>
 												<Box
 													sx={{ display: "flex", alignItems: "center", gap: 1 }}
@@ -691,7 +666,7 @@ export default function GliderBuildEditor({
 														size="small"
 														value={row.statusId}
 														onChange={(e) =>
-															updateRow(c.assignmentId, {
+															updateRow(c.itemId, {
 																statusId: Number(e.target.value) || "",
 															})
 														}

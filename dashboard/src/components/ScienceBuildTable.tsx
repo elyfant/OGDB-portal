@@ -19,9 +19,10 @@ import Link from "next/link";
 import { Fragment, useState } from "react";
 
 // Asset / L22 model / Parameters / Serial number / Last calibration (a link
-// to the certificate when there is one) / Install date. Fixed so the columns
+// to the certificate when there is one). There is no install date: a build
+// belongs to a mission and has no dates of its own. Fixed so the columns
 // hold their widths when a row expands.
-const COLUMN_WIDTHS = ["16%", "18%", "24%", "14%", "16%", "12%"];
+const COLUMN_WIDTHS = ["18%", "20%", "28%", "16%", "18%"];
 
 // The science sensors of a build -- today's on a glider's Current build, or
 // as of launch on a mission's Glider build. Same columns and same row
@@ -75,7 +76,6 @@ export default function ScienceBuildTable({
 					<TableCell sx={{ width: COLUMN_WIDTHS[4] }}>
 						Last calibration
 					</TableCell>
-					<TableCell sx={{ width: COLUMN_WIDTHS[5] }}>Install date</TableCell>
 				</TableRow>
 			</TableHead>
 			<TableBody>
@@ -151,7 +151,6 @@ export default function ScienceBuildTable({
 										formatDate(s.calibration?.date ?? null)
 									)}
 								</TableCell>
-								<TableCell>{formatDate(s.installDate)}</TableCell>
 							</TableRow>
 							<TableRow>
 								<TableCell

@@ -2,7 +2,7 @@
 
 import GliderComponentDetailPanel from "@/components/GliderComponentDetailPanel";
 import NvsLink from "@/components/NvsLink";
-import { formatAssetType, formatDate } from "@/lib/format";
+import { formatAssetType } from "@/lib/format";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
@@ -40,11 +40,11 @@ function displayGroup(c: GliderBuildComponent): string {
 	return c.assetType === "slocum_hull" ? "hull" : c.assetTypeGroup;
 }
 
-// Fixed so the Asset/Model/Serial/Install date columns line up across
+// Fixed so the Asset/Model/Serial number columns line up across
 // every group's table, not just within one — each group renders its own
 // <Table> (for the section heading above it), so without an explicit,
 // shared column layout each one auto-sizes independently.
-const COLUMN_WIDTHS = ["34%", "34%", "17%", "15%"];
+const COLUMN_WIDTHS = ["40%", "35%", "25%"];
 
 export default function GliderCurrentBuild({
 	components,
@@ -62,9 +62,8 @@ export default function GliderCurrentBuild({
 	);
 	const detailByAssetId = new Map(componentDetails.map((d) => [d.assetId, d]));
 
-	// Keyed by assetId, not assignmentId -- the core aft section row has no
-	// assignmentId (1:1 identity link, not an assignment) but still expands
-	// to show its detail table.
+	// Keyed by assetId: the detail record belongs to the asset, and the same
+	// asset can sit in several missions' builds.
 	function toggle(assetId: number) {
 		setExpanded((prev) => {
 			const next = new Set(prev);
@@ -98,9 +97,6 @@ export default function GliderCurrentBuild({
 								<TableCell sx={{ width: COLUMN_WIDTHS[1] }}>Model</TableCell>
 								<TableCell sx={{ width: COLUMN_WIDTHS[2] }}>
 									Serial number
-								</TableCell>
-								<TableCell sx={{ width: COLUMN_WIDTHS[3] }}>
-									Install date
 								</TableCell>
 							</TableRow>
 						</TableHead>
@@ -187,12 +183,11 @@ export default function GliderCurrentBuild({
 													"—"
 												)}
 											</TableCell>
-											<TableCell>{formatDate(c.installDate)}</TableCell>
 										</TableRow>
 										{detail && (
 											<TableRow>
 												<TableCell
-													colSpan={4}
+													colSpan={3}
 													sx={{
 														py: 0,
 														borderBottom: isOpen ? undefined : "none",

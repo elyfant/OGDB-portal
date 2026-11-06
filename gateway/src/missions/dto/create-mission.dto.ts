@@ -1,6 +1,4 @@
-import type { BuildChange } from "@ogdb/types";
 import {
-	IsArray,
 	IsDateString,
 	IsInt,
 	IsNumber,
@@ -21,8 +19,11 @@ import {
 // reasoning as ApplyBuildChangesDto) -- each entry's shape is checked in
 // applyBuildChangesTx before anything is written.
 export class CreateMissionDto {
+	// Optional: a workshop/scheduled mission has none; it is assigned when the
+	// mission becomes active (or entered here for a historical mission).
+	@IsOptional()
 	@IsInt()
-	missionNumber!: number;
+	missionNumber?: number | null;
 
 	@IsInt()
 	gliderAssetId!: number;
@@ -30,14 +31,19 @@ export class CreateMissionDto {
 	@IsInt()
 	statusId!: number;
 
+	// Required or not depending on status -- see
+	// MissionsService.assertFieldsForStatus.
+	@IsOptional()
 	@IsInt()
-	projectId!: number;
+	projectId?: number | null;
 
+	@IsOptional()
 	@IsInt()
-	siteId!: number;
+	siteId?: number | null;
 
+	@IsOptional()
 	@IsDateString()
-	launchDate!: string;
+	launchDate?: string | null;
 
 	@IsOptional()
 	@IsInt()
@@ -110,8 +116,4 @@ export class CreateMissionDto {
 	@IsOptional()
 	@IsInt()
 	iridiumMinutes?: number | null;
-
-	@IsOptional()
-	@IsArray()
-	buildChanges?: BuildChange[];
 }

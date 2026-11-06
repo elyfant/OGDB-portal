@@ -1,4 +1,5 @@
 import BuildPanel from "@/components/BuildPanel";
+import CopyBuildButton from "@/components/CopyBuildButton";
 import EditMissionButton from "@/components/EditMissionButton";
 import Field from "@/components/Field";
 import GliderBuildEditor from "@/components/GliderBuildEditor";
@@ -14,16 +15,15 @@ import {
 	getContacts,
 	getCruises,
 	getGlider,
-	getGliderBuild,
 	getGliders,
 	getInstitutes,
 	getIridiumMission,
 	getMission,
+	getMissionBuild,
 	getMissionFiles,
-	getMissionSciencePayload,
 	getMissionStatuses,
-	getMissionStructuralComponents,
 	getMissionTracks,
+	getMissions,
 	getProjects,
 	getSites,
 	getStatusOptions,
@@ -42,6 +42,7 @@ import WavesIcon from "@mui/icons-material/Waves";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
@@ -87,11 +88,10 @@ export default async function MissionDetailPage({
 	if (!mission) notFound();
 
 	const [
-		gliderBuild,
+		build,
 		statusOptions,
 		glider,
-		sciencePayload,
-		structuralComponents,
+		allMissions,
 		tracks,
 		missionFiles,
 		gliders,
@@ -103,14 +103,13 @@ export default async function MissionDetailPage({
 		cruises,
 		iridium,
 	] = await Promise.all([
-		// Kept live (not date-scoped) -- GliderBuildEditor's replace/remove
-		// actions operate on whichever assignment is currently open, not
-		// whatever was open as of this mission's date.
-		mission.gliderAssetId ? getGliderBuild(mission.gliderAssetId) : null,
+		// This mission's own build -- never the glider's live state; a
+		// mission's build is edited and read on its own.
+		getMissionBuild(mission.id),
 		getStatusOptions(),
 		mission.gliderAssetId ? getGlider(mission.gliderAssetId) : null,
-		getMissionSciencePayload(mission.id),
-		getMissionStructuralComponents(mission.id),
+		// The glider's other missions, as sources for "Copy build from".
+		getMissions(),
 		getMissionTracks(mission.id),
 		getMissionFiles(mission.id),
 		// For EditMissionButton's MissionFormDialog -- same lookups the
@@ -424,37 +423,68 @@ export default async function MissionDetailPage({
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "space-between",
+						gap: 2,
+						flexWrap: "wrap",
 						mb: 1.5,
 					}}
 				>
 					<Typography variant="h6">Glider build</Typography>
 					{mission.gliderAssetId && (
-						<Box sx={{ display: "flex", gap: 1 }}>
+						<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+							<CopyBuildButton
+								missionId={mission.id}
+								primary={!build.recorded}
+								sources={allMissions
+									.filter(
+										(m) =>
+											m.gliderAssetId === mission.gliderAssetId &&
+											m.id !== mission.id,
+									)
+									.map((m) => ({
+										id: m.id,
+										label: `${m.stdMissionName ?? m.missionName ?? `Mission ${m.id}`}${m.status ? ` (${m.status})` : ""}`,
+									}))}
+							/>
 							<GliderBuildEditor
 								variant="science"
 								gliderId={mission.gliderAssetId}
-								components={gliderBuild?.components ?? []}
+								components={build.components}
 								statusOptions={statusOptions}
 								missionId={mission.id}
-								defaultDate={mission.launchDate?.slice(0, 10)}
+								missionLabel={name}
 							/>
 							<GliderBuildEditor
 								gliderId={mission.gliderAssetId}
-								components={gliderBuild?.components ?? []}
+								components={build.components}
 								statusOptions={statusOptions}
 								missionId={mission.id}
-								defaultDate={mission.launchDate?.slice(0, 10)}
+								missionLabel={name}
 							/>
 						</Box>
 					)}
 				</Box>
+				{build.warnings.map((w) => (
+					<Alert key={w} severity="warning" sx={{ mb: 1.5 }}>
+						{w}
+					</Alert>
+				))}
 				<Paper variant="outlined" sx={{ p: 3 }}>
 					<BuildPanel
 						mode="mission"
-						components={structuralComponents}
-						sensors={sciencePayload}
+						components={build.components}
+						sensors={build.sciencePayload}
 						asOfDate={mission.launchDate ?? new Date().toISOString()}
 						showDiagram={glider?.platform === "slocum"}
+						emptyMessage={
+							build.recorded
+								? "This build has no components."
+								: "Build not recorded for this mission."
+						}
+						calibrationNote={
+							mission.launchDate
+								? undefined
+								: "Calibration shown as of today -- this mission has not launched."
+						}
 					/>
 				</Paper>
 			</Box>

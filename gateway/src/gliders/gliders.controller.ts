@@ -12,7 +12,6 @@ import {
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
-import { ApplyBuildChangesDto } from "./dto/apply-build-changes.dto";
 import { CreateGliderDto } from "./dto/create-glider.dto";
 import { UpdateGliderDto } from "./dto/update-glider.dto";
 import { GlidersService } from "./gliders.service";
@@ -52,14 +51,15 @@ export class GlidersController {
 		return this.gliders.update(id, dto, user.sub);
 	}
 
+	// Start the workshop mission for this glider. Build edits happen on
+	// missions (POST /missions/:id/build-changes), not on the glider.
 	@Roles("editor", "admin")
-	@Post(":id/build-changes")
-	applyBuildChanges(
+	@Post(":id/workshop")
+	createWorkshop(
 		@Param("id", ParseIntPipe) id: number,
-		@Body() dto: ApplyBuildChangesDto,
 		@CurrentUser() user: JwtPayload,
 	) {
-		return this.gliders.applyBuildChanges(id, dto, user.sub);
+		return this.gliders.createWorkshop(id, user.sub);
 	}
 
 	@Roles("editor", "admin")

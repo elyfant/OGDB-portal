@@ -1,6 +1,5 @@
 import BuildPanel from "@/components/BuildPanel";
 import Field from "@/components/Field";
-import GliderBuildEditor from "@/components/GliderBuildEditor";
 import GliderDetailTabs from "@/components/GliderDetailTabs";
 import GliderFormDialog from "@/components/GliderFormDialog";
 import GliderStatusBox from "@/components/GliderStatusBox";
@@ -8,6 +7,7 @@ import GliderTimelineTab from "@/components/GliderTimelineTab";
 import { NvsValue } from "@/components/NvsLink";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
+import StartWorkshopButton from "@/components/StartWorkshopButton";
 import StatTile from "@/components/StatTile";
 import {
 	getAssetRmas,
@@ -18,23 +18,37 @@ import {
 	getPlatforms,
 	getServicingEventTypes,
 	getServicingEvents,
-	getStatusOptions,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { formatCount, formatDate, formatMoney } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import BuildIcon from "@mui/icons-material/Build";
 import RouteIcon from "@mui/icons-material/Route";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import StraightenIcon from "@mui/icons-material/Straighten";
 import WavesIcon from "@mui/icons-material/Waves";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import type { SensorCalRecord } from "@ogdb/types";
+import type { BuildMissionRef, SensorCalRecord } from "@ogdb/types";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+
+// What a mission is called in running text: its standard name, else the name
+// it was entered under, else its number.
+function missionLabel(m: BuildMissionRef): string {
+	return (
+		m.stdMissionName ??
+		m.missionName ??
+		(m.missionNumber != null
+			? `mission #${m.missionNumber}`
+			: `mission ${m.id}`)
+	);
+}
 
 export default async function GliderDetailPage({
 	params,
@@ -46,7 +60,6 @@ export default async function GliderDetailPage({
 	if (!glider) notFound();
 	const [
 		build,
-		statusOptions,
 		platforms,
 		institutes,
 		user,
@@ -56,7 +69,6 @@ export default async function GliderDetailPage({
 		contacts,
 	] = await Promise.all([
 		getGliderBuild(Number(id)),
-		getStatusOptions(),
 		getPlatforms(),
 		getInstitutes(),
 		getCurrentUser(),
@@ -253,25 +265,47 @@ export default async function GliderDetailPage({
 						<Box
 							sx={{
 								display: "flex",
-								alignItems: "center",
+								alignItems: "flex-start",
 								justifyContent: "space-between",
+								gap: 2,
+								flexWrap: "wrap",
 								mb: 1.5,
 							}}
 						>
-							<Typography variant="h6">Current build</Typography>
-							<Box sx={{ display: "flex", gap: 1 }}>
-								<GliderBuildEditor
-									variant="science"
-									gliderId={glider.id}
-									components={build.components}
-									statusOptions={statusOptions}
-								/>
-								<GliderBuildEditor
-									gliderId={glider.id}
-									components={build.components}
-									statusOptions={statusOptions}
-								/>
+							<Box>
+								<Typography variant="h6">Last flown build</Typography>
+								<Typography variant="caption" color="text.secondary">
+									{build.buildMission ? (
+										<>
+											As recorded for{" "}
+											<MuiLink
+												component={Link}
+												href={`/missions/${build.buildMission.id}`}
+											>
+												{missionLabel(build.buildMission)}
+											</MuiLink>
+											. Read-only -- a build is edited on its mission.
+										</>
+									) : (
+										"Read-only -- a build is edited on its mission."
+									)}
+								</Typography>
 							</Box>
+							{build.nextMission ? (
+								<Button
+									component={Link}
+									href={`/missions/${build.nextMission.id}`}
+									variant="outlined"
+									size="small"
+									startIcon={<BuildIcon fontSize="small" />}
+								>
+									{build.nextMission.status === "workshop"
+										? "Next mission in workshop"
+										: `Next mission: ${missionLabel(build.nextMission)}`}
+								</Button>
+							) : (
+								canEdit && <StartWorkshopButton gliderId={glider.id} />
+							)}
 						</Box>
 						<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 							<BuildPanel
@@ -282,6 +316,11 @@ export default async function GliderDetailPage({
 								showDiagram={glider.platform === "slocum"}
 								componentDetails={build.componentDetails}
 								calibrationHistory={calibrationHistory}
+								emptyMessage={
+									build.buildMission
+										? `No build is recorded for ${missionLabel(build.buildMission)} yet.`
+										: "This glider has not flown with a recorded build. Start a workshop to prepare one."
+								}
 							/>
 						</Paper>
 					</>
