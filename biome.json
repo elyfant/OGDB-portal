@@ -3,7 +3,8 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["dashboard/src/lib/glider-diagram/slocum-g3/parts.generated.ts"]
+    "ignore": ["dashboard/src/lib/glider-diagram/slocum-g3/parts.generated.ts",
+			"dashboard/src/lib/glider-diagram/seaglider-m2/parts.generated.ts"]
   },
   "formatter": {
     "enabled": true,

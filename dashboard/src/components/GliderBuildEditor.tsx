@@ -1,7 +1,11 @@
 "use client";
 
 import { applyMissionBuildChanges, searchAssets } from "@/lib/api-client";
-import { ASSET_POSITIONS, positionLabel } from "@/lib/asset-positions";
+import {
+	ASSET_POSITIONS,
+	OPTIONAL_POSITIONS,
+	positionLabel,
+} from "@/lib/asset-positions";
 import { formatAssetType } from "@/lib/format";
 import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
@@ -95,6 +99,8 @@ interface RowState {
 	picker: PickerState;
 	statusId: number | "";
 	statusNotes: string;
+	// A new location for the part ("" = clear it); undefined = leave as is.
+	position?: string;
 }
 
 interface AdditionState {
@@ -391,7 +397,7 @@ export default function GliderBuildEditor({
 	})).filter((g) => g.items.length > 0);
 
 	const changedCount = Object.values(rows).filter(
-		(r) => r.action !== "keep",
+		(r) => r.action !== "keep" || r.position !== undefined,
 	).length;
 
 	async function handleSave() {
@@ -443,6 +449,22 @@ export default function GliderBuildEditor({
 				const status = statusLabel(row.statusId);
 				summaryLines.push(
 					`Removed ${label}: SN ${c.serialNumber ?? "—"}${status ? `, status set to ${status}` : ""}`,
+				);
+			}
+			// Moving a part (a sensor's location on the glider) is separate from
+			// swapping it, and applies after a replace.
+			if (
+				row.action !== "remove" &&
+				row.position !== undefined &&
+				(row.position || null) !== (c.position ?? null)
+			) {
+				changes.push({
+					action: "setPosition",
+					itemId: c.itemId,
+					position: row.position || null,
+				});
+				summaryLines.push(
+					`Moved ${formatAssetType(c.assetType)}: SN ${c.serialNumber ?? "—"} → ${row.position ? positionLabel(row.position) : "no location"}`,
 				);
 			}
 		}
@@ -599,6 +621,27 @@ export default function GliderBuildEditor({
 											</ToggleButtonGroup>
 										</Box>
 
+										{OPTIONAL_POSITIONS[c.assetType] &&
+											row.action !== "remove" && (
+												<TextField
+													select
+													size="small"
+													label="Location"
+													value={row.position ?? c.position ?? ""}
+													onChange={(e) =>
+														updateRow(c.itemId, { position: e.target.value })
+													}
+													sx={{ mt: 1.25, minWidth: 180 }}
+												>
+													<MenuItem value="">— not set —</MenuItem>
+													{OPTIONAL_POSITIONS[c.assetType].map((p) => (
+														<MenuItem key={p} value={p}>
+															{positionLabel(p)}
+														</MenuItem>
+													))}
+												</TextField>
+											)}
+
 										{row.action === "replace" && (
 											<Box
 												sx={(theme) => ({
@@ -733,6 +776,24 @@ export default function GliderBuildEditor({
 										sx={{ minWidth: 120 }}
 									>
 										{ASSET_POSITIONS[add.assetType].map((p) => (
+											<MenuItem key={p} value={p}>
+												{positionLabel(p)}
+											</MenuItem>
+										))}
+									</TextField>
+								) : OPTIONAL_POSITIONS[add.assetType] ? (
+									<TextField
+										select
+										size="small"
+										label="Location (optional)"
+										value={add.position}
+										onChange={(e) =>
+											updateAddition(add.id, { position: e.target.value })
+										}
+										sx={{ minWidth: 160 }}
+									>
+										<MenuItem value="">— not set —</MenuItem>
+										{OPTIONAL_POSITIONS[add.assetType].map((p) => (
 											<MenuItem key={p} value={p}>
 												{positionLabel(p)}
 											</MenuItem>

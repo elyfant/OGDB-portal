@@ -817,6 +817,10 @@ export interface ScienceSensorRecord {
 	assetId: number;
 	assetType: string;
 	serialNumber: string | null;
+	// Where it sits on the glider (see OPTIONAL_POSITIONS in the dashboard's
+	// asset-positions.ts); null when not recorded. The Seaglider drawing
+	// places sensors by it.
+	position: string | null;
 	model: string | null;
 	modelUri: string | null;
 	measuredParameters: MeasuredParameter[];
@@ -1206,10 +1210,18 @@ export interface BuildChangeAdd {
 	position?: string | null;
 }
 
+// Moves a part to another location on the glider, in place. null clears it.
+export interface BuildChangeSetPosition {
+	action: "setPosition";
+	itemId: number;
+	position: string | null;
+}
+
 export type BuildChange =
 	| BuildChangeReplace
 	| BuildChangeRemove
-	| BuildChangeAdd;
+	| BuildChangeAdd
+	| BuildChangeSetPosition;
 
 export interface ApplyBuildChangesInput {
 	notes?: string | null;

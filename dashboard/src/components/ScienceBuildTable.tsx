@@ -103,6 +103,11 @@ export default function ScienceBuildTable({
 											}}
 										/>
 										{typeLabel}
+										{s.position && (
+											<Box component="span" sx={{ color: "text.secondary" }}>
+												({s.position})
+											</Box>
+										)}
 									</Box>
 								</TableCell>
 								<TableCell>

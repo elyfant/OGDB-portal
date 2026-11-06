@@ -1,52 +1,18 @@
 import type { GliderBuildComponent } from "@ogdb/types";
+import {
+	type AttachedSlot,
+	type DiagramLayout,
+	type DiagramSpec,
+	type InlineSlot,
+	type SlotDef,
+	layoutDiagram,
+} from "./layout";
 import { PARTS } from "./slocum-g3/parts.generated";
 
-// Slot rules and layout for a Slocum G3 diagram. The artwork lives in
-// slocum-g3/*.svg (embedded by scripts/build_glider_parts.py); this file
-// holds what a drawing can't express: which asset fills which slot, and how
-// the parts sit on one another.
-//
-// The shape deliberately mirrors what two database tables would hold later:
-// slots (INLINE_SLOTS / ATTACHED_SLOTS) and model -> artwork (artFor).
-// Moving them into OGDB is then a straight copy, not a redesign.
-//
-// All sizes and offsets are deck units (1/100 inch), so the parts stay in
-// proportion to each other.
-
-interface SlotBase {
-	key: string;
-	label: string;
-	assetType: string;
-	// Aliases for asset_assignments.position (free text) that select this
-	// slot. Omitted = the type alone is enough.
-	positions?: string[];
-	// Artwork used when the model doesn't say otherwise (and for the dashed
-	// placeholder when nothing is assigned).
-	art: string;
-	// Only drawn when something is assigned -- no dashed placeholder. For
-	// add-ons most gliders don't carry.
-	optional?: boolean;
-}
-
-// Packed left to right along the hull axis.
-export interface InlineSlot extends SlotBase {
-	// Vertical offset from the top of the hull.
-	dy: number;
-	// The section only exists if at least one of these slots has something
-	// assigned (this slot's own key counts). Otherwise it is left out
-	// altogether and its neighbours touch. Once it exists, any of its slots
-	// still empty show as dashed outlines, so the space is held.
-	presentIf?: string[];
-}
-
-// Drawn on top of a parent slot, offset from the parent's top-left corner.
-export interface AttachedSlot extends SlotBase {
-	parent: string;
-	dx: number;
-	dy: number;
-}
-
-export type SlotDef = InlineSlot | AttachedSlot;
+// Slot rules for a Slocum G3 diagram. The artwork lives in slocum-g3/*.svg
+// (embedded by scripts/build_glider_parts.py); this file holds what a drawing
+// can't express: which asset fills which slot, and how the parts sit on one
+// another. The layout engine itself is in layout.ts.
 
 // Left to right along the glider.
 export const INLINE_SLOTS: InlineSlot[] = [
@@ -232,105 +198,15 @@ function artFor(slot: SlotDef, component: GliderBuildComponent | null): string {
 	return slot.art;
 }
 
-export interface PlacedPart {
-	slot: SlotDef;
-	component: GliderBuildComponent | null;
-	partId: string;
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
-
-export interface DiagramLayout {
-	parts: PlacedPart[];
-	width: number;
-	height: number;
-	// Components in the build that no slot drew (thruster, Argos tag, or a
-	// hull whose position matches none of the hull slots).
-	notShown: GliderBuildComponent[];
-}
-
-// Assign each build component to at most one slot.
-function assign(
-	components: GliderBuildComponent[],
-): Map<string, GliderBuildComponent> {
-	const taken = new Set<number>();
-	const out = new Map<string, GliderBuildComponent>();
-	for (const slot of [...INLINE_SLOTS, ...ATTACHED_SLOTS]) {
-		const match = components.find(
-			(c) =>
-				!taken.has(c.assetId) &&
-				c.assetType === slot.assetType &&
-				(!slot.positions ||
-					slot.positions.includes((c.position ?? "").trim().toLowerCase())),
-		);
-		if (match) {
-			taken.add(match.assetId);
-			out.set(slot.key, match);
-		}
-	}
-	return out;
-}
+export const SLOCUM_G3: DiagramSpec = {
+	inline: INLINE_SLOTS,
+	attached: ATTACHED_SLOTS,
+	parts: PARTS,
+	artFor,
+};
 
 export function layoutSlocumG3(
 	components: GliderBuildComponent[],
 ): DiagramLayout {
-	const assigned = assign(components);
-	const placed = new Map<string, PlacedPart>();
-
-	// Inline: pack left to right. Each part's own width is its advance, so a
-	// longer hull pushes everything after it along.
-	let cursor = 0;
-	for (const slot of INLINE_SLOTS) {
-		if (slot.presentIf && !slot.presentIf.some((k) => assigned.has(k)))
-			continue;
-		const component = assigned.get(slot.key) ?? null;
-		const partId = artFor(slot, component);
-		const part = PARTS[partId];
-		placed.set(slot.key, {
-			slot,
-			component,
-			partId,
-			x: cursor,
-			y: slot.dy,
-			width: part.width,
-			height: part.height,
-		});
-		cursor += part.width;
-	}
-
-	// Attached: offset from the parent's top-left corner.
-	for (const slot of ATTACHED_SLOTS) {
-		const parent = placed.get(slot.parent);
-		if (!parent) continue;
-		const component = assigned.get(slot.key) ?? null;
-		if (slot.optional && !component) continue;
-		const partId = artFor(slot, component);
-		const part = PARTS[partId];
-		placed.set(slot.key, {
-			slot,
-			component,
-			partId,
-			x: parent.x + slot.dx,
-			y: parent.y + slot.dy,
-			width: part.width,
-			height: part.height,
-		});
-	}
-
-	const parts = [...placed.values()];
-	const minX = Math.min(...parts.map((p) => p.x));
-	const minY = Math.min(...parts.map((p) => p.y));
-	const maxX = Math.max(...parts.map((p) => p.x + p.width));
-	const maxY = Math.max(...parts.map((p) => p.y + p.height));
-	const shown = new Set(
-		parts.flatMap((p) => (p.component ? [p.component.assetId] : [])),
-	);
-	return {
-		parts: parts.map((p) => ({ ...p, x: p.x - minX, y: p.y - minY })),
-		width: maxX - minX,
-		height: maxY - minY,
-		notShown: components.filter((c) => !shown.has(c.assetId)),
-	};
+	return layoutDiagram(SLOCUM_G3, components);
 }

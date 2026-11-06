@@ -313,7 +313,8 @@ export default async function GliderDetailPage({
 								components={build.components}
 								sensors={build.sciencePayload}
 								asOfDate={new Date().toISOString()}
-								showDiagram={glider.platform === "slocum"}
+								platform={glider.platform}
+								platformModel={glider.platformModel}
 								componentDetails={build.componentDetails}
 								calibrationHistory={calibrationHistory}
 								emptyMessage={

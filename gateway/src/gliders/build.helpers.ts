@@ -368,6 +368,7 @@ async function buildSciencePayload(
 		assetId: c.assetId,
 		assetType: c.assetType,
 		serialNumber: c.serialNumber,
+		position: c.position,
 		model: c.model,
 		modelUri: c.modelUri,
 		measuredParameters: measuredParameters.get(c.assetId) ?? [],
@@ -829,25 +830,46 @@ async function resolveOrCreateAsset(
 	return assetId;
 }
 
-// Allowed asset_assignments.position values, for the asset types where the
-// position means something (the glider diagram places hulls and batteries by
-// it). Other types keep a free-text position. "pitch" is deliberately not
-// here: it names a battery *model*, never a location.
+// Allowed positions, for the asset types where the position means something
+// (the glider diagram places hulls, batteries and sensors by it).
+//
+// REQUIRED: must be given when the part is added (a hull or battery with no
+// position can't be drawn). "pitch" is deliberately not here: it names a
+// battery *model*, never a location.
+//
+// OPTIONAL: may be left empty (a Slocum's CT sensor has no location), but if
+// given it must be one of these. Where a sensor sits on a Seaglider is the
+// user's choice: the upper or lower hatch, either side, or the centre line.
 //
 // Keep in step with dashboard/src/lib/asset-positions.ts -- @ogdb/types is
-// types-only at runtime, so the list can't be shared from there.
+// types-only at runtime, so the lists can't be shared from there.
 const ASSET_POSITIONS: Record<string, readonly string[]> = {
 	slocum_hull: ["fore", "energy", "aft"],
 	battery: ["fore", "energy", "aft"],
+};
+
+const SENSOR_POSITIONS = [
+	"upper hatch",
+	"lower hatch",
+	"starboard",
+	"port",
+	"centre",
+] as const;
+
+const OPTIONAL_POSITIONS: Record<string, readonly string[]> = {
+	ct_sensor: SENSOR_POSITIONS,
+	do_sensor: SENSOR_POSITIONS,
+	eco_sensor: SENSOR_POSITIONS,
 };
 
 async function assertValidPosition(
 	client: PoolClient,
 	childAssetId: number,
 	position: string | null,
-	// "add" must choose a position; "replace" inherits the old row's, and
-	// older rows may have none (a null position is left alone).
-	mode: "add" | "replace",
+	// "add" must choose a position where one is required; "replace" inherits
+	// the old row's, and older rows may have none or a free-text one (left
+	// alone); "set" is an explicit move, so it is always checked.
+	mode: "add" | "replace" | "set",
 ): Promise<void> {
 	const type = await client.query(
 		`SELECT at.name FROM assets a
@@ -856,16 +878,25 @@ async function assertValidPosition(
 		[childAssetId],
 	);
 	const assetType: string | undefined = type.rows[0]?.name;
-	const allowed = assetType ? ASSET_POSITIONS[assetType] : undefined;
-	if (!assetType || !allowed) return;
+	if (!assetType) return;
+
+	const required = ASSET_POSITIONS[assetType];
+	const optional = OPTIONAL_POSITIONS[assetType];
+	const allowed = required ?? optional;
+	if (!allowed) return;
+
 	if (position === null) {
-		if (mode === "add") {
+		// Required types can't be added without one, nor have it cleared later.
+		if (required && mode !== "replace") {
 			throw new BadRequestException(
-				`A ${assetType} needs a position: ${allowed.join(", ")}.`,
+				`A ${assetType} needs a position: ${required.join(", ")}.`,
 			);
 		}
 		return;
 	}
+	// An inherited position (replace) is not re-validated -- only what the
+	// user is choosing now.
+	if (mode === "replace") return;
 	if (!allowed.includes(position)) {
 		throw new BadRequestException(
 			`"${position}" is not a valid position for a ${assetType}; use ${allowed.join(", ")}.`,
@@ -1084,6 +1115,25 @@ export async function applyMissionBuildChangesTx(
 			} catch (err) {
 				throw mapDuplicateItem(err);
 			}
+		} else if (change.action === "setPosition") {
+			const item = await client.query(
+				`SELECT asset_id FROM mission_build_items
+         WHERE id = $1 AND mission_id = $2 FOR UPDATE`,
+				[change.itemId, missionId],
+			);
+			if (item.rows.length === 0) {
+				throw new ConflictException(
+					`Build item ${change.itemId} is not in this mission's build -- it may have already been changed.`,
+				);
+			}
+			const position = change.position?.trim() || null;
+			await assertValidPosition(client, item.rows[0].asset_id, position, "set");
+			await client.query(
+				`UPDATE mission_build_items
+         SET "position" = $1, changed_by = $2, updated_at = now()
+         WHERE id = $3`,
+				[position, userId, change.itemId],
+			);
 		} else {
 			throw new BadRequestException(
 				`Unknown change action: ${JSON.stringify(change)}`,

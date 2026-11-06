@@ -1,6 +1,5 @@
 import { formatAssetType } from "@/lib/format";
-import { layoutSlocumG3 } from "@/lib/glider-diagram/slocum-g3";
-import { PARTS } from "@/lib/glider-diagram/slocum-g3/parts.generated";
+import { type DiagramSpec, layoutDiagram } from "@/lib/glider-diagram/layout";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
@@ -9,16 +8,33 @@ import Link from "next/link";
 
 const PAD = 6;
 
-// A scale drawing of the glider's current build: each assigned asset is
-// drawn in its slot, linking through to that asset's page. Slots with
-// nothing assigned show as dashed outlines, so a gap in the build is
-// visible. Slocum G3 only, for now.
+function partTransform(p: {
+	width: number;
+	height: number;
+	rotate: number;
+	flip: boolean;
+	mirrorX: boolean;
+}): string | undefined {
+	const t: string[] = [];
+	if (p.rotate) t.push(`rotate(${p.rotate} ${p.width / 2} ${p.height / 2})`);
+	if (p.flip) t.push(`translate(0 ${p.height}) scale(1 -1)`);
+	if (p.mirrorX) t.push(`translate(${p.width} 0) scale(-1 1)`);
+	return t.length ? t.join(" ") : undefined;
+}
+
+// A drawing of a glider's build: each assigned asset is drawn in its slot,
+// linking through to that asset's page. Slots with nothing assigned show as
+// dashed outlines, so a gap in the build is visible. The drawing itself (slots
+// and artwork) comes from `spec` -- see glider-diagram/index.ts for which
+// gliders have one.
 export default function GliderDiagram({
 	components,
+	spec,
 }: {
 	components: GliderBuildComponent[];
+	spec: DiagramSpec;
 }) {
-	const { parts, width, height, notShown } = layoutSlocumG3(components);
+	const { parts, width, height, notShown } = layoutDiagram(spec, components);
 
 	return (
 		<Box>
@@ -46,16 +62,24 @@ export default function GliderDiagram({
 				{parts.map((p) => {
 					const c = p.component;
 					const title = c
-						? `${p.slot.label}: ${formatAssetType(c.assetType)}${
+						? `${p.slot.label}${c.position ? ` (${c.position})` : ""}: ${formatAssetType(c.assetType)}${
 								c.model ? ` · ${c.model}` : ""
 							}${c.serialNumber ? ` · SN ${c.serialNumber}` : ""}`
-						: `${p.slot.label}: nothing assigned`;
+						: p.slot.base
+							? p.slot.label
+							: `${p.slot.label}: nothing assigned`;
 					const art = (
 						<g
-							// The markup is generated from our own deck by
-							// scripts/pptx_to_glider_parts.py -- not user input.
+							// Far-side parts (a Seaglider's port flank) are seen through
+							// the glider.
+							opacity={p.ghost ? 0.5 : undefined}
+							// Tilted to lie along a sloping hull, and mirrored when
+							// mounted on the underside.
+							transform={partTransform(p)}
+							// The markup is embedded from our own drawings by
+							// scripts/build_glider_parts.py -- not user input.
 							// biome-ignore lint/security/noDangerouslySetInnerHtml: generated static artwork
-							dangerouslySetInnerHTML={{ __html: PARTS[p.partId].svg }}
+							dangerouslySetInnerHTML={{ __html: spec.parts[p.partId].svg }}
 						/>
 					);
 					return (
@@ -68,6 +92,8 @@ export default function GliderDiagram({
 								<Link href={`/assets/${c.assetId}`} className="part">
 									{art}
 								</Link>
+							) : p.slot.base ? (
+								art
 							) : (
 								<rect
 									width={p.width}

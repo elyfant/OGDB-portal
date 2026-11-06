@@ -2,6 +2,7 @@ import GliderCurrentBuild from "@/components/GliderCurrentBuild";
 import GliderDiagram from "@/components/GliderDiagram";
 import ScienceBuildTable from "@/components/ScienceBuildTable";
 import { formatDate } from "@/lib/format";
+import { diagramSpecFor } from "@/lib/glider-diagram";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
@@ -21,7 +22,8 @@ export default function BuildPanel({
 	components,
 	sensors,
 	asOfDate,
-	showDiagram,
+	platform,
+	platformModel,
 	componentDetails,
 	calibrationHistory,
 	emptyMessage,
@@ -36,8 +38,10 @@ export default function BuildPanel({
 	// The date calibrations are as of: launch date for a mission, otherwise
 	// today.
 	asOfDate: string;
-	// The diagram only exists for Slocum gliders so far.
-	showDiagram: boolean;
+	// Which glider this is, to pick its drawing. Only some platforms have one
+	// (see glider-diagram/index.ts); the rest just get the tables.
+	platform: string | null;
+	platformModel: string | null;
 	// Row-expansion detail for the non-science components (only loaded for
 	// the live build).
 	componentDetails?: GliderComponentDetail[];
@@ -70,17 +74,22 @@ export default function BuildPanel({
 		assetType: s.assetType,
 		assetTypeGroup: "sensor",
 		serialNumber: s.serialNumber,
-		position: null,
+		position: s.position,
 		depth: 1,
 		model: s.model,
 		modelUri: s.modelUri,
 	}));
 
+	const spec = diagramSpecFor(platform, platformModel);
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-			{showDiagram && (
+			{spec && (
 				<>
-					<GliderDiagram components={[...nonScience, ...sensorComponents]} />
+					<GliderDiagram
+						spec={spec}
+						components={[...nonScience, ...sensorComponents]}
+					/>
 					<Divider sx={{ opacity: 0.6 }} />
 				</>
 			)}

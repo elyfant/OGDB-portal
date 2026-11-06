@@ -474,7 +474,8 @@ export default async function MissionDetailPage({
 						components={build.components}
 						sensors={build.sciencePayload}
 						asOfDate={mission.launchDate ?? new Date().toISOString()}
-						showDiagram={glider?.platform === "slocum"}
+						platform={glider?.platform ?? null}
+						platformModel={glider?.platformModel ?? null}
 						emptyMessage={
 							build.recorded
 								? "This build has no components."
