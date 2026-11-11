@@ -1,14 +1,14 @@
 import MissionFormDialog from "@/components/MissionFormDialog";
 import MissionsTable from "@/components/MissionsTable";
 import {
+	getAgencies,
 	getContacts,
 	getCruises,
 	getGliders,
-	getInstitutes,
 	getMissionStatuses,
 	getMissions,
+	getObservatories,
 	getProjects,
-	getSites,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import Box from "@mui/material/Box";
@@ -20,9 +20,9 @@ export default async function MissionsPage() {
 		gliders,
 		missionStatuses,
 		projects,
-		sites,
+		observatories,
 		contacts,
-		institutes,
+		agencies,
 		cruises,
 		user,
 	] = await Promise.all([
@@ -30,9 +30,9 @@ export default async function MissionsPage() {
 		getGliders(),
 		getMissionStatuses(),
 		getProjects(),
-		getSites(),
+		getObservatories(),
 		getContacts(),
-		getInstitutes(),
+		getAgencies(),
 		getCruises(),
 		getCurrentUser(),
 	]);
@@ -56,9 +56,9 @@ export default async function MissionsPage() {
 						gliders={gliders}
 						missionStatuses={missionStatuses}
 						projects={projects}
-						sites={sites}
+						observatories={observatories}
 						contacts={contacts}
-						institutes={institutes}
+						agencies={agencies}
 						cruises={cruises}
 					/>
 				)}
@@ -69,9 +69,9 @@ export default async function MissionsPage() {
 				gliders={gliders}
 				missionStatuses={missionStatuses}
 				projects={projects}
-				sites={sites}
+				observatories={observatories}
 				contacts={contacts}
-				institutes={institutes}
+				agencies={agencies}
 				cruises={cruises}
 			/>
 		</Box>

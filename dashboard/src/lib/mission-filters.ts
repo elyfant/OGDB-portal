@@ -8,23 +8,23 @@ function toOptions(lookups: LookupOption[]) {
 }
 
 export function buildMissionFilters({
-	sites,
+	observatories,
 	projects,
 	missionStatuses,
 	gliders,
 }: {
-	sites: LookupOption[];
+	observatories: LookupOption[];
 	projects: LookupOption[];
 	missionStatuses: LookupOption[];
 	gliders: Glider[];
 }): FilterDef<Mission>[] {
 	return [
 		{
-			key: "site",
-			label: "Site",
+			key: "observatory",
+			label: "Observatory",
 			type: "multiSelect",
-			getValue: (m) => m.siteId,
-			options: toOptions(sites),
+			getValue: (m) => m.observatoryId,
+			options: toOptions(observatories),
 		},
 		{
 			key: "project",
@@ -50,10 +50,10 @@ export function buildMissionFilters({
 				.map((g) => ({ value: String(g.id), label: g.name })),
 		},
 		{
-			key: "launchDate",
-			label: "Launch date",
+			key: "deploymentDate",
+			label: "Deployment date",
 			type: "dateRange",
-			getValue: (m) => m.launchDate,
+			getValue: (m) => m.deploymentDate,
 		},
 	];
 }

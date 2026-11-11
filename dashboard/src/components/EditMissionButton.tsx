@@ -17,18 +17,18 @@ export default function EditMissionButton({
 	gliders,
 	missionStatuses,
 	projects,
-	sites,
+	observatories,
 	contacts,
-	institutes,
+	agencies,
 	cruises,
 }: {
 	mission: Mission;
 	gliders: Glider[];
 	missionStatuses: LookupOption[];
 	projects: LookupOption[];
-	sites: LookupOption[];
+	observatories: LookupOption[];
 	contacts: LookupOption[];
-	institutes: LookupOption[];
+	agencies: LookupOption[];
 	cruises: Cruise[];
 }) {
 	const [editing, setEditing] = useState(false);
@@ -51,9 +51,9 @@ export default function EditMissionButton({
 				gliders={gliders}
 				missionStatuses={missionStatuses}
 				projects={projects}
-				sites={sites}
+				observatories={observatories}
 				contacts={contacts}
-				institutes={institutes}
+				agencies={agencies}
 				cruises={cruises}
 			/>
 		</>

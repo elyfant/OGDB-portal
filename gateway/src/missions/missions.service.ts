@@ -47,7 +47,7 @@ import {
 } from "./mission-name.helper";
 
 const DAYS_EXPR =
-	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
+	"ROUND(EXTRACT(EPOCH FROM (retrieval_date - deployment_date)) / 86400.0)";
 
 // documents.document_type for files attached through the mission page's
 // "Add key mission file" modal -- distinct from the asset/service-event
@@ -71,13 +71,13 @@ const SELECT_MISSIONS = `
     (SELECT l2_stage FROM mission_best_files b WHERE b.mission_id = norglider_missions.id) AS "bestL2Stage",
     (SELECT status_id FROM missions WHERE missions.id = norglider_missions.id) AS "statusId",
     (SELECT project_id FROM missions WHERE missions.id = norglider_missions.id) AS "projectId",
-    (SELECT site_id FROM missions WHERE missions.id = norglider_missions.id) AS "siteId",
+    (SELECT observatory_id FROM missions WHERE missions.id = norglider_missions.id) AS "observatoryId",
     (SELECT principal_investigator_id FROM missions WHERE missions.id = norglider_missions.id) AS "principalInvestigatorId",
-    (SELECT technical_lead_id FROM missions WHERE missions.id = norglider_missions.id) AS "technicalLeadId",
+    (SELECT operations_manager_id FROM missions WHERE missions.id = norglider_missions.id) AS "operationsManagerId",
     (SELECT TRIM(c.first_name || ' ' || c.last_name) FROM missions m JOIN contacts c ON c.id = m.principal_investigator_id WHERE m.id = norglider_missions.id) AS "piFullName",
     (SELECT c.webpage FROM missions m JOIN contacts c ON c.id = m.principal_investigator_id WHERE m.id = norglider_missions.id) AS "piWebpage",
-    (SELECT TRIM(c.first_name || ' ' || c.last_name) FROM missions m JOIN contacts c ON c.id = m.technical_lead_id WHERE m.id = norglider_missions.id) AS "techFullName",
-    (SELECT c.webpage FROM missions m JOIN contacts c ON c.id = m.technical_lead_id WHERE m.id = norglider_missions.id) AS "techWebpage",
+    (SELECT TRIM(c.first_name || ' ' || c.last_name) FROM missions m JOIN contacts c ON c.id = m.operations_manager_id WHERE m.id = norglider_missions.id) AS "operationsManagerFullName",
+    (SELECT c.webpage FROM missions m JOIN contacts c ON c.id = m.operations_manager_id WHERE m.id = norglider_missions.id) AS "operationsManagerWebpage",
     (SELECT p.url FROM missions m JOIN projects p ON p.id = m.project_id WHERE m.id = norglider_missions.id) AS "projectUrl",
     (SELECT operating_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "operatingAgencyId",
     (SELECT funding_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "fundingAgencyId",
@@ -88,24 +88,24 @@ const SELECT_MISSIONS = `
     project,
     glider,
     platform,
-    site,
+    observatory,
     pi,
-    tech,
+    operations_manager AS "operationsManager",
     operating_agency AS "operatingAgency",
     funding_agency AS "fundingAgency",
-    launch_cruise_id AS "launchCruiseId",
-    recovery_cruise_id AS "recoveryCruiseId",
+    deployment_cruise_id AS "deploymentCruiseId",
+    retrieval_cruise_id AS "retrievalCruiseId",
     volume,
     weight_in_air AS "weightInAir",
     density,
     iridium_minutes AS "iridiumMinutes",
-    launch_date AS "launchDate",
-    launch_latitude AS "launchLatitude",
-    launch_longitude AS "launchLongitude",
+    deployment_date AS "deploymentDate",
+    deployment_latitude AS "deploymentLatitude",
+    deployment_longitude AS "deploymentLongitude",
     end_date_science AS "endDateScience",
-    recovery_date AS "recoveryDate",
-    recovery_latitude AS "recoveryLatitude",
-    recovery_longitude AS "recoveryLongitude",
+    retrieval_date AS "retrievalDate",
+    retrieval_latitude AS "retrievalLatitude",
+    retrieval_longitude AS "retrievalLongitude",
     dives,
     distance_km AS "distanceKm",
     ${DAYS_EXPR}::int AS "numberOfDays"
@@ -121,7 +121,7 @@ export class MissionsService {
 
 	async findAll(): Promise<Mission[]> {
 		const result = await this.pool.query(
-			`${SELECT_MISSIONS} ORDER BY launch_date DESC NULLS LAST`,
+			`${SELECT_MISSIONS} ORDER BY deployment_date DESC NULLS LAST`,
 		);
 		return result.rows;
 	}
@@ -137,7 +137,7 @@ export class MissionsService {
 	}
 
 	// One mission's build: what was (or will be) on the glider for it, with
-	// the science payload as of its launch date.
+	// the science payload as of its deployment date.
 	async getBuild(id: number): Promise<MissionBuild> {
 		await this.findOne(id);
 		return getMissionBuild(this.pool, id);
@@ -218,15 +218,15 @@ export class MissionsService {
 
 		const result = await this.pool.query(
 			`SELECT DISTINCT nm.id, nm.mission_number AS "missionNumber",
-              nm.std_mission_name AS "stdMissionName", nm.status, nm.site,
-              nm.launch_date AS "launchDate", nm.recovery_date AS "recoveryDate",
+              nm.std_mission_name AS "stdMissionName", nm.status, nm.observatory,
+              nm.deployment_date AS "deploymentDate", nm.retrieval_date AS "retrievalDate",
               nm.dives, nm.distance_km AS "distanceKm"
        FROM norglider_missions nm
        WHERE nm.id IN (
                SELECT i.mission_id FROM mission_build_items i WHERE i.asset_id = $1
              )
          AND nm.status IS DISTINCT FROM 'workshop'
-       ORDER BY nm.launch_date DESC NULLS LAST`,
+       ORDER BY nm.deployment_date DESC NULLS LAST`,
 			[assetId],
 		);
 		return result.rows;
@@ -349,9 +349,9 @@ export class MissionsService {
          nm.glider,
          nm.platform,
          nm.project,
-         nm.site,
-         nm.launch_date AS "launchDate",
-         nm.recovery_date AS "recoveryDate",
+         nm.observatory,
+         nm.deployment_date AS "deploymentDate",
+         nm.retrieval_date AS "retrievalDate",
          nm.end_date_science AS "endDateScience",
          COALESCE(t.track, '[]'::json) AS track
        FROM norglider_missions nm
@@ -361,28 +361,28 @@ export class MissionsService {
          WHERE missions_id = nm.id
        ) t ON true
        WHERE nm.status IS DISTINCT FROM 'workshop'
-       ORDER BY nm.launch_date DESC NULLS LAST`,
+       ORDER BY nm.deployment_date DESC NULLS LAST`,
 		);
 		return result.rows;
 	}
 
 	// What each status must have on record. WORKSHOP is a glider being
 	// prepared -- only the glider is known. SCHEDULED means the glider has
-	// been assigned a mission (so project and site), launch date optional.
-	// Anything past that (active, recovered, ...) also needs a launch date.
+	// been assigned a mission (so project and observatory), deployment date optional.
+	// Anything past that (active, recovered, ...) also needs a deployment date.
 	private assertFieldsForStatus(
 		statusName: string,
 		dto: CreateMissionDto,
 	): void {
 		if (statusName === "workshop") return;
-		if (!dto.projectId || !dto.siteId) {
+		if (!dto.projectId || !dto.observatoryId) {
 			throw new BadRequestException(
-				`A ${statusName} mission needs a project and a site.`,
+				`A ${statusName} mission needs a project and an observatory.`,
 			);
 		}
-		if (statusName !== "scheduled" && !dto.launchDate) {
+		if (statusName !== "scheduled" && !dto.deploymentDate) {
 			throw new BadRequestException(
-				`A ${statusName} mission needs a launch date.`,
+				`A ${statusName} mission needs a deployment date.`,
 			);
 		}
 	}
@@ -400,20 +400,25 @@ export class MissionsService {
 			`SELECT
          (SELECT glider_name FROM asset_glider_details WHERE asset_id = $1) AS "gliderName",
          (SELECT name FROM projects WHERE id = $2) AS "projectName",
-         (SELECT name FROM sites WHERE id = $3) AS "siteName"`,
-			[dto.gliderAssetId, dto.projectId ?? null, dto.siteId ?? null],
+         (SELECT name FROM observatories WHERE id = $3) AS "observatoryName"`,
+			[dto.gliderAssetId, dto.projectId ?? null, dto.observatoryId ?? null],
 		);
-		const { gliderName, projectName, siteName } = names.rows[0];
+		const { gliderName, projectName, observatoryName } = names.rows[0];
 		if (!gliderName) throw new NotFoundException("Glider not found.");
 		if (statusName === "workshop") return buildWorkshopMissionName(gliderName);
-		if (!projectName || !siteName) {
+		if (!projectName || !observatoryName) {
 			throw new NotFoundException(
-				"Project or site not found -- can't build a mission name.",
+				"Project or observatory not found -- can't build a mission name.",
 			);
 		}
-		return dto.launchDate
-			? buildMissionName(gliderName, projectName, siteName, dto.launchDate)
-			: buildPlannedMissionName(gliderName, projectName, siteName);
+		return dto.deploymentDate
+			? buildMissionName(
+					gliderName,
+					projectName,
+					observatoryName,
+					dto.deploymentDate,
+				)
+			: buildPlannedMissionName(gliderName, projectName, observatoryName);
 	}
 
 	private async statusNameOf(
@@ -470,10 +475,10 @@ export class MissionsService {
 
 			const inserted = await client.query(
 				`INSERT INTO missions (
-           mission_number, mission_name, glider_asset_id, status_id, project_id, site_id,
-           principal_investigator_id, technical_lead_id, operating_agency_id, funding_agency_id,
-           launch_date, launch_latitude, launch_longitude, launch_cruise_id,
-           end_date_science, recovery_date, recovery_latitude, recovery_longitude, recovery_cruise_id,
+           mission_number, mission_name, glider_asset_id, status_id, project_id, observatory_id,
+           principal_investigator_id, operations_manager_id, operating_agency_id, funding_agency_id,
+           deployment_date, deployment_latitude, deployment_longitude, deployment_cruise_id,
+           end_date_science, retrieval_date, retrieval_latitude, retrieval_longitude, retrieval_cruise_id,
            volume, weight_in_air, density, dives, distance_km, iridium_minutes,
            changed_by
          ) VALUES (
@@ -490,20 +495,20 @@ export class MissionsService {
 					dto.gliderAssetId,
 					dto.statusId,
 					dto.projectId ?? null,
-					dto.siteId ?? null,
+					dto.observatoryId ?? null,
 					dto.principalInvestigatorId ?? null,
-					dto.technicalLeadId ?? null,
+					dto.operationsManagerId ?? null,
 					dto.operatingAgencyId ?? null,
 					dto.fundingAgencyId ?? null,
-					dto.launchDate ?? null,
-					dto.launchLatitude ?? null,
-					dto.launchLongitude ?? null,
-					dto.launchCruiseId ?? null,
+					dto.deploymentDate ?? null,
+					dto.deploymentLatitude ?? null,
+					dto.deploymentLongitude ?? null,
+					dto.deploymentCruiseId ?? null,
 					dto.endDateScience ?? null,
-					dto.recoveryDate ?? null,
-					dto.recoveryLatitude ?? null,
-					dto.recoveryLongitude ?? null,
-					dto.recoveryCruiseId ?? null,
+					dto.retrievalDate ?? null,
+					dto.retrievalLatitude ?? null,
+					dto.retrievalLongitude ?? null,
+					dto.retrievalCruiseId ?? null,
 					dto.volume ?? null,
 					dto.weightInAir ?? null,
 					dto.density ?? null,
@@ -544,7 +549,7 @@ export class MissionsService {
 	//   name it with exists. The computed glider_project_site_monYYYY name is
 	//   norglider_missions.std_mission_name, which follows edits automatically.
 	//
-	// launch_date / end_date_science / recovery_date are timestamps, but the
+	// deployment_date / end_date_science / retrieval_date are timestamps, but the
 	// form only edits the date. If the submitted date matches the stored
 	// one, the stored timestamp is kept as-is, so an unrelated edit (say,
 	// the dive count) doesn't reset an ingested time like 15:05:49 to
@@ -606,18 +611,18 @@ export class MissionsService {
 			const updated = await client.query(
 				`UPDATE missions SET
            glider_asset_id = $1, status_id = $2,
-           project_id = $3, site_id = $4,
-           principal_investigator_id = $5, technical_lead_id = $6,
+           project_id = $3, observatory_id = $4,
+           principal_investigator_id = $5, operations_manager_id = $6,
            operating_agency_id = $7, funding_agency_id = $8,
-           launch_date = CASE WHEN launch_date::date = $9::text::date
-             THEN launch_date ELSE $9::text::timestamp END,
-           launch_latitude = $10, launch_longitude = $11, launch_cruise_id = $12,
+           deployment_date = CASE WHEN deployment_date::date = $9::text::date
+             THEN deployment_date ELSE $9::text::timestamp END,
+           deployment_latitude = $10, deployment_longitude = $11, deployment_cruise_id = $12,
            end_date_science = CASE WHEN end_date_science::date = $13::text::date
              THEN end_date_science ELSE $13::text::timestamp END,
-           recovery_date = CASE WHEN recovery_date::date = $14::text::date
-             THEN recovery_date ELSE $14::text::timestamp END,
-           recovery_latitude = $15,
-           recovery_longitude = $16, recovery_cruise_id = $17,
+           retrieval_date = CASE WHEN retrieval_date::date = $14::text::date
+             THEN retrieval_date ELSE $14::text::timestamp END,
+           retrieval_latitude = $15,
+           retrieval_longitude = $16, retrieval_cruise_id = $17,
            volume = $18, weight_in_air = $19, density = $20, dives = $21, distance_km = $22,
            iridium_minutes = $23, changed_by = $24, updated_at = now(),
            mission_number = COALESCE(mission_number, $26::integer),
@@ -628,20 +633,20 @@ export class MissionsService {
 					dto.gliderAssetId,
 					dto.statusId,
 					dto.projectId ?? null,
-					dto.siteId ?? null,
+					dto.observatoryId ?? null,
 					dto.principalInvestigatorId ?? null,
-					dto.technicalLeadId ?? null,
+					dto.operationsManagerId ?? null,
 					dto.operatingAgencyId ?? null,
 					dto.fundingAgencyId ?? null,
-					dto.launchDate ?? null,
-					dto.launchLatitude ?? null,
-					dto.launchLongitude ?? null,
-					dto.launchCruiseId ?? null,
+					dto.deploymentDate ?? null,
+					dto.deploymentLatitude ?? null,
+					dto.deploymentLongitude ?? null,
+					dto.deploymentCruiseId ?? null,
 					dto.endDateScience ?? null,
-					dto.recoveryDate ?? null,
-					dto.recoveryLatitude ?? null,
-					dto.recoveryLongitude ?? null,
-					dto.recoveryCruiseId ?? null,
+					dto.retrievalDate ?? null,
+					dto.retrievalLatitude ?? null,
+					dto.retrievalLongitude ?? null,
+					dto.retrievalCruiseId ?? null,
 					dto.volume ?? null,
 					dto.weightInAir ?? null,
 					dto.density ?? null,
@@ -680,9 +685,14 @@ export class MissionsService {
 	}
 
 	async getLeaderboard(): Promise<MissionsLeaderboard> {
-		const [byGlider, longestMission, topProject, topSite, gliderIdsResult] =
-			await Promise.all([
-				this.pool.query(`
+		const [
+			byGlider,
+			longestMission,
+			topProject,
+			topObservatory,
+			gliderIdsResult,
+		] = await Promise.all([
+			this.pool.query(`
         SELECT
           glider,
           COALESCE(SUM(dives), 0)::int AS "totalDives",
@@ -692,14 +702,14 @@ export class MissionsService {
         WHERE glider IS NOT NULL AND status IS DISTINCT FROM 'workshop'
         GROUP BY glider
       `),
-				this.pool.query(`
+			this.pool.query(`
         SELECT id AS "missionId", glider, std_mission_name AS "stdMissionName", ${DAYS_EXPR}::int AS days
         FROM norglider_missions
-        WHERE recovery_date IS NOT NULL AND launch_date IS NOT NULL
+        WHERE retrieval_date IS NOT NULL AND deployment_date IS NOT NULL
         ORDER BY days DESC
         LIMIT 1
       `),
-				this.pool.query(`
+			this.pool.query(`
         SELECT project, COALESCE(SUM(${DAYS_EXPR}), 0)::int AS days
         FROM norglider_missions
         WHERE project IS NOT NULL
@@ -707,23 +717,23 @@ export class MissionsService {
         ORDER BY days DESC
         LIMIT 1
       `),
-				this.pool.query(`
-        SELECT site, COALESCE(SUM(${DAYS_EXPR}), 0)::int AS days
+			this.pool.query(`
+        SELECT observatory, COALESCE(SUM(${DAYS_EXPR}), 0)::int AS days
         FROM norglider_missions
-        WHERE site IS NOT NULL
-        GROUP BY site
+        WHERE observatory IS NOT NULL
+        GROUP BY observatory
         ORDER BY days DESC
         LIMIT 1
       `),
-				// norglider_missions exposes the glider's *name*, not its
-				// asset id (the view joins asset_glider_details for display
-				// but doesn't select the id) -- resolved here by name instead
-				// of reshaping the view, since glider_name is unique and this
-				// is the only place that needs the id.
-				this.pool.query(
-					"SELECT asset_id AS id, glider_name AS name FROM asset_glider_details",
-				),
-			]);
+			// norglider_missions exposes the glider's *name*, not its
+			// asset id (the view joins asset_glider_details for display
+			// but doesn't select the id) -- resolved here by name instead
+			// of reshaping the view, since glider_name is unique and this
+			// is the only place that needs the id.
+			this.pool.query(
+				"SELECT asset_id AS id, glider_name AS name FROM asset_glider_details",
+			),
+		]);
 
 		const gliderIds = new Map<string, number>(
 			gliderIdsResult.rows.map((r: { id: number; name: string }) => [
@@ -774,7 +784,7 @@ export class MissionsService {
 				: null,
 			longestDeployment: longestMission.rows[0] ?? null,
 			mostProjectDays: topProject.rows[0] ?? null,
-			mostSiteDays: topSite.rows[0] ?? null,
+			mostObservatoryDays: topObservatory.rows[0] ?? null,
 		};
 	}
 }

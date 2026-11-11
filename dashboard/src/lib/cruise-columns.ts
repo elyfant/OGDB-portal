@@ -16,8 +16,8 @@ export const CRUISE_COLUMNS: ColumnDef<Cruise>[] = [
 	},
 	{ key: "vessel", label: "Vessel", kind: "string", defaultVisible: true },
 	{
-		key: "institute",
-		label: "Institute",
+		key: "agency",
+		label: "Agency",
 		kind: "string",
 		defaultVisible: true,
 	},

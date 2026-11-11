@@ -42,9 +42,9 @@ export default function ActivityHeatmap({ missions }: { missions: Mission[] }) {
 		let minYear = today.getFullYear();
 
 		for (const m of missions) {
-			if (!m.launchDate) continue;
-			const start = new Date(m.launchDate);
-			const end = m.recoveryDate ? new Date(m.recoveryDate) : today;
+			if (!m.deploymentDate) continue;
+			const start = new Date(m.deploymentDate);
+			const end = m.retrievalDate ? new Date(m.retrievalDate) : today;
 			minYear = Math.min(minYear, start.getFullYear());
 
 			let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
@@ -80,7 +80,7 @@ export default function ActivityHeatmap({ missions }: { missions: Mission[] }) {
 					textAlign: "center",
 				}}
 			>
-				No missions with launch dates yet.
+				No missions with deployment dates yet.
 			</Box>
 		);
 	}

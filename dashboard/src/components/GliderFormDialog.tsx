@@ -24,7 +24,7 @@ interface FormState {
 	serialNumber: string;
 	wmo: string;
 	platformId: number | "";
-	instituteId: number | "";
+	agencyId: number | "";
 	purchaseDate: string;
 	purchaseValue: string;
 }
@@ -35,7 +35,7 @@ function emptyForm(): FormState {
 		serialNumber: "",
 		wmo: "",
 		platformId: "",
-		instituteId: "",
+		agencyId: "",
 		purchaseDate: "",
 		purchaseValue: "",
 	};
@@ -47,7 +47,7 @@ function formFromGlider(g: Glider): FormState {
 		serialNumber: g.serialNumber ?? "",
 		wmo: g.wmo ?? "",
 		platformId: g.platformId ?? "",
-		instituteId: g.instituteId ?? "",
+		agencyId: g.agencyId ?? "",
 		purchaseDate: g.purchaseDate?.slice(0, 10) ?? "",
 		purchaseValue: g.purchaseValue?.toString() ?? "",
 	};
@@ -58,7 +58,7 @@ const FIELD_LABELS: { key: keyof FormState; label: string }[] = [
 	{ key: "serialNumber", label: "Serial number" },
 	{ key: "wmo", label: "WMO" },
 	{ key: "platformId", label: "Platform" },
-	{ key: "instituteId", label: "Owner" },
+	{ key: "agencyId", label: "Owner" },
 	{ key: "purchaseDate", label: "Purchase date" },
 	{ key: "purchaseValue", label: "Purchase value" },
 ];
@@ -67,14 +67,14 @@ function displayValue(
 	key: keyof FormState,
 	value: FormState[keyof FormState],
 	platforms: LookupOption[],
-	institutes: LookupOption[],
+	agencies: LookupOption[],
 ): string {
 	if (value === "" || value === null || value === undefined) return "—";
 	if (key === "platformId") {
 		return platforms.find((p) => p.id === value)?.name ?? "—";
 	}
-	if (key === "instituteId") {
-		return institutes.find((i) => i.id === value)?.name ?? "—";
+	if (key === "agencyId") {
+		return agencies.find((i) => i.id === value)?.name ?? "—";
 	}
 	if (key === "purchaseDate") return formatDate(String(value));
 	if (key === "purchaseValue") return formatUsd(Number(value));
@@ -85,25 +85,25 @@ function summarizeChanges(
 	before: FormState,
 	after: FormState,
 	platforms: LookupOption[],
-	institutes: LookupOption[],
+	agencies: LookupOption[],
 ): string[] {
 	return FIELD_LABELS.filter(({ key }) => before[key] !== after[key]).map(
 		({ key, label }) =>
-			`${label}: ${displayValue(key, before[key], platforms, institutes)} → ${displayValue(key, after[key], platforms, institutes)}`,
+			`${label}: ${displayValue(key, before[key], platforms, agencies)} → ${displayValue(key, after[key], platforms, agencies)}`,
 	);
 }
 
 type Props =
-	| { mode: "create"; platforms: LookupOption[]; institutes: LookupOption[] }
+	| { mode: "create"; platforms: LookupOption[]; agencies: LookupOption[] }
 	| {
 			mode: "edit";
 			glider: Glider;
 			platforms: LookupOption[];
-			institutes: LookupOption[];
+			agencies: LookupOption[];
 	  };
 
 export default function GliderFormDialog(props: Props) {
-	const { mode, platforms, institutes } = props;
+	const { mode, platforms, agencies } = props;
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(emptyForm);
@@ -154,7 +154,7 @@ export default function GliderFormDialog(props: Props) {
 				serialNumber: form.serialNumber.trim() || undefined,
 				wmo: form.wmo.trim() || undefined,
 				platformId: form.platformId || undefined,
-				instituteId: form.instituteId || undefined,
+				agencyId: form.agencyId || undefined,
 				purchaseDate: form.purchaseDate || undefined,
 				purchaseValue: purchaseValue ?? undefined,
 			};
@@ -168,7 +168,7 @@ export default function GliderFormDialog(props: Props) {
 					initialForm,
 					form,
 					platforms,
-					institutes,
+					agencies,
 				);
 				setBanner({
 					severity: "success",
@@ -260,9 +260,9 @@ export default function GliderFormDialog(props: Props) {
 							</Field>
 							<Field label="Owner">
 								<LookupSelect
-									value={form.instituteId}
-									options={institutes}
-									onChange={(v) => setForm((s) => ({ ...s, instituteId: v }))}
+									value={form.agencyId}
+									options={agencies}
+									onChange={(v) => setForm((s) => ({ ...s, agencyId: v }))}
 								/>
 							</Field>
 							<Field label="Purchase date">

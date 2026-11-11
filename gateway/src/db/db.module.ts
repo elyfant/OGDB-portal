@@ -16,7 +16,7 @@ import { PG_POOL } from "./db.constants";
 types.setTypeParser(1082, (value: string) => value);
 
 // Same trap for TIMESTAMP WITHOUT TIME ZONE (oid 1114) -- missions'
-// launch_date / end_date_science / recovery_date. pg's default parser
+// deployment_date / end_date_science / retrieval_date. pg's default parser
 // reads the wire value as *local* time, so in Europe/Oslo midnight
 // 2016-11-09 serialises as "2016-11-08T23:00:00.000Z"; the edit form keeps
 // the date part, and every save moved the mission's dates back a day

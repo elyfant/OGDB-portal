@@ -18,7 +18,7 @@ export default function CruisesTable({ cruises }: { cruises: Cruise[] }) {
 	const [filterState, setFilterState] = useState<FilterState>({});
 
 	// Neither field is backed by a lookup table (Cruise carries no FK ids at
-	// all — institute/vessel are plain text), so options are derived from
+	// all — agency/vessel are plain text), so options are derived from
 	// whatever values are actually present in the loaded rows.
 	const vesselFilter: FilterDef<Cruise> = useMemo(
 		() => ({
@@ -30,19 +30,19 @@ export default function CruisesTable({ cruises }: { cruises: Cruise[] }) {
 		[],
 	);
 
-	const instituteFilter: FilterDef<Cruise> = useMemo(
+	const agencyFilter: FilterDef<Cruise> = useMemo(
 		() => ({
-			key: "institute",
-			label: "Institute",
+			key: "agency",
+			label: "Agency",
 			type: "multiSelect",
-			getValue: (c) => c.institute,
+			getValue: (c) => c.agency,
 		}),
 		[],
 	);
 
 	const filters = useMemo(
-		() => [vesselFilter, instituteFilter],
-		[vesselFilter, instituteFilter],
+		() => [vesselFilter, agencyFilter],
+		[vesselFilter, agencyFilter],
 	);
 
 	const filteredRows = useMemo(

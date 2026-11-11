@@ -37,7 +37,7 @@ interface FormState {
 	purchaseDate: string;
 	purchaseValue: string;
 	purchaseCurrency: string;
-	instituteId: number | "";
+	agencyId: number | "";
 	l22ModelId: number | "";
 	equipmentName: string;
 	equipmentModel: string;
@@ -55,7 +55,7 @@ function emptyForm(): FormState {
 		purchaseDate: "",
 		purchaseValue: "",
 		purchaseCurrency: "USD",
-		instituteId: "",
+		agencyId: "",
 		l22ModelId: "",
 		equipmentName: "",
 		equipmentModel: "",
@@ -75,7 +75,7 @@ function formFromAsset(asset: Asset): FormState {
 		purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
 		purchaseValue: asset.purchaseValue?.toString() ?? "",
 		purchaseCurrency: asset.purchaseCurrency,
-		instituteId: "",
+		agencyId: "",
 		l22ModelId: asset.l22ModelId ?? "",
 		// For equipment, Asset.name / assetModel come from
 		// asset_equipment_details.
@@ -89,7 +89,7 @@ type Props =
 	| {
 			mode: "create";
 			assetTypes: LookupOption[];
-			institutes: LookupOption[];
+			agencies: LookupOption[];
 			sensorModels: LookupOption[];
 	  }
 	| {
@@ -191,7 +191,7 @@ export default function AssetFormDialog(props: Props) {
 							purchaseDate: form.purchaseDate || null,
 							purchaseValue,
 							purchaseCurrency: form.purchaseCurrency,
-							instituteId: form.instituteId === "" ? null : form.instituteId,
+							agencyId: form.agencyId === "" ? null : form.agencyId,
 							...(isSensor && {
 								l22ModelId: form.l22ModelId === "" ? null : form.l22ModelId,
 							}),
@@ -336,23 +336,21 @@ export default function AssetFormDialog(props: Props) {
 								</Field>
 							)}
 							{mode === "create" && (
-								<Field label="Institute">
+								<Field label="Agency">
 									<TextField
 										select
 										size="small"
 										fullWidth
-										value={form.instituteId}
+										value={form.agencyId}
 										onChange={(e) =>
 											setForm((s) => ({
 												...s,
-												instituteId: e.target.value
-													? Number(e.target.value)
-													: "",
+												agencyId: e.target.value ? Number(e.target.value) : "",
 											}))
 										}
 									>
 										<MenuItem value="">— none —</MenuItem>
-										{props.institutes.map((i) => (
+										{props.agencies.map((i) => (
 											<MenuItem key={i.id} value={i.id}>
 												{i.name}
 											</MenuItem>

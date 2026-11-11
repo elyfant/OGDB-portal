@@ -16,7 +16,7 @@ const SELECT_CRUISES = `
     c.cruise_number AS "cruiseNumber",
     v.name AS vessel,
     v.url AS "vesselUrl",
-    i.name AS institute,
+    i.name AS agency,
     c.cruise_leader AS "cruiseLeader",
     c.area,
     c.start_date AS "startDate",
@@ -25,7 +25,7 @@ const SELECT_CRUISES = `
     c.destination AS "endPort"
   FROM cruises c
   LEFT JOIN vessels v ON v.id = c.vessel
-  LEFT JOIN institutes i ON i.id = c.institute_id
+  LEFT JOIN agencies i ON i.id = c.agency_id
 `;
 
 function mapDbError(err: unknown): Error {
@@ -65,14 +65,14 @@ export class CruisesService {
 		try {
 			const result = await this.pool.query(
 				`INSERT INTO cruises
-          (cruise_name, cruise_number, vessel, institute_id, cruise_leader, area, start_date, end_date, departure, destination)
+          (cruise_name, cruise_number, vessel, agency_id, cruise_leader, area, start_date, end_date, departure, destination)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id`,
 				[
 					dto.cruiseName,
 					dto.cruiseNumber ?? null,
 					dto.vesselId ?? null,
-					dto.instituteId ?? null,
+					dto.agencyId ?? null,
 					dto.cruiseLeader ?? null,
 					dto.area,
 					dto.startDate,

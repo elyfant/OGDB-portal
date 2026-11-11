@@ -10,13 +10,13 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import RegionIcon from "@/components/RegionIcon";
 import StatTile from "@/components/StatTile";
 import MissionIridiumSection from "@/components/iridium/MissionIridiumSection";
-import { siteToArea } from "@/components/mission-stats/site-areas";
+import { observatoryToArea } from "@/components/mission-stats/observatory-areas";
 import {
+	getAgencies,
 	getContacts,
 	getCruises,
 	getGlider,
 	getGliders,
-	getInstitutes,
 	getIridiumMission,
 	getMission,
 	getMissionBuild,
@@ -24,8 +24,8 @@ import {
 	getMissionStatuses,
 	getMissionTracks,
 	getMissions,
+	getObservatories,
 	getProjects,
-	getSites,
 	getStatusOptions,
 } from "@/lib/api";
 import {
@@ -97,9 +97,9 @@ export default async function MissionDetailPage({
 		gliders,
 		missionStatuses,
 		projects,
-		sites,
+		observatories,
 		contacts,
-		institutes,
+		agencies,
 		cruises,
 		iridium,
 	] = await Promise.all([
@@ -117,9 +117,9 @@ export default async function MissionDetailPage({
 		getGliders(),
 		getMissionStatuses(),
 		getProjects(),
-		getSites(),
+		getObservatories(),
 		getContacts(),
-		getInstitutes(),
+		getAgencies(),
 		getCruises(),
 		getIridiumMission(mission.id),
 	]);
@@ -134,14 +134,17 @@ export default async function MissionDetailPage({
 			? mission.platform
 			: null;
 	const deployment =
-		mission.launchLatitude !== null && mission.launchLongitude !== null
-			? { latitude: mission.launchLatitude, longitude: mission.launchLongitude }
-			: null;
-	const recovery =
-		mission.recoveryLatitude !== null && mission.recoveryLongitude !== null
+		mission.deploymentLatitude !== null && mission.deploymentLongitude !== null
 			? {
-					latitude: mission.recoveryLatitude,
-					longitude: mission.recoveryLongitude,
+					latitude: mission.deploymentLatitude,
+					longitude: mission.deploymentLongitude,
+				}
+			: null;
+	const retrieval =
+		mission.retrievalLatitude !== null && mission.retrievalLongitude !== null
+			? {
+					latitude: mission.retrievalLatitude,
+					longitude: mission.retrievalLongitude,
 				}
 			: null;
 
@@ -152,9 +155,9 @@ export default async function MissionDetailPage({
 					tracks={tracks}
 					platform={platform}
 					deployment={deployment}
-					deploymentDate={mission.launchDate}
-					recovery={recovery}
-					recoveryDate={mission.recoveryDate}
+					deploymentDate={mission.deploymentDate}
+					retrieval={retrieval}
+					retrievalDate={mission.retrievalDate}
 				/>
 			</Box>
 
@@ -175,7 +178,7 @@ export default async function MissionDetailPage({
 					flexWrap: "wrap",
 				}}
 			>
-				<RegionIcon area={siteToArea(mission.site)} width={72} />
+				<RegionIcon area={observatoryToArea(mission.observatory)} width={72} />
 				<Box sx={{ flex: 1, minWidth: 220 }}>
 					<Box
 						sx={{
@@ -195,8 +198,8 @@ export default async function MissionDetailPage({
 						)}
 					</Box>
 					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-						{formatDate(mission.launchDate)} –{" "}
-						{formatDate(mission.recoveryDate)}
+						{formatDate(mission.deploymentDate)} –{" "}
+						{formatDate(mission.retrievalDate)}
 					</Typography>
 				</Box>
 				<MuiLink
@@ -249,9 +252,9 @@ export default async function MissionDetailPage({
 					gliders={gliders}
 					missionStatuses={missionStatuses}
 					projects={projects}
-					sites={sites}
+					observatories={observatories}
 					contacts={contacts}
-					institutes={institutes}
+					agencies={agencies}
 					cruises={cruises}
 				/>
 			</Box>
@@ -285,7 +288,10 @@ export default async function MissionDetailPage({
 						label="Glider model"
 						value={glider?.platformModelFull ?? glider?.platformModel}
 					/>
-					<Field label="Site" value={capitalizeFirst(mission.site)} />
+					<Field
+						label="Observatory"
+						value={capitalizeFirst(mission.observatory)}
+					/>
 					<Field
 						label="Project"
 						value={externalLink(mission.project, mission.projectUrl)}
@@ -296,7 +302,10 @@ export default async function MissionDetailPage({
 					/>
 					<Field
 						label="Lead engineer"
-						value={externalLink(mission.techFullName, mission.techWebpage)}
+						value={externalLink(
+							mission.operationsManagerFullName,
+							mission.operationsManagerWebpage,
+						)}
 					/>
 					<Field label="Operating agency" value={mission.operatingAgency} />
 					<Field label="Funding agency" value={mission.fundingAgency} />
@@ -351,19 +360,22 @@ export default async function MissionDetailPage({
 								>
 									Deployment
 								</Typography>
-								<Field label="Date" value={formatDate(mission.launchDate)} />
+								<Field
+									label="Date"
+									value={formatDate(mission.deploymentDate)}
+								/>
 								<Field
 									label="Position"
 									value={formatPosition(
-										mission.launchLatitude,
-										mission.launchLongitude,
+										mission.deploymentLatitude,
+										mission.deploymentLongitude,
 									)}
 								/>
 								<Field
 									label="Cruise"
 									value={
-										mission.launchCruiseId
-											? `Cruise #${mission.launchCruiseId}`
+										mission.deploymentCruiseId
+											? `Cruise #${mission.deploymentCruiseId}`
 											: null
 									}
 								/>
@@ -375,21 +387,21 @@ export default async function MissionDetailPage({
 									color="text.secondary"
 									sx={{ letterSpacing: 1 }}
 								>
-									Recovery
+									Retrieval
 								</Typography>
-								<Field label="Date" value={formatDate(mission.recoveryDate)} />
+								<Field label="Date" value={formatDate(mission.retrievalDate)} />
 								<Field
 									label="Position"
 									value={formatPosition(
-										mission.recoveryLatitude,
-										mission.recoveryLongitude,
+										mission.retrievalLatitude,
+										mission.retrievalLongitude,
 									)}
 								/>
 								<Field
 									label="Cruise"
 									value={
-										mission.recoveryCruiseId
-											? `Cruise #${mission.recoveryCruiseId}`
+										mission.retrievalCruiseId
+											? `Cruise #${mission.retrievalCruiseId}`
 											: null
 									}
 								/>
@@ -473,7 +485,7 @@ export default async function MissionDetailPage({
 						mode="mission"
 						components={build.components}
 						sensors={build.sciencePayload}
-						asOfDate={mission.launchDate ?? new Date().toISOString()}
+						asOfDate={mission.deploymentDate ?? new Date().toISOString()}
 						platform={glider?.platform ?? null}
 						platformModel={glider?.platformModel ?? null}
 						emptyMessage={
@@ -482,9 +494,9 @@ export default async function MissionDetailPage({
 								: "Build not recorded for this mission."
 						}
 						calibrationNote={
-							mission.launchDate
+							mission.deploymentDate
 								? undefined
-								: "Calibration shown as of today -- this mission has not launched."
+								: "Calibration shown as of today -- this mission has not deployed."
 						}
 					/>
 				</Paper>

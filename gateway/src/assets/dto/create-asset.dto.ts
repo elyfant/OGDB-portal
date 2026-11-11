@@ -39,7 +39,7 @@ export class CreateAssetDto {
 
 	@IsOptional()
 	@IsInt()
-	instituteId?: number;
+	agencyId?: number;
 
 	// Science sensors only (ct/do/eco/mr_sensor) -- asset_sensor_details.
 	// l22_model_id. AssetsService.create ignores this for any other

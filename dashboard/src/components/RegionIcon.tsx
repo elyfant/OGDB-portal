@@ -1,5 +1,5 @@
 // Companion set to PlatformIcon.tsx: flat-style illustration vignettes for
-// each deployment region (see mission-stats/site-areas.ts for the canonical
+// each deployment region (see mission-stats/observatory-areas.ts for the canonical
 // region names). Same technique -- filled shapes, no outline strokes except
 // for a few thin accent lines -- but landscape/seascape scenes instead of
 // platform silhouettes, sharing the platform icons' amber (#F4C542) accent
@@ -153,7 +153,14 @@ function AntarcticSvg() {
 			<rect x="0" y="58" width="120" height="32" fill="#163A52" />
 			<rect x="46" y="38" width="46" height="50" fill="#F5F8FA" />
 			<rect x="46" y="38" width="46" height="8" fill="#FFFFFF" />
-			<rect x="46" y="58" width="46" height="30" fill="#0B2A3D" opacity="0.35" />
+			<rect
+				x="46"
+				y="58"
+				width="46"
+				height="30"
+				fill="#0B2A3D"
+				opacity="0.35"
+			/>
 			<rect
 				x="46"
 				y="38"

@@ -23,10 +23,10 @@ const usd = (v: unknown) => formatUsd0(v as number | null);
 function CostBar({ row }: { row: Row }) {
 	const c = useIridiumColors();
 	const parts = [
-		[row.beforeLaunchUsd, c.beforeLaunch, "Before launch"],
+		[row.beforeLaunchUsd, c.beforeLaunch, "Before deployment"],
 		[row.missionUsageUsd, c.missionUsage, "Usage"],
 		[row.missionRentalUsd, c.missionRental, "Line rental"],
-		[row.afterRecoveryUsd, c.afterRecovery, "After recovery"],
+		[row.afterRecoveryUsd, c.afterRecovery, "After retrieval"],
 	] as const;
 	return (
 		<Box
@@ -93,19 +93,19 @@ function MissionName({ row }: { row: Row }) {
 			)}
 			{row.beforeLaunchUsd >= PRE_LAUNCH_FLAG_USD && (
 				<Tooltip
-					title={`Pre-launch airtime in ${row.preLaunchMonths.join(", ")}: long testing, or a wrong launch date?`}
+					title={`Pre-deployment airtime in ${row.preLaunchMonths.join(", ")}: long testing, or a wrong deployment date?`}
 				>
 					<Chip
 						size="small"
 						color="warning"
 						variant="outlined"
-						label="pre-launch"
+						label="pre-deployment"
 					/>
 				</Tooltip>
 			)}
 			{row.leftOnMonths.length > 0 && (
 				<Tooltip
-					title={`Airtime after recovery in ${row.leftOnMonths.join(", ")}: glider left on, or a wrong recovery date?`}
+					title={`Airtime after retrieval in ${row.leftOnMonths.join(", ")}: glider left on, or a wrong retrieval date?`}
 				>
 					<Chip
 						size="small"
@@ -135,10 +135,15 @@ const COLUMNS: ColumnDef<Row>[] = [
 		defaultVisible: false,
 		format: (v) => PLATFORM_LABEL[v as string] ?? String(v ?? "—"),
 	},
-	{ key: "launchDate", label: "Launch", kind: "date", defaultVisible: true },
 	{
-		key: "recoveryDate",
-		label: "Recovery",
+		key: "deploymentDate",
+		label: "Deployment",
+		kind: "date",
+		defaultVisible: true,
+	},
+	{
+		key: "retrievalDate",
+		label: "Retrieval",
 		kind: "date",
 		defaultVisible: false,
 	},
@@ -202,7 +207,7 @@ const COLUMNS: ColumnDef<Row>[] = [
 	},
 	{
 		key: "beforeLaunchUsd",
-		label: "Before launch",
+		label: "Before deployment",
 		kind: "number",
 		defaultVisible: false,
 		align: "right",
@@ -210,7 +215,7 @@ const COLUMNS: ColumnDef<Row>[] = [
 	},
 	{
 		key: "afterRecoveryUsd",
-		label: "After recovery",
+		label: "After retrieval",
 		kind: "number",
 		defaultVisible: false,
 		align: "right",
@@ -247,7 +252,7 @@ export default function IridiumMissionsTable({
 				columns={COLUMNS}
 				getRowId={(r) => r.missionId}
 				getRowHref={(r) => `/missions/${r.missionId}`}
-				defaultSort={{ key: "launchDate", direction: "desc" }}
+				defaultSort={{ key: "deploymentDate", direction: "desc" }}
 				csvFileNameBase="iridium-mission-costs"
 				toolbarLeft={
 					<ToggleButtonGroup

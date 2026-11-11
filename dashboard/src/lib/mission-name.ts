@@ -26,12 +26,15 @@ function slugPart(value: string): string {
 export function previewMissionName(
 	gliderName: string | null,
 	projectName: string | null,
-	siteName: string | null,
-	launchDate: string | null,
+	observatoryName: string | null,
+	deploymentDate: string | null,
 ): string | null {
-	if (!gliderName || !projectName || !siteName || !launchDate) return null;
-	const date = new Date(launchDate);
+	if (!gliderName || !projectName || !observatoryName || !deploymentDate)
+		return null;
+	const date = new Date(deploymentDate);
 	if (Number.isNaN(date.getTime())) return null;
 	const mmmyyyy = `${MONTH_ABBR[date.getUTCMonth()]}${date.getUTCFullYear()}`;
-	return [gliderName, projectName, siteName, mmmyyyy].map(slugPart).join("_");
+	return [gliderName, projectName, observatoryName, mmmyyyy]
+		.map(slugPart)
+		.join("_");
 }

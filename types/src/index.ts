@@ -88,9 +88,9 @@ export interface Glider {
 	decommissionReason: string | null;
 	// Raw FK ids alongside the resolved display strings above (platform,
 	// owner) — needed to pre-select the right dropdown option when
-	// editing, the same reason Mission exposes both siteId and site.
+	// editing, the same reason Mission exposes both observatoryId and observatory.
 	platformId: number | null;
-	instituteId: number | null;
+	agencyId: number | null;
 }
 
 export interface CreateGliderInput {
@@ -98,7 +98,7 @@ export interface CreateGliderInput {
 	wmo?: string | null;
 	platformId?: number | null;
 	serialNumber?: string | null;
-	instituteId?: number | null;
+	agencyId?: number | null;
 	purchaseDate?: string | null;
 	purchaseValue?: number | null;
 }
@@ -108,7 +108,7 @@ export interface UpdateGliderInput {
 	wmo?: string | null;
 	platformId?: number | null;
 	serialNumber?: string | null;
-	instituteId?: number | null;
+	agencyId?: number | null;
 	purchaseDate?: string | null;
 	purchaseValue?: number | null;
 }
@@ -148,7 +148,7 @@ export interface MissionsLeaderboard {
 		days: number;
 	} | null;
 	mostProjectDays: { project: string; days: number } | null;
-	mostSiteDays: { site: string; days: number } | null;
+	mostObservatoryDays: { observatory: string; days: number } | null;
 }
 
 export interface Asset {
@@ -229,7 +229,7 @@ export interface AssetChange {
 export interface Battery {
 	id: number;
 	serialNumber: string | null;
-	institute: string | null;
+	agency: string | null;
 	batteryModel: string | null;
 	dateOfManufacture: string | null;
 	weight: number | null;
@@ -285,10 +285,10 @@ export interface BatteryModelSpec {
 
 export interface BatteryDetail {
 	spec: BatteryModelSpec | null;
-	// The raw FKs (assets.institute_id, asset_battery_details.battery_model_id)
+	// The raw FKs (assets.agency_id, asset_battery_details.battery_model_id)
 	// so the edit dialog can pre-select the current values.
-	instituteId: number | null;
-	institute: string | null;
+	agencyId: number | null;
+	agency: string | null;
 	batteryModelId: number | null;
 	batteryModel: string | null;
 	dateOfManufacture: string | null;
@@ -317,7 +317,7 @@ export interface CreateAssetInput {
 	purchaseValue?: number | null;
 	// ISO 4217 code; omit to leave unchanged (new assets default to USD).
 	purchaseCurrency?: string;
-	instituteId?: number | null;
+	agencyId?: number | null;
 	// Science sensors only -- ignored server-side for any other asset type.
 	l22ModelId?: number | null;
 	// Equipment only -- required on create for the `equipment` type.
@@ -348,7 +348,7 @@ export interface UpdateAssetInput {
 	equipmentName?: string | null;
 	equipmentModel?: string | null;
 	// Omit to leave unchanged; null clears it.
-	instituteId?: number | null;
+	agencyId?: number | null;
 	// Batteries only (asset_battery_details). Omit to leave unchanged; null
 	// clears it.
 	batteryModelId?: number | null;
@@ -429,9 +429,9 @@ export interface DatasetProcessingDetail {
 	missionName: string;
 	status: string | null;
 	glider: string | null;
-	site: string | null;
-	launchDate: string | null;
-	recoveryDate: string | null;
+	observatory: string | null;
+	deploymentDate: string | null;
+	retrievalDate: string | null;
 	doi: string | null;
 	oceanOpsBoardUrl: string | null;
 	// NorGliders' own published ERDDAP endpoints -- distinct from
@@ -607,34 +607,34 @@ export interface Mission {
 	projectId: number | null;
 	glider: string | null;
 	platform: string | null;
-	site: string | null;
-	siteId: number | null;
+	observatory: string | null;
+	observatoryId: number | null;
 	pi: string | null;
 	principalInvestigatorId: number | null;
-	tech: string | null;
-	technicalLeadId: number | null;
+	operationsManager: string | null;
+	operationsManagerId: number | null;
 	piFullName: string | null;
 	piWebpage: string | null;
-	techFullName: string | null;
-	techWebpage: string | null;
+	operationsManagerFullName: string | null;
+	operationsManagerWebpage: string | null;
 	projectUrl: string | null;
 	operatingAgency: string | null;
 	operatingAgencyId: number | null;
 	fundingAgency: string | null;
 	fundingAgencyId: number | null;
-	launchCruiseId: number | null;
-	recoveryCruiseId: number | null;
+	deploymentCruiseId: number | null;
+	retrievalCruiseId: number | null;
 	volume: number | null;
 	weightInAir: number | null;
 	density: number | null;
 	iridiumMinutes: number | null;
-	launchDate: string | null;
-	launchLatitude: number | null;
-	launchLongitude: number | null;
+	deploymentDate: string | null;
+	deploymentLatitude: number | null;
+	deploymentLongitude: number | null;
 	endDateScience: string | null;
-	recoveryDate: string | null;
-	recoveryLatitude: number | null;
-	recoveryLongitude: number | null;
+	retrievalDate: string | null;
+	retrievalLatitude: number | null;
+	retrievalLongitude: number | null;
 	dives: number | null;
 	distanceKm: number | null;
 	numberOfDays: number | null;
@@ -700,14 +700,14 @@ export interface MissionMapEntry {
 	glider: string | null;
 	platform: string | null;
 	project: string | null;
-	site: string | null;
-	launchDate: string | null;
-	recoveryDate: string | null;
+	observatory: string | null;
+	deploymentDate: string | null;
+	retrievalDate: string | null;
 	endDateScience: string | null;
 	track: [number, number][];
 }
 
-// A simple id/name reference option -- projects, sites, institutes,
+// A simple id/name reference option -- projects, observatories, agencies,
 // contacts. Shared shape since every lookup dropdown in the Add Mission
 // dialog renders identically regardless of which table backs it.
 export interface LookupOption {
@@ -717,9 +717,9 @@ export interface LookupOption {
 
 // Everything the Add Mission dialog can submit. missionName is
 // deliberately absent -- it's server-computed from
-// glider/project/site/launchDate, never client-submitted, so it can't
+// glider/project/observatory/deploymentDate, never client-submitted, so it can't
 // drift from the naming convention. statusId/gliderAssetId/projectId/
-// siteId/launchDate are the only fields the dialog treats as required;
+// observatoryId/deploymentDate are the only fields the dialog treats as required;
 // everything else is nullable/omittable.
 export interface CreateMissionInput {
 	// Permanent facility-wide number. Leave out for a workshop/scheduled
@@ -728,23 +728,23 @@ export interface CreateMissionInput {
 	gliderAssetId: number;
 	statusId: number;
 	// A workshop mission needs only the glider. Scheduled needs project and
-	// site; an active/recovered mission also needs a launch date. The
+	// observatory; an active/recovered mission also needs a deployment date. The
 	// gateway enforces this per status.
 	projectId?: number | null;
-	siteId?: number | null;
-	launchDate?: string | null;
+	observatoryId?: number | null;
+	deploymentDate?: string | null;
 	principalInvestigatorId?: number | null;
-	technicalLeadId?: number | null;
+	operationsManagerId?: number | null;
 	operatingAgencyId?: number | null;
 	fundingAgencyId?: number | null;
-	launchLatitude?: number | null;
-	launchLongitude?: number | null;
-	launchCruiseId?: number | null;
+	deploymentLatitude?: number | null;
+	deploymentLongitude?: number | null;
+	deploymentCruiseId?: number | null;
 	endDateScience?: string | null;
-	recoveryDate?: string | null;
-	recoveryLatitude?: number | null;
-	recoveryLongitude?: number | null;
-	recoveryCruiseId?: number | null;
+	retrievalDate?: string | null;
+	retrievalLatitude?: number | null;
+	retrievalLongitude?: number | null;
+	retrievalCruiseId?: number | null;
 	volume?: number | null;
 	weightInAir?: number | null;
 	density?: number | null;
@@ -810,7 +810,7 @@ export interface MeasuredParameter {
 // One science sensor row for the mission page's Science Payload table.
 // Distinct from GliderBuildComponent/GliderComponentDetail (which are
 // always "as of today") -- everything here is resolved as of the
-// mission's own launch date, so an old mission shows the calibration
+// mission's own deployment date, so an old mission shows the calibration
 // that was actually in effect on it, not whatever the sensor is
 // calibrated to now.
 export interface ScienceSensorRecord {
@@ -1027,9 +1027,9 @@ export interface GliderDeployment {
 	missionNumber: number | null;
 	stdMissionName: string | null;
 	status: string | null;
-	site: string | null;
-	launchDate: string | null;
-	recoveryDate: string | null;
+	observatory: string | null;
+	deploymentDate: string | null;
+	retrievalDate: string | null;
 	dives: number | null;
 	distanceKm: number | null;
 }
@@ -1247,8 +1247,8 @@ export interface BuildMissionRef {
 	missionName: string | null;
 	stdMissionName: string | null;
 	status: string | null;
-	launchDate: string | null;
-	recoveryDate: string | null;
+	deploymentDate: string | null;
+	retrievalDate: string | null;
 }
 
 // One mission's build: what was (or will be) on the glider for it.
@@ -1257,8 +1257,8 @@ export interface MissionBuild {
 	// recorded"), as opposed to a recorded build that happens to be empty.
 	recorded: boolean;
 	components: GliderBuildComponent[];
-	// Science sensors, with the calibration in effect on the mission's launch
-	// date (today, for a mission that has not launched).
+	// Science sensors, with the calibration in effect on the mission's deployment
+	// date (today, for a mission that has not deployed).
 	sciencePayload: ScienceSensorRecord[];
 	warnings: string[];
 }
@@ -1270,7 +1270,7 @@ export interface GliderBuild {
 	componentDetails: GliderComponentDetail[];
 	sciencePayload: ScienceSensorRecord[];
 	// Which mission the build above belongs to; null when the glider has not
-	// flown (or no launched mission has a build on record).
+	// flown (or no deployed mission has a build on record).
 	buildMission: BuildMissionRef | null;
 	// The mission being prepared for this glider: its workshop, or else its
 	// earliest scheduled mission. null when nothing is planned.
@@ -1290,8 +1290,8 @@ export interface Cruise {
 	cruiseNumber: string | null;
 	vessel: string | null;
 	vesselUrl: string | null;
-	institute: string | null;
-	// Plain text in the DB, not linked to contacts like missions' PI/tech
+	agency: string | null;
+	// Plain text in the DB, not linked to contacts like missions' PI/operations manager
 	// are — surfaced as-is. Deliberately not called "pi": a cruise leader
 	// isn't the same role as a mission's PI.
 	cruiseLeader: string | null;
@@ -1306,7 +1306,7 @@ export interface CreateCruiseInput {
 	cruiseName: string;
 	cruiseNumber?: string | null;
 	vesselId?: number | null;
-	instituteId?: number | null;
+	agencyId?: number | null;
 	cruiseLeader?: string | null;
 	area: string;
 	startDate: string;
@@ -1352,8 +1352,8 @@ export interface IridiumMissionCost {
 	gliderAssetId: number | null;
 	gliderName: string | null;
 	platform: string | null;
-	launchDate: string;
-	recoveryDate: string | null;
+	deploymentDate: string;
+	retrievalDate: string | null;
 	durationDays: number;
 	missionMonths: number;
 	invoicedMonths: number;
@@ -1366,7 +1366,7 @@ export interface IridiumMissionCost {
 	totalUsd: number;
 	totalNok: number | null;
 	usdPerDay: number | null;
-	/** "YYYY-MM" months with >= $1 of airtime after recovery / before launch. */
+	/** "YYYY-MM" months with >= $1 of airtime after retrieval / before deployment. */
 	leftOnMonths: string[];
 	preLaunchMonths: string[];
 }

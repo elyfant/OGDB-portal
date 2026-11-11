@@ -25,7 +25,7 @@ import { Fragment, useState } from "react";
 const COLUMN_WIDTHS = ["18%", "20%", "28%", "16%", "18%"];
 
 // The science sensors of a build -- today's on a glider's Current build, or
-// as of launch on a mission's Glider build. Same columns and same row
+// as of deployment on a mission's Glider build. Same columns and same row
 // expansion either way; only what "last calibration" and "install date"
 // are relative to differs, and the sensors passed in already carry that.
 export default function ScienceBuildTable({
@@ -36,7 +36,7 @@ export default function ScienceBuildTable({
 }: {
 	sensors: ScienceSensorRecord[];
 	// "current": live build, so a new calibration can be pasted in and the
-	// newest record really is current. "mission": as of the launch date.
+	// newest record really is current. "mission": as of the deployment date.
 	mode: "current" | "mission";
 	asOfDate: string;
 	// Full calibration history per asset, newest first, when the caller has
@@ -191,7 +191,9 @@ export default function ScienceBuildTable({
 											<CalibrationHistory
 												calibrations={history}
 												firstLabel={
-													mode === "mission" ? "in effect at launch" : "current"
+													mode === "mission"
+														? "in effect at deployment"
+														: "current"
 												}
 											/>
 										</Box>

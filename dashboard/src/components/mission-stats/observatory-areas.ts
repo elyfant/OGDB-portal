@@ -1,8 +1,8 @@
-// Broad regional grouping for OGDB's `site` values, agreed with the OGDF
+// Broad regional grouping for OGDB's `observatory` values, agreed with the OGDF
 // team -- keeps the deployment timeline to a handful of rows instead of
-// one per individual site. Keyed lowercase so matching is case-insensitive
-// against however a site ended up stored.
-const SITE_AREAS: Record<string, string> = {
+// one per individual observatory. Keyed lowercase so matching is case-insensitive
+// against however an observatory ended up stored.
+const OBSERVATORY_AREAS: Record<string, string> = {
 	svinoy: "Norwegian Sea",
 	norwegian: "Norwegian Sea",
 	faroe: "Norwegian Sea",
@@ -34,11 +34,11 @@ const SITE_AREAS: Record<string, string> = {
 	hornindalsvatn: "West Norway",
 };
 
-// Sites not yet in the table above (new site names as the fleet expands
+// Observatories not yet in the table above (new observatory names as the fleet expands
 // into new regions) fall in here rather than disappearing from the chart.
 export const OTHER_AREA = "Other";
 
-export function siteToArea(site: string | null): string {
-	if (!site) return OTHER_AREA;
-	return SITE_AREAS[site.trim().toLowerCase()] ?? OTHER_AREA;
+export function observatoryToArea(observatory: string | null): string {
+	if (!observatory) return OTHER_AREA;
+	return OBSERVATORY_AREAS[observatory.trim().toLowerCase()] ?? OTHER_AREA;
 }

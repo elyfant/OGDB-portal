@@ -7,6 +7,7 @@ import BatterySdsControls from "@/components/BatterySdsControls";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import {
+	getAgencies,
 	getAsset,
 	getAssetBattery,
 	getAssetChanges,
@@ -14,7 +15,6 @@ import {
 	getAssetStatusHistory,
 	getBatteryModels,
 	getContacts,
-	getInstitutes,
 	getServicingEventTypes,
 	getServicingEvents,
 } from "@/lib/api";
@@ -81,7 +81,7 @@ export default async function BatteryDetailPage({
 		missions,
 		eventTypes,
 		contacts,
-		institutes,
+		agencies,
 		batteryModels,
 		statusHistory,
 		changes,
@@ -92,7 +92,7 @@ export default async function BatteryDetailPage({
 		getAssetMissions(asset.id),
 		getServicingEventTypes(),
 		getContacts(),
-		getInstitutes(),
+		getAgencies(),
 		getBatteryModels(),
 		getAssetStatusHistory(asset.id),
 		getAssetChanges(asset.id),
@@ -158,7 +158,7 @@ export default async function BatteryDetailPage({
 							mode="edit"
 							asset={asset}
 							battery={battery}
-							institutes={institutes}
+							agencies={agencies}
 							batteryModels={batteryModels}
 						/>
 					</Box>
@@ -176,7 +176,7 @@ export default async function BatteryDetailPage({
 					}}
 				>
 					<Field label="Serial number" value={asset.serialNumber} />
-					<Field label="Institute" value={battery.institute} />
+					<Field label="Agency" value={battery.agency} />
 					<Field
 						label="Date of manufacture"
 						value={formatDate(battery.dateOfManufacture)}

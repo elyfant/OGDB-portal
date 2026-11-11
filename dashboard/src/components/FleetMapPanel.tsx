@@ -26,7 +26,7 @@ import Typography from "@mui/material/Typography";
 import type { MissionMapEntry } from "@ogdb/types";
 import { type ReactNode, useMemo, useState } from "react";
 
-type PickKey = "sites" | "projects" | "gliders";
+type PickKey = "observatories" | "projects" | "gliders";
 
 function FilterSection({
 	title,
@@ -140,7 +140,7 @@ export default function FleetMapPanel({
 }) {
 	const options = useMemo(
 		() => ({
-			sites: distinctValues(missions, "site"),
+			observatories: distinctValues(missions, "observatory"),
 			projects: distinctValues(missions, "project"),
 			gliders: distinctValues(missions, "glider"),
 		}),
@@ -237,11 +237,14 @@ export default function FleetMapPanel({
 			</Box>
 
 			<Box sx={{ overflowY: "auto" }}>
-				<FilterSection title="Sites" activeCount={filters.sites.length}>
+				<FilterSection
+					title="Observatories"
+					activeCount={filters.observatories.length}
+				>
 					<PickChips
-						options={options.sites}
-						picked={filters.sites}
-						onToggle={(v) => togglePick("sites", v)}
+						options={options.observatories}
+						picked={filters.observatories}
+						onToggle={(v) => togglePick("observatories", v)}
 					/>
 				</FilterSection>
 				<FilterSection title="Projects" activeCount={filters.projects.length}>

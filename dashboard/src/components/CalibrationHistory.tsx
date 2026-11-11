@@ -49,7 +49,7 @@ export default function CalibrationHistory({
 }: {
 	calibrations: SensorCalRecord[];
 	// What to call the newest record. "current" suits a live build; a
-	// mission's build shows only the record in effect at launch, which
+	// mission's build shows only the record in effect at deployment, which
 	// isn't necessarily current.
 	firstLabel?: string;
 }) {

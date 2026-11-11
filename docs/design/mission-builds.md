@@ -28,7 +28,7 @@ records a build long after the mission -- so it now has none.
   build is complete on its own. It is the glider's identity and is never
   added, replaced or removed by hand.
 - **No separate "current build".** The glider page shows a read-only
-  **Last flown build**: the build of the last mission that launched.
+  **Last flown build**: the build of the last mission that deployed.
 
 ## Mission lifecycle
 
@@ -40,8 +40,8 @@ workshop -> scheduled -> active -> recovered
 | Status      | Meaning                                              | Must have                          |
 |-------------|------------------------------------------------------|------------------------------------|
 | `workshop`  | Glider being prepared. Only the glider is known.     | glider                             |
-| `scheduled` | The glider has been assigned a mission.              | + project, site                    |
-| `active`+   | At sea / done.                                       | + launch date                      |
+| `scheduled` | The glider has been assigned a mission.              | + project, observatory                    |
+| `active`+   | At sea / done.                                       | + deployment date                      |
 
 Enforced in `MissionsService.assertFieldsForStatus` (gateway), not the DB.
 
@@ -81,7 +81,7 @@ Enforced in `MissionsService.assertFieldsForStatus` (gateway), not the DB.
 
 1. `xxxx_mission_build_items` -- table, `workshop` status, nullable
    `mission_number` + triggers, one-workshop-per-glider index, view fix.
-2. `xxxx_mission_build_items_backfill` -- copies each mission's as-of-launch
+2. `xxxx_mission_build_items_backfill` -- copies each mission's as-of-deployment
    build; creates a workshop for any glider (not retired, no active mission)
    whose live build differs from its last mission's.
 

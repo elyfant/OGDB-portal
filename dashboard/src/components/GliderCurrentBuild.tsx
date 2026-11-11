@@ -52,7 +52,7 @@ export default function GliderCurrentBuild({
 }: {
 	components: GliderBuildComponent[];
 	// Rows with a detail record expand to show it; without any (a mission's
-	// build as of launch has none loaded) the rows are plain.
+	// build as of deployment has none loaded) the rows are plain.
 	componentDetails?: GliderComponentDetail[];
 }) {
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());

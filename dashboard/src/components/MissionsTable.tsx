@@ -34,9 +34,9 @@ export default function MissionsTable({
 	gliders,
 	missionStatuses,
 	projects,
-	sites,
+	observatories,
 	contacts,
-	institutes,
+	agencies,
 	cruises,
 }: {
 	missions: Mission[];
@@ -44,17 +44,23 @@ export default function MissionsTable({
 	gliders: Glider[];
 	missionStatuses: LookupOption[];
 	projects: LookupOption[];
-	sites: LookupOption[];
+	observatories: LookupOption[];
 	contacts: LookupOption[];
-	institutes: LookupOption[];
+	agencies: LookupOption[];
 	cruises: Cruise[];
 }) {
 	const [filterState, setFilterState] = useState<FilterState>({});
 	const [editingMission, setEditingMission] = useState<Mission | null>(null);
 
 	const missionFilters = useMemo(
-		() => buildMissionFilters({ sites, projects, missionStatuses, gliders }),
-		[sites, projects, missionStatuses, gliders],
+		() =>
+			buildMissionFilters({
+				observatories,
+				projects,
+				missionStatuses,
+				gliders,
+			}),
+		[observatories, projects, missionStatuses, gliders],
 	);
 
 	const filteredRows = useMemo(
@@ -74,7 +80,7 @@ export default function MissionsTable({
 				getRowId={(m) => m.id}
 				getRowHref={(m) => `/missions/${m.id}`}
 				rowSx={(m) => rowSx(m.status)}
-				defaultSort={{ key: "launchDate", direction: "desc" }}
+				defaultSort={{ key: "deploymentDate", direction: "desc" }}
 				csvFileNameBase="missions"
 				renderRowActions={
 					canEdit
@@ -129,9 +135,9 @@ export default function MissionsTable({
 					gliders={gliders}
 					missionStatuses={missionStatuses}
 					projects={projects}
-					sites={sites}
+					observatories={observatories}
 					contacts={contacts}
-					institutes={institutes}
+					agencies={agencies}
 					cruises={cruises}
 				/>
 			)}

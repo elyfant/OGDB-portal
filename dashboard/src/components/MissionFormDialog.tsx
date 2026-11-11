@@ -43,20 +43,20 @@ interface FormState {
 	gliderAssetId: number | "";
 	statusId: number | "";
 	projectId: number | "";
-	siteId: number | "";
+	observatoryId: number | "";
 	principalInvestigatorId: number | "";
-	technicalLeadId: number | "";
+	operationsManagerId: number | "";
 	operatingAgencyId: number | "";
 	fundingAgencyId: number | "";
-	launchDate: string;
-	launchLatitude: string;
-	launchLongitude: string;
-	launchCruiseId: number | "";
+	deploymentDate: string;
+	deploymentLatitude: string;
+	deploymentLongitude: string;
+	deploymentCruiseId: number | "";
 	endDateScience: string;
-	recoveryDate: string;
-	recoveryLatitude: string;
-	recoveryLongitude: string;
-	recoveryCruiseId: number | "";
+	retrievalDate: string;
+	retrievalLatitude: string;
+	retrievalLongitude: string;
+	retrievalCruiseId: number | "";
 	volume: string;
 	weightInAir: string;
 	density: string;
@@ -71,20 +71,20 @@ function emptyForm(): FormState {
 		gliderAssetId: "",
 		statusId: "",
 		projectId: "",
-		siteId: "",
+		observatoryId: "",
 		principalInvestigatorId: "",
-		technicalLeadId: "",
+		operationsManagerId: "",
 		operatingAgencyId: "",
 		fundingAgencyId: "",
-		launchDate: "",
-		launchLatitude: "",
-		launchLongitude: "",
-		launchCruiseId: "",
+		deploymentDate: "",
+		deploymentLatitude: "",
+		deploymentLongitude: "",
+		deploymentCruiseId: "",
 		endDateScience: "",
-		recoveryDate: "",
-		recoveryLatitude: "",
-		recoveryLongitude: "",
-		recoveryCruiseId: "",
+		retrievalDate: "",
+		retrievalLatitude: "",
+		retrievalLongitude: "",
+		retrievalCruiseId: "",
 		volume: "",
 		weightInAir: "",
 		density: "",
@@ -105,20 +105,20 @@ function formFromMission(m: Mission): FormState {
 		gliderAssetId: m.gliderAssetId ?? "",
 		statusId: m.statusId ?? "",
 		projectId: m.projectId ?? "",
-		siteId: m.siteId ?? "",
+		observatoryId: m.observatoryId ?? "",
 		principalInvestigatorId: m.principalInvestigatorId ?? "",
-		technicalLeadId: m.technicalLeadId ?? "",
+		operationsManagerId: m.operationsManagerId ?? "",
 		operatingAgencyId: m.operatingAgencyId ?? "",
 		fundingAgencyId: m.fundingAgencyId ?? "",
-		launchDate: m.launchDate?.slice(0, 10) ?? "",
-		launchLatitude: m.launchLatitude?.toString() ?? "",
-		launchLongitude: m.launchLongitude?.toString() ?? "",
-		launchCruiseId: m.launchCruiseId ?? "",
+		deploymentDate: m.deploymentDate?.slice(0, 10) ?? "",
+		deploymentLatitude: m.deploymentLatitude?.toString() ?? "",
+		deploymentLongitude: m.deploymentLongitude?.toString() ?? "",
+		deploymentCruiseId: m.deploymentCruiseId ?? "",
 		endDateScience: m.endDateScience?.slice(0, 10) ?? "",
-		recoveryDate: m.recoveryDate?.slice(0, 10) ?? "",
-		recoveryLatitude: m.recoveryLatitude?.toString() ?? "",
-		recoveryLongitude: m.recoveryLongitude?.toString() ?? "",
-		recoveryCruiseId: m.recoveryCruiseId ?? "",
+		retrievalDate: m.retrievalDate?.slice(0, 10) ?? "",
+		retrievalLatitude: m.retrievalLatitude?.toString() ?? "",
+		retrievalLongitude: m.retrievalLongitude?.toString() ?? "",
+		retrievalCruiseId: m.retrievalCruiseId ?? "",
 		volume: m.volume?.toString() ?? "",
 		weightInAir: m.weightInAir?.toString() ?? "",
 		density: m.density?.toString() ?? "",
@@ -149,9 +149,9 @@ export default function MissionFormDialog({
 	gliders,
 	missionStatuses,
 	projects,
-	sites,
+	observatories,
 	contacts,
-	institutes,
+	agencies,
 	cruises,
 }: {
 	mode: "create" | "edit";
@@ -161,9 +161,9 @@ export default function MissionFormDialog({
 	gliders: Glider[];
 	missionStatuses: LookupOption[];
 	projects: LookupOption[];
-	sites: LookupOption[];
+	observatories: LookupOption[];
 	contacts: LookupOption[];
-	institutes: LookupOption[];
+	agencies: LookupOption[];
 	cruises: Cruise[];
 }) {
 	const router = useRouter();
@@ -227,22 +227,22 @@ export default function MissionFormDialog({
 			gliderAssetId: source.gliderAssetId ?? "",
 			statusId: scheduledStatusId,
 			projectId: source.projectId ?? "",
-			siteId: source.siteId ?? "",
+			observatoryId: source.observatoryId ?? "",
 			principalInvestigatorId: source.principalInvestigatorId ?? "",
-			technicalLeadId: source.technicalLeadId ?? "",
+			operationsManagerId: source.operationsManagerId ?? "",
 			operatingAgencyId: source.operatingAgencyId ?? "",
 			fundingAgencyId: source.fundingAgencyId ?? "",
 			// Dates and mission number are deliberately not carried over --
 			// this mission hasn't happened yet.
-			launchDate: "",
-			launchLatitude: source.launchLatitude?.toString() ?? "",
-			launchLongitude: source.launchLongitude?.toString() ?? "",
-			launchCruiseId: source.launchCruiseId ?? "",
+			deploymentDate: "",
+			deploymentLatitude: source.deploymentLatitude?.toString() ?? "",
+			deploymentLongitude: source.deploymentLongitude?.toString() ?? "",
+			deploymentCruiseId: source.deploymentCruiseId ?? "",
 			endDateScience: "",
-			recoveryDate: "",
-			recoveryLatitude: source.recoveryLatitude?.toString() ?? "",
-			recoveryLongitude: source.recoveryLongitude?.toString() ?? "",
-			recoveryCruiseId: source.recoveryCruiseId ?? "",
+			retrievalDate: "",
+			retrievalLatitude: source.retrievalLatitude?.toString() ?? "",
+			retrievalLongitude: source.retrievalLongitude?.toString() ?? "",
+			retrievalCruiseId: source.retrievalCruiseId ?? "",
 			volume: source.volume?.toString() ?? "",
 			weightInAir: source.weightInAir?.toString() ?? "",
 			density: source.density?.toString() ?? "",
@@ -268,15 +268,15 @@ export default function MissionFormDialog({
 		() => projects.find((p) => p.id === form.projectId)?.name ?? null,
 		[projects, form.projectId],
 	);
-	const siteName = useMemo(
-		() => sites.find((s) => s.id === form.siteId)?.name ?? null,
-		[sites, form.siteId],
+	const observatoryName = useMemo(
+		() => observatories.find((s) => s.id === form.observatoryId)?.name ?? null,
+		[observatories, form.observatoryId],
 	);
 	const missionNamePreview = previewMissionName(
 		gliderName,
 		projectName,
-		siteName,
-		form.launchDate || null,
+		observatoryName,
+		form.deploymentDate || null,
 	);
 
 	function dismissBanner() {
@@ -287,8 +287,8 @@ export default function MissionFormDialog({
 	async function handleSave() {
 		setError(null);
 		// What a mission must have depends on its status: a workshop is just
-		// a glider being prepared; scheduled adds a project and site; anything
-		// further along (active, recovered, ...) also needs a launch date.
+		// a glider being prepared; scheduled adds a project and observatory; anything
+		// further along (active, recovered, ...) also needs a deployment date.
 		const missionNumber = form.missionNumber.trim()
 			? Number(form.missionNumber)
 			: null;
@@ -304,12 +304,12 @@ export default function MissionFormDialog({
 			setError("Glider is required.");
 			return;
 		}
-		if (!isWorkshop && (!form.projectId || !form.siteId)) {
-			setError("Project and site are required.");
+		if (!isWorkshop && (!form.projectId || !form.observatoryId)) {
+			setError("Project and observatory are required.");
 			return;
 		}
-		if (!isWorkshop && !isScheduled && !form.launchDate) {
-			setError("Launch date is required.");
+		if (!isWorkshop && !isScheduled && !form.deploymentDate) {
+			setError("Deployment date is required.");
 			return;
 		}
 
@@ -320,20 +320,20 @@ export default function MissionFormDialog({
 				gliderAssetId: form.gliderAssetId as number,
 				statusId: form.statusId as number,
 				projectId: form.projectId || null,
-				siteId: form.siteId || null,
-				launchDate: form.launchDate || null,
+				observatoryId: form.observatoryId || null,
+				deploymentDate: form.deploymentDate || null,
 				principalInvestigatorId: form.principalInvestigatorId || null,
-				technicalLeadId: form.technicalLeadId || null,
+				operationsManagerId: form.operationsManagerId || null,
 				operatingAgencyId: form.operatingAgencyId || null,
 				fundingAgencyId: form.fundingAgencyId || null,
-				launchLatitude: toNumberOrNull(form.launchLatitude),
-				launchLongitude: toNumberOrNull(form.launchLongitude),
-				launchCruiseId: form.launchCruiseId || null,
+				deploymentLatitude: toNumberOrNull(form.deploymentLatitude),
+				deploymentLongitude: toNumberOrNull(form.deploymentLongitude),
+				deploymentCruiseId: form.deploymentCruiseId || null,
 				endDateScience: form.endDateScience || null,
-				recoveryDate: form.recoveryDate || null,
-				recoveryLatitude: toNumberOrNull(form.recoveryLatitude),
-				recoveryLongitude: toNumberOrNull(form.recoveryLongitude),
-				recoveryCruiseId: form.recoveryCruiseId || null,
+				retrievalDate: form.retrievalDate || null,
+				retrievalLatitude: toNumberOrNull(form.retrievalLatitude),
+				retrievalLongitude: toNumberOrNull(form.retrievalLongitude),
+				retrievalCruiseId: form.retrievalCruiseId || null,
 				volume: toNumberOrNull(form.volume),
 				weightInAir: toNumberOrNull(form.weightInAir),
 				density: toNumberOrNull(form.density),
@@ -454,7 +454,7 @@ export default function MissionFormDialog({
 											? (mission?.missionName ?? "")
 											: (missionNamePreview ?? "")
 									}
-									placeholder="Fills in once Glider, Project, Site and Launch date are set"
+									placeholder="Fills in once Glider, Project, Observatory and Deployment date are set"
 									helperText={
 										mode === "edit"
 											? "Kept as originally entered — the standard name updates automatically"
@@ -506,11 +506,11 @@ export default function MissionFormDialog({
 									onChange={(v) => setForm((s) => ({ ...s, projectId: v }))}
 								/>
 							</Field>
-							<Field label="Site" required={!isWorkshop}>
+							<Field label="Observatory" required={!isWorkshop}>
 								<LookupSelect
-									value={form.siteId}
-									options={sites}
-									onChange={(v) => setForm((s) => ({ ...s, siteId: v }))}
+									value={form.observatoryId}
+									options={observatories}
+									onChange={(v) => setForm((s) => ({ ...s, observatoryId: v }))}
 								/>
 							</Field>
 							<Field label="Principal investigator">
@@ -522,19 +522,19 @@ export default function MissionFormDialog({
 									}
 								/>
 							</Field>
-							<Field label="Technical lead">
+							<Field label="Operations manager">
 								<LookupSelect
-									value={form.technicalLeadId}
+									value={form.operationsManagerId}
 									options={contacts}
 									onChange={(v) =>
-										setForm((s) => ({ ...s, technicalLeadId: v }))
+										setForm((s) => ({ ...s, operationsManagerId: v }))
 									}
 								/>
 							</Field>
 							<Field label="Operating agency">
 								<LookupSelect
 									value={form.operatingAgencyId}
-									options={institutes}
+									options={agencies}
 									onChange={(v) =>
 										setForm((s) => ({ ...s, operatingAgencyId: v }))
 									}
@@ -543,7 +543,7 @@ export default function MissionFormDialog({
 							<Field label="Funding agency">
 								<LookupSelect
 									value={form.fundingAgencyId}
-									options={institutes}
+									options={agencies}
 									onChange={(v) =>
 										setForm((s) => ({ ...s, fundingAgencyId: v }))
 									}
@@ -552,50 +552,59 @@ export default function MissionFormDialog({
 						</Grid>
 					</Section>
 
-					<Section label="Launch">
+					<Section label="Deployment">
 						<Grid>
-							<Field label="Launch date" required={!isWorkshop && !isScheduled}>
+							<Field
+								label="Deployment date"
+								required={!isWorkshop && !isScheduled}
+							>
 								<TextField
 									size="small"
 									fullWidth
 									type="date"
 									InputLabelProps={{ shrink: true }}
-									value={form.launchDate}
+									value={form.deploymentDate}
 									onChange={(e) =>
-										setForm((s) => ({ ...s, launchDate: e.target.value }))
+										setForm((s) => ({ ...s, deploymentDate: e.target.value }))
 									}
 								/>
 							</Field>
-							<Field label="Launch latitude">
+							<Field label="Deployment latitude">
 								<TextField
 									size="small"
 									fullWidth
-									value={form.launchLatitude}
+									value={form.deploymentLatitude}
 									onChange={(e) =>
-										setForm((s) => ({ ...s, launchLatitude: e.target.value }))
+										setForm((s) => ({
+											...s,
+											deploymentLatitude: e.target.value,
+										}))
 									}
 								/>
 							</Field>
-							<Field label="Launch longitude">
+							<Field label="Deployment longitude">
 								<TextField
 									size="small"
 									fullWidth
-									value={form.launchLongitude}
+									value={form.deploymentLongitude}
 									onChange={(e) =>
-										setForm((s) => ({ ...s, launchLongitude: e.target.value }))
+										setForm((s) => ({
+											...s,
+											deploymentLongitude: e.target.value,
+										}))
 									}
 								/>
 							</Field>
-							<Field label="Launch cruise" span={3}>
+							<Field label="Deployment cruise" span={3}>
 								<TextField
 									select
 									size="small"
 									fullWidth
-									value={form.launchCruiseId}
+									value={form.deploymentCruiseId}
 									onChange={(e) =>
 										setForm((s) => ({
 											...s,
-											launchCruiseId: e.target.value
+											deploymentCruiseId: e.target.value
 												? Number(e.target.value)
 												: "",
 										}))
@@ -612,7 +621,7 @@ export default function MissionFormDialog({
 						</Grid>
 					</Section>
 
-					<Section label="Recovery">
+					<Section label="Retrieval">
 						<Grid>
 							<Field label="End date (science)">
 								<TextField
@@ -626,51 +635,54 @@ export default function MissionFormDialog({
 									}
 								/>
 							</Field>
-							<Field label="Recovery date">
+							<Field label="Retrieval date">
 								<TextField
 									size="small"
 									fullWidth
 									type="date"
 									InputLabelProps={{ shrink: true }}
-									value={form.recoveryDate}
+									value={form.retrievalDate}
 									onChange={(e) =>
-										setForm((s) => ({ ...s, recoveryDate: e.target.value }))
+										setForm((s) => ({ ...s, retrievalDate: e.target.value }))
 									}
 								/>
 							</Field>
-							<Field label="Recovery latitude">
+							<Field label="Retrieval latitude">
 								<TextField
 									size="small"
 									fullWidth
-									value={form.recoveryLatitude}
-									onChange={(e) =>
-										setForm((s) => ({ ...s, recoveryLatitude: e.target.value }))
-									}
-								/>
-							</Field>
-							<Field label="Recovery longitude">
-								<TextField
-									size="small"
-									fullWidth
-									value={form.recoveryLongitude}
+									value={form.retrievalLatitude}
 									onChange={(e) =>
 										setForm((s) => ({
 											...s,
-											recoveryLongitude: e.target.value,
+											retrievalLatitude: e.target.value,
 										}))
 									}
 								/>
 							</Field>
-							<Field label="Recovery cruise" span={2}>
+							<Field label="Retrieval longitude">
+								<TextField
+									size="small"
+									fullWidth
+									value={form.retrievalLongitude}
+									onChange={(e) =>
+										setForm((s) => ({
+											...s,
+											retrievalLongitude: e.target.value,
+										}))
+									}
+								/>
+							</Field>
+							<Field label="Retrieval cruise" span={2}>
 								<TextField
 									select
 									size="small"
 									fullWidth
-									value={form.recoveryCruiseId}
+									value={form.retrievalCruiseId}
 									onChange={(e) =>
 										setForm((s) => ({
 											...s,
-											recoveryCruiseId: e.target.value
+											retrievalCruiseId: e.target.value
 												? Number(e.target.value)
 												: "",
 										}))

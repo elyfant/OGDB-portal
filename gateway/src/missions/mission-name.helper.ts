@@ -1,5 +1,5 @@
-// mission_name = {glider}_{project}_{site}_{mmmyyyy}, e.g.
-// "durin_naco_svinoy_may2026" -- checked every real project/site/glider
+// mission_name = {glider}_{project}_{observatory}_{mmmyyyy}, e.g.
+// "durin_naco_svinoy_may2026" -- checked every real project/observatory/glider
 // name in ogdb-test and none contain non-ASCII characters (Norwegian
 // names are already stored plain-ASCII, e.g. "Svinoy" not "Svinøy"), so
 // a straight lowercase + strip-non-alphanumeric is sufficient; no
@@ -27,16 +27,18 @@ function slugPart(value: string): string {
 export function buildMissionName(
 	gliderName: string,
 	projectName: string,
-	siteName: string,
-	launchDate: string,
+	observatoryName: string,
+	deploymentDate: string,
 ): string {
-	const date = new Date(launchDate);
+	const date = new Date(deploymentDate);
 	const mmmyyyy = `${MONTH_ABBR[date.getUTCMonth()]}${date.getUTCFullYear()}`;
-	return [gliderName, projectName, siteName, mmmyyyy].map(slugPart).join("_");
+	return [gliderName, projectName, observatoryName, mmmyyyy]
+		.map(slugPart)
+		.join("_");
 }
 
 // Placeholder names. A workshop mission knows only its glider; a scheduled
-// one without a launch date has no month to name it by. Both are replaced
+// one without a deployment date has no month to name it by. Both are replaced
 // by buildMissionName once the data exists (see MissionsService.updateMission).
 export function buildWorkshopMissionName(gliderName: string): string {
 	return `workshop-${gliderName.toLowerCase()}`;
@@ -45,9 +47,11 @@ export function buildWorkshopMissionName(gliderName: string): string {
 export function buildPlannedMissionName(
 	gliderName: string,
 	projectName: string,
-	siteName: string,
+	observatoryName: string,
 ): string {
-	const base = [gliderName, projectName, siteName].map(slugPart).join("_");
+	const base = [gliderName, projectName, observatoryName]
+		.map(slugPart)
+		.join("_");
 	return `${base}_planned`;
 }
 

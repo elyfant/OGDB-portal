@@ -1,15 +1,15 @@
 import GliderFormDialog from "@/components/GliderFormDialog";
 import GlidersTable from "@/components/GlidersTable";
-import { getGliders, getInstitutes, getPlatforms } from "@/lib/api";
+import { getAgencies, getGliders, getPlatforms } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export default async function GlidersPage() {
-	const [gliders, platforms, institutes, user] = await Promise.all([
+	const [gliders, platforms, agencies, user] = await Promise.all([
 		getGliders(),
 		getPlatforms(),
-		getInstitutes(),
+		getAgencies(),
 		getCurrentUser(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
@@ -29,7 +29,7 @@ export default async function GlidersPage() {
 					<GliderFormDialog
 						mode="create"
 						platforms={platforms}
-						institutes={institutes}
+						agencies={agencies}
 					/>
 				)}
 			</Box>

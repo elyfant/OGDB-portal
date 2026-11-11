@@ -11,7 +11,7 @@ import {
 // and the mission's best file is computed (mission_best_files).
 //
 // missionName is deliberately not a field here -- MissionsService.createMission
-// always computes it server-side from glider/project/site/launchDate, the
+// always computes it server-side from glider/project/observatory/deploymentDate, the
 // same way for every mission, so it can't drift from the naming
 // convention or be typed inconsistently by hand.
 //
@@ -39,11 +39,11 @@ export class CreateMissionDto {
 
 	@IsOptional()
 	@IsInt()
-	siteId?: number | null;
+	observatoryId?: number | null;
 
 	@IsOptional()
 	@IsDateString()
-	launchDate?: string | null;
+	deploymentDate?: string | null;
 
 	@IsOptional()
 	@IsInt()
@@ -51,7 +51,7 @@ export class CreateMissionDto {
 
 	@IsOptional()
 	@IsInt()
-	technicalLeadId?: number | null;
+	operationsManagerId?: number | null;
 
 	@IsOptional()
 	@IsInt()
@@ -63,15 +63,15 @@ export class CreateMissionDto {
 
 	@IsOptional()
 	@IsNumber()
-	launchLatitude?: number | null;
+	deploymentLatitude?: number | null;
 
 	@IsOptional()
 	@IsNumber()
-	launchLongitude?: number | null;
+	deploymentLongitude?: number | null;
 
 	@IsOptional()
 	@IsInt()
-	launchCruiseId?: number | null;
+	deploymentCruiseId?: number | null;
 
 	@IsOptional()
 	@IsDateString()
@@ -79,19 +79,19 @@ export class CreateMissionDto {
 
 	@IsOptional()
 	@IsDateString()
-	recoveryDate?: string | null;
+	retrievalDate?: string | null;
 
 	@IsOptional()
 	@IsNumber()
-	recoveryLatitude?: number | null;
+	retrievalLatitude?: number | null;
 
 	@IsOptional()
 	@IsNumber()
-	recoveryLongitude?: number | null;
+	retrievalLongitude?: number | null;
 
 	@IsOptional()
 	@IsInt()
-	recoveryCruiseId?: number | null;
+	retrievalCruiseId?: number | null;
 
 	@IsOptional()
 	@IsNumber()

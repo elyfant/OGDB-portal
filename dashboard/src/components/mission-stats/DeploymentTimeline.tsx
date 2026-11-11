@@ -8,12 +8,18 @@ import { useTheme } from "@mui/material/styles";
 import type { Mission } from "@ogdb/types";
 import { useId, useMemo, useState } from "react";
 import { buildRankedColorMap } from "./colors";
-import { siteToArea } from "./site-areas";
+import { observatoryToArea } from "./observatory-areas";
 import { useChartTooltip } from "./useChartTooltip";
 
 const DIMENSIONS = {
-	area: { label: "Area", get: (m: Mission) => siteToArea(m.site) },
-	site: { label: "Site", get: (m: Mission) => m.site ?? "Unknown site" },
+	area: {
+		label: "Area",
+		get: (m: Mission) => observatoryToArea(m.observatory),
+	},
+	observatory: {
+		label: "Observatory",
+		get: (m: Mission) => m.observatory ?? "Unknown observatory",
+	},
 	project: {
 		label: "Project",
 		get: (m: Mission) => m.project ?? "Unknown project",
@@ -86,15 +92,15 @@ export default function DeploymentTimeline({
 	const dated = useMemo(
 		() =>
 			missions
-				.filter((m) => m.launchDate)
+				.filter((m) => m.deploymentDate)
 				.map((m) => {
 					const group = groupOf(m);
 					return {
 						mission: m,
 						group,
-						start: new Date(m.launchDate as string),
-						end: m.recoveryDate ? new Date(m.recoveryDate) : today,
-						active: !m.recoveryDate,
+						start: new Date(m.deploymentDate as string),
+						end: m.retrievalDate ? new Date(m.retrievalDate) : today,
+						active: !m.retrievalDate,
 						row: groupRow.get(group),
 					};
 				})
@@ -195,7 +201,7 @@ export default function DeploymentTimeline({
 						textAlign: "center",
 					}}
 				>
-					No missions with a launch date yet.
+					No missions with a deployment date yet.
 				</Box>
 			) : (
 				<Box sx={{ overflowX: "auto" }}>
@@ -302,7 +308,7 @@ export default function DeploymentTimeline({
 												>
 													{label}
 												</Box>
-												{mission.site ?? "No site"} ·{" "}
+												{mission.observatory ?? "No observatory"} ·{" "}
 												{mission.glider ?? "No glider"}
 												{mission.project ? ` · ${mission.project}` : ""}
 												<br />

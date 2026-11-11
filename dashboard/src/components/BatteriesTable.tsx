@@ -52,8 +52,8 @@ export default function BatteriesTable({
 				defaultVisible: true,
 			},
 			{
-				key: "institute",
-				label: "Institute",
+				key: "agency",
+				label: "Agency",
 				kind: "string",
 				defaultVisible: true,
 			},

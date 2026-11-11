@@ -88,7 +88,7 @@ function mapCreateAssetError(err: unknown): Error {
 	}
 	if (pgErr.code === "23503") {
 		return new BadRequestException(
-			`Couldn't create the asset: one of the referenced records (institute, sensor model, etc.) doesn't exist${pgErr.detail ? ` (${pgErr.detail})` : ""}.`,
+			`Couldn't create the asset: one of the referenced records (agency, sensor model, etc.) doesn't exist${pgErr.detail ? ` (${pgErr.detail})` : ""}.`,
 		);
 	}
 	return err instanceof Error ? err : new Error(String(err));
@@ -189,13 +189,13 @@ const SELECT_ASSETS = `
 // the battery-specific detail tables in directly: asset_battery_details
 // (model + date of manufacture) and the current_battery_measurement view
 // (latest weight, same "current = latest by date" pattern as
-// current_asset_status). institute is joined here too since the Batteries
+// current_asset_status). agency is joined here too since the Batteries
 // table shows it as a column.
 const SELECT_BATTERIES = `
   SELECT
     a.id,
     a.serial_number AS "serialNumber",
-    i.name AS institute,
+    i.name AS agency,
     bm.model AS "batteryModel",
     abd.date_of_manufacture AS "dateOfManufacture",
     cbm.weight::float8 AS weight,
@@ -207,7 +207,7 @@ const SELECT_BATTERIES = `
     cas.effective_date AS "statusEffectiveDate"
   FROM assets a
   JOIN asset_types at ON at.id = a.asset_type_id AND at.name = 'battery'
-  LEFT JOIN institutes i ON i.id = a.institute_id
+  LEFT JOIN agencies i ON i.id = a.agency_id
   LEFT JOIN asset_battery_details abd ON abd.asset_id = a.id
   LEFT JOIN battery_models bm ON bm.id = abd.battery_model_id
   LEFT JOIN current_battery_measurement cbm ON cbm.asset_id = a.id
@@ -252,13 +252,13 @@ export class AssetsService {
 		await this.findOne(id);
 
 		const detail = await this.pool.query(
-			`SELECT a.institute_id AS "instituteId",
-              i.name AS institute,
+			`SELECT a.agency_id AS "agencyId",
+              i.name AS agency,
               abd.battery_model_id AS "batteryModelId",
               bm.model AS "batteryModel",
               abd.date_of_manufacture AS "dateOfManufacture"
        FROM assets a
-       LEFT JOIN institutes i ON i.id = a.institute_id
+       LEFT JOIN agencies i ON i.id = a.agency_id
        LEFT JOIN asset_battery_details abd ON abd.asset_id = a.id
        LEFT JOIN battery_models bm ON bm.id = abd.battery_model_id
        WHERE a.id = $1`,
@@ -314,8 +314,8 @@ export class AssetsService {
 							: null,
 					}
 				: null,
-			instituteId: detail.rows[0]?.instituteId ?? null,
-			institute: detail.rows[0]?.institute ?? null,
+			agencyId: detail.rows[0]?.agencyId ?? null,
+			agency: detail.rows[0]?.agency ?? null,
 			batteryModelId: detail.rows[0]?.batteryModelId ?? null,
 			batteryModel: detail.rows[0]?.batteryModel ?? null,
 			dateOfManufacture: detail.rows[0]?.dateOfManufacture ?? null,
@@ -713,7 +713,7 @@ export class AssetsService {
 		let assetId: number;
 		try {
 			const result = await this.pool.query(
-				`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value, purchase_currency, institute_id, changed_by)
+				`INSERT INTO assets (asset_type_id, serial_number, notes, purchase_date, purchase_value, purchase_currency, agency_id, changed_by)
          VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'USD'), $7, $8)
          RETURNING id`,
 				[
@@ -723,7 +723,7 @@ export class AssetsService {
 					dto.purchaseDate ?? null,
 					dto.purchaseValue ?? null,
 					dto.purchaseCurrency ?? null,
-					dto.instituteId ?? null,
+					dto.agencyId ?? null,
 					userId,
 				],
 			);
@@ -840,12 +840,12 @@ export class AssetsService {
 		}
 
 		// Also a genuine set rather than a COALESCE: the battery edit form
-		// shows the current institute, so null here means "clear it".
-		if (dto.instituteId !== undefined) {
+		// shows the current agency, so null here means "clear it".
+		if (dto.agencyId !== undefined) {
 			await this.pool.query(
-				`UPDATE assets SET institute_id = $1, updated_at = now(), changed_by = $3
+				`UPDATE assets SET agency_id = $1, updated_at = now(), changed_by = $3
          WHERE id = $2`,
-				[dto.instituteId, id, userId],
+				[dto.agencyId, id, userId],
 			);
 		}
 

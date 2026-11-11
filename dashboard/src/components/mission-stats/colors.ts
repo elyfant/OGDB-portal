@@ -38,8 +38,8 @@ export function buildGliderColorMap(
 	return buildColorMap(unique, mode);
 }
 
-// One fixed color per site, in whatever order the caller supplies --
-// used for the deployment timeline, where sites are ranked by total days
+// One fixed color per observatory, in whatever order the caller supplies --
+// used for the deployment timeline, where observatories are ranked by total days
 // rather than sorted alphabetically.
 export function buildRankedColorMap(
 	namesInRankOrder: string[],

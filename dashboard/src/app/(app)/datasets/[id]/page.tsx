@@ -1,10 +1,10 @@
 import DatasetEditor from "@/components/DatasetEditor";
 import DatasetHistoryTable from "@/components/DatasetHistoryTable";
 import Field from "@/components/Field";
-import { siteToArea } from "@/components/mission-stats/site-areas";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ProcessingStatusTable from "@/components/ProcessingStatusTable";
 import RegionIcon from "@/components/RegionIcon";
+import { observatoryToArea } from "@/components/mission-stats/observatory-areas";
 import {
 	getDatasetProcessingDetail,
 	getOgdbUsers,
@@ -51,7 +51,12 @@ function ExternalRefRow({
 			<TableCell sx={{ color: "text.secondary" }}>{label}</TableCell>
 			<TableCell
 				align="right"
-				sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1.5 }}
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "flex-end",
+					gap: 1.5,
+				}}
 			>
 				{url ? (
 					<MuiLink href={url} target="_blank" rel="noreferrer">
@@ -130,7 +135,7 @@ export default async function DatasetDetailPage({
 					flexWrap: "wrap",
 				}}
 			>
-				<RegionIcon area={siteToArea(detail.site)} width={72} />
+				<RegionIcon area={observatoryToArea(detail.observatory)} width={72} />
 				<Box sx={{ flex: 1, minWidth: 220 }}>
 					<Box
 						sx={{
@@ -150,7 +155,8 @@ export default async function DatasetDetailPage({
 						)}
 					</Box>
 					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-						{formatDate(detail.launchDate)} – {formatDate(detail.recoveryDate)}
+						{formatDate(detail.deploymentDate)} –{" "}
+						{formatDate(detail.retrievalDate)}
 					</Typography>
 				</Box>
 				<MuiLink
@@ -183,9 +189,9 @@ export default async function DatasetDetailPage({
 					}}
 				>
 					<Field label="Glider" value={detail.glider} />
-					<Field label="Site" value={detail.site} />
-					<Field label="Launch" value={formatDate(detail.launchDate)} />
-					<Field label="Recovery" value={formatDate(detail.recoveryDate)} />
+					<Field label="Observatory" value={detail.observatory} />
+					<Field label="Deployment" value={formatDate(detail.deploymentDate)} />
+					<Field label="Retrieval" value={formatDate(detail.retrievalDate)} />
 				</Box>
 			</Paper>
 

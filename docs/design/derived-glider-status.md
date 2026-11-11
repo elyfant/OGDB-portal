@@ -32,7 +32,7 @@ through `PATCH /gliders/:id/status`.
 
 It is entirely disconnected from the glider's actual activity. The Timeline
 tab already assembles a far better picture of "what is this glider doing"
-from **missions** (`launch_date` / `recovery_date`) and **`asset_service_events`**
+from **missions** (`deployment_date` / `retrieval_date`) and **`asset_service_events`**
 (`servicing` / `factory_repair` / `transit`). Nothing reconciles the two — a
 glider can read "Deployed" in the catalogue with no open mission, or sit on
 an open `factory_repair` event while the chip still says "Lab".
@@ -93,7 +93,7 @@ missions + open service events. No manual entry for gliders.
 **Precedence:**
 
 1. a `destroyed` service event exists → **Destroyed** (terminal)
-2. open mission (`launch_date <= today`, `recovery_date IS NULL`) → **Deployed**
+2. open mission (`deployment_date <= today`, `retrieval_date IS NULL`) → **Deployed**
 3. newest open `asset_service_events` of
    `{factory_repair, servicing, transit, on_loan, field_test, missing}`
    → mapped label
@@ -120,7 +120,7 @@ Everything the user logs goes through the **"Add event" modal**
 | Transit                 | `asset_service_events` (`transit`)                                 | Transit                   | —                            | yes                    |
 | On loan **(new)**       | `asset_service_events` (`on_loan`)                                 | On loan                   | —                            | yes                    |
 | Field test **(new)**    | `asset_service_events` (`field_test`)                              | Field test                | —                            | yes                    |
-| Went missing **(new)**  | `asset_service_events` (`missing`)                                 | Missing                   | —                            | yes (on recovery)      |
+| Went missing **(new)**  | `asset_service_events` (`missing`)                                 | Missing                   | —                            | yes (on retrieval)      |
 | Destroyed **(new)**     | `asset_service_events` (`destroyed`) **+ sets `decommissioned_date`** | Destroyed               | retires the glider           | no (terminal)          |
 | Decommission **(new)**  | `assets.decommissioned_date` + `decommission_reason` only          | *(unchanged — derives)*   | retires the glider           | —                      |
 
@@ -188,12 +188,12 @@ New Alembic migrations:
      ORDER BY se.start_date DESC LIMIT 1
    ) term ON true
    LEFT JOIN LATERAL (
-     SELECT 'deployed'::text AS status, mi.launch_date AS since
+     SELECT 'deployed'::text AS status, mi.deployment_date AS since
      FROM missions mi
      WHERE mi.glider_asset_id = a.id
-       AND mi.launch_date <= CURRENT_DATE
-       AND mi.recovery_date IS NULL
-     ORDER BY mi.launch_date DESC LIMIT 1
+       AND mi.deployment_date <= CURRENT_DATE
+       AND mi.retrieval_date IS NULL
+     ORDER BY mi.deployment_date DESC LIMIT 1
    ) m ON true
    LEFT JOIN LATERAL (
      SELECT CASE t.name
@@ -211,7 +211,7 @@ New Alembic migrations:
    ```
 
    Index review (small tables today, but cheap to add):
-   - `missions (glider_asset_id) WHERE recovery_date IS NULL`
+   - `missions (glider_asset_id) WHERE retrieval_date IS NULL`
    - `asset_service_events (asset_id) WHERE end_date IS NULL`
    - `asset_service_events (asset_id, event_type_id)` for the `destroyed` probe
 

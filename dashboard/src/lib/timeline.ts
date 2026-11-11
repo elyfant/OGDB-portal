@@ -168,21 +168,21 @@ export function servicingEventToTimelineEvent(
 // Shared by every caller that has a raw GliderDeployment[] to fold into
 // a timeline -- originally only GliderTimelineTab's own inline loop,
 // now also the asset detail page's per-asset missions (GET
-// /assets/:id/missions). A deployment with no launch date recorded yet
+// /assets/:id/missions). A deployment with no deployment date recorded yet
 // has nothing to place on the chart, so callers filter the null out.
 export function deploymentToTimelineEvent(
 	d: GliderDeployment,
 ): TimelineEvent | null {
-	if (!d.launchDate) return null;
+	if (!d.deploymentDate) return null;
 	return {
 		id: `mission-${d.id}`,
 		kind: "mission",
 		label: d.stdMissionName ?? `Mission ${d.missionNumber ?? d.id}`,
-		detail: [d.site, d.dives ? `${d.dives} dives` : null]
+		detail: [d.observatory, d.dives ? `${d.dives} dives` : null]
 			.filter(Boolean)
 			.join(" · "),
-		startDate: d.launchDate,
-		endDate: d.recoveryDate,
+		startDate: d.deploymentDate,
+		endDate: d.retrievalDate,
 		instant: false,
 		href: `/missions/${d.id}`,
 	};

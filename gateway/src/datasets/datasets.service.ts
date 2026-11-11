@@ -59,8 +59,8 @@ const SELECT_DATASETS = `
   LEFT JOIN dataset_processing dp ON dp.mission_id = nm.id
   LEFT JOIN current_dataset_processing_stage cps ON cps.dataset_processing_id = dp.id
   LEFT JOIN current_erddap_status erd ON erd.dataset_processing_id = dp.id
-  GROUP BY nm.id, nm.std_mission_name, nm.mission_name, nm.mission_number, nm.launch_date, m.doi
-  ORDER BY nm.launch_date DESC NULLS LAST
+  GROUP BY nm.id, nm.std_mission_name, nm.mission_name, nm.mission_number, nm.deployment_date, m.doi
+  ORDER BY nm.deployment_date DESC NULLS LAST
 `;
 
 const SELECT_MISSION_HEADER = `
@@ -70,9 +70,9 @@ const SELECT_MISSION_HEADER = `
     COALESCE(nm.std_mission_name, nm.mission_name, 'Mission ' || nm.mission_number) AS "missionName",
     nm.status,
     nm.glider,
-    nm.site,
-    nm.launch_date AS "launchDate",
-    nm.recovery_date AS "recoveryDate",
+    nm.observatory,
+    nm.deployment_date AS "deploymentDate",
+    nm.retrieval_date AS "retrievalDate",
     m.doi
   FROM norglider_missions nm
   JOIN missions m ON m.id = nm.id
@@ -218,17 +218,18 @@ export class DatasetsService {
 	}
 
 	async findDetail(missionId: number): Promise<DatasetProcessingDetail> {
-		const [header, processing, stages, documents, history, best] = await Promise.all([
-			this.pool.query(SELECT_MISSION_HEADER, [missionId]),
-			this.pool.query(SELECT_DATASET_PROCESSING, [missionId]),
-			this.pool.query(SELECT_STAGES, [missionId]),
-			this.pool.query(
-				'SELECT document_type AS "documentType" FROM documents WHERE mission_id = $1',
-				[missionId],
-			),
-			this.pool.query(SELECT_HISTORY, [missionId]),
-			this.pool.query(SELECT_BEST_FILES, [missionId]),
-		]);
+		const [header, processing, stages, documents, history, best] =
+			await Promise.all([
+				this.pool.query(SELECT_MISSION_HEADER, [missionId]),
+				this.pool.query(SELECT_DATASET_PROCESSING, [missionId]),
+				this.pool.query(SELECT_STAGES, [missionId]),
+				this.pool.query(
+					'SELECT document_type AS "documentType" FROM documents WHERE mission_id = $1',
+					[missionId],
+				),
+				this.pool.query(SELECT_HISTORY, [missionId]),
+				this.pool.query(SELECT_BEST_FILES, [missionId]),
+			]);
 
 		if (header.rows.length === 0) {
 			throw new NotFoundException(`Mission ${missionId} not found`);
@@ -551,10 +552,7 @@ export class DatasetsService {
 		if (!stage.occurredAt) {
 			throw new BadRequestException(`${stage.stage}: occurredAt is required.`);
 		}
-		if (
-			stage.qcDone != null &&
-			!QC_CAPABLE_STAGES.includes(stage.stage)
-		) {
+		if (stage.qcDone != null && !QC_CAPABLE_STAGES.includes(stage.stage)) {
 			throw new BadRequestException(`${stage.stage} has no manual QC step.`);
 		}
 		if (stage.processingNotes && !QC_CAPABLE_STAGES.includes(stage.stage)) {
@@ -562,10 +560,7 @@ export class DatasetsService {
 				`${stage.stage} has no processing notes field.`,
 			);
 		}
-		if (
-			stage.isOg1 != null &&
-			!OG1_CAPABLE_STAGES.includes(stage.stage)
-		) {
+		if (stage.isOg1 != null && !OG1_CAPABLE_STAGES.includes(stage.stage)) {
 			throw new BadRequestException(`${stage.stage} has no OG1 concept.`);
 		}
 		if ((stage.processingNotes?.length ?? 0) > 5000) {

@@ -1,10 +1,10 @@
 import BatteriesTable from "@/components/BatteriesTable";
 import BatteryFormDialog from "@/components/BatteryFormDialog";
 import {
+	getAgencies,
 	getAssetTypes,
 	getBatteries,
 	getBatteryModels,
-	getInstitutes,
 	getStatusOptions,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -12,21 +12,15 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export default async function BatteriesPage() {
-	const [
-		batteries,
-		statusOptions,
-		assetTypes,
-		institutes,
-		batteryModels,
-		user,
-	] = await Promise.all([
-		getBatteries(),
-		getStatusOptions(),
-		getAssetTypes(),
-		getInstitutes(),
-		getBatteryModels(),
-		getCurrentUser(),
-	]);
+	const [batteries, statusOptions, assetTypes, agencies, batteryModels, user] =
+		await Promise.all([
+			getBatteries(),
+			getStatusOptions(),
+			getAssetTypes(),
+			getAgencies(),
+			getBatteryModels(),
+			getCurrentUser(),
+		]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 	const batteryAssetTypeId = assetTypes.find((t) => t.name === "battery")?.id;
 
@@ -44,7 +38,7 @@ export default async function BatteriesPage() {
 				{canEdit && batteryAssetTypeId != null && (
 					<BatteryFormDialog
 						batteryAssetTypeId={batteryAssetTypeId}
-						institutes={institutes}
+						agencies={agencies}
 						batteryModels={batteryModels}
 					/>
 				)}

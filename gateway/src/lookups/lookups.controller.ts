@@ -10,14 +10,14 @@ export class LookupsController {
 		return this.lookups.getProjects();
 	}
 
-	@Get("sites")
-	getSites() {
-		return this.lookups.getSites();
+	@Get("observatories")
+	getObservatories() {
+		return this.lookups.getObservatories();
 	}
 
-	@Get("institutes")
-	getInstitutes() {
-		return this.lookups.getInstitutes();
+	@Get("agencies")
+	getAgencies() {
+		return this.lookups.getAgencies();
 	}
 
 	@Get("contacts")

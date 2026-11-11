@@ -28,7 +28,7 @@ export class CreateGliderDto {
 
 	@IsOptional()
 	@IsInt()
-	instituteId?: number;
+	agencyId?: number;
 
 	@IsOptional()
 	@IsDateString()

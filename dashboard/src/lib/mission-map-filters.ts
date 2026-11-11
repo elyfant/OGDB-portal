@@ -1,11 +1,11 @@
 import type { MissionMapEntry } from "@ogdb/types";
 
 // Filters for the fleet Map page's Missions panel. Within one section
-// the picks are OR'd (site A or site B); across sections they're AND'd
-// (site A and glider X). An empty section means "no filter" rather than
+// the picks are OR'd (observatory A or observatory B); across sections they're AND'd
+// (observatory A and glider X). An empty section means "no filter" rather than
 // "match nothing", so a fresh page shows everything.
 export type MissionMapFilters = {
-	sites: string[];
+	observatories: string[];
 	projects: string[];
 	gliders: string[];
 	// yyyy-mm-dd strings straight from <input type="date">, "" when unset.
@@ -14,7 +14,7 @@ export type MissionMapFilters = {
 };
 
 export const EMPTY_MISSION_MAP_FILTERS: MissionMapFilters = {
-	sites: [],
+	observatories: [],
 	projects: [],
 	gliders: [],
 	from: "",
@@ -23,7 +23,7 @@ export const EMPTY_MISSION_MAP_FILTERS: MissionMapFilters = {
 
 export function hasActiveFilters(f: MissionMapFilters): boolean {
 	return (
-		f.sites.length > 0 ||
+		f.observatories.length > 0 ||
 		f.projects.length > 0 ||
 		f.gliders.length > 0 ||
 		f.from !== "" ||
@@ -33,8 +33,8 @@ export function hasActiveFilters(f: MissionMapFilters): boolean {
 
 // A mission counts if its time in the water overlaps the picked range at
 // all, not only if it sits entirely inside it: start <= to AND end >= from.
-// A mission still in the water (no recovery or end-of-science date yet)
-// is treated as running until now. One with no launch date can't be
+// A mission still in the water (no retrieval or end-of-science date yet)
+// is treated as running until now. One with no deployment date can't be
 // placed in time, so it drops out as soon as either bound is set.
 function overlapsDateRange(
 	m: MissionMapEntry,
@@ -42,10 +42,10 @@ function overlapsDateRange(
 	to: string,
 ): boolean {
 	if (from === "" && to === "") return true;
-	if (!m.launchDate) return false;
+	if (!m.deploymentDate) return false;
 
-	const start = new Date(m.launchDate).getTime();
-	const endValue = m.recoveryDate ?? m.endDateScience;
+	const start = new Date(m.deploymentDate).getTime();
+	const endValue = m.retrievalDate ?? m.endDateScience;
 	const end = endValue ? new Date(endValue).getTime() : Date.now();
 
 	// Built as local times so they line up with how formatDate() shows
@@ -69,7 +69,7 @@ export function filterMissionMapEntries(
 ): MissionMapEntry[] {
 	return missions.filter(
 		(m) =>
-			matchesPick(m.site, f.sites) &&
+			matchesPick(m.observatory, f.observatories) &&
 			matchesPick(m.project, f.projects) &&
 			matchesPick(m.glider, f.gliders) &&
 			overlapsDateRange(m, f.from, f.to),
@@ -77,11 +77,11 @@ export function filterMissionMapEntries(
 }
 
 // Distinct non-null values of one field, sorted -- the chip options for
-// a filter section come from the missions themselves, so a site with no
+// a filter section come from the missions themselves, so an observatory with no
 // missions never shows up as a dead option.
 export function distinctValues(
 	missions: MissionMapEntry[],
-	key: "site" | "project" | "glider",
+	key: "observatory" | "project" | "glider",
 ): string[] {
 	const values = new Set<string>();
 	for (const m of missions) {

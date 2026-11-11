@@ -144,12 +144,12 @@ export default async function HomePage() {
 							tooltip="Go to missions page"
 						/>
 					)}
-					{leaderboard.mostSiteDays && (
+					{leaderboard.mostObservatoryDays && (
 						<ChampionshipCard
 							icon={PlaceIcon}
-							title="Most site days"
-							winner={leaderboard.mostSiteDays.site}
-							detail={`${formatCount(leaderboard.mostSiteDays.days)} days`}
+							title="Most observatory days"
+							winner={leaderboard.mostObservatoryDays.observatory}
+							detail={`${formatCount(leaderboard.mostObservatoryDays.days)} days`}
 							href="/missions"
 							tooltip="Go to missions page"
 						/>

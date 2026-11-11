@@ -1,9 +1,9 @@
 import AssetFormDialog from "@/components/AssetFormDialog";
 import AssetsTable from "@/components/AssetsTable";
 import {
+	getAgencies,
 	getAssetTypes,
 	getAssets,
-	getInstitutes,
 	getSensorModels,
 	getStatusOptions,
 } from "@/lib/api";
@@ -12,12 +12,12 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export default async function AssetsPage() {
-	const [assets, statusOptions, assetTypes, institutes, sensorModels, user] =
+	const [assets, statusOptions, assetTypes, agencies, sensorModels, user] =
 		await Promise.all([
 			getAssets(),
 			getStatusOptions(),
 			getAssetTypes(),
-			getInstitutes(),
+			getAgencies(),
 			getSensorModels(),
 			getCurrentUser(),
 		]);
@@ -38,7 +38,7 @@ export default async function AssetsPage() {
 					<AssetFormDialog
 						mode="create"
 						assetTypes={assetTypes}
-						institutes={institutes}
+						agencies={agencies}
 						sensorModels={sensorModels}
 					/>
 				)}

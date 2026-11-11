@@ -7,10 +7,10 @@ import { PG_POOL } from "../db/db.constants";
 // elsewhere -- one small module instead of four near-identical
 // controller/service/module trios, since these are all the same shape
 // (a lookup table with an id and a display name). Used by the Add
-// Mission dialog's Project/Site/Principal investigator/Technical
+// Mission dialog's Project/Observatory/Principal investigator/Technical
 // lead/Operating agency/Funding agency dropdowns; matches the short
 // `name` column norglider_missions itself already displays (not
-// long_name) for project/site/institute consistency.
+// long_name) for project/observatory/agency consistency.
 @Injectable()
 export class LookupsService {
 	constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -22,16 +22,16 @@ export class LookupsService {
 		return result.rows;
 	}
 
-	async getSites(): Promise<LookupOption[]> {
+	async getObservatories(): Promise<LookupOption[]> {
 		const result = await this.pool.query(
-			"SELECT id, name FROM sites ORDER BY name",
+			"SELECT id, name FROM observatories ORDER BY name",
 		);
 		return result.rows;
 	}
 
-	async getInstitutes(): Promise<LookupOption[]> {
+	async getAgencies(): Promise<LookupOption[]> {
 		const result = await this.pool.query(
-			"SELECT id, name FROM institutes ORDER BY name",
+			"SELECT id, name FROM agencies ORDER BY name",
 		);
 		return result.rows;
 	}

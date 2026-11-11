@@ -29,7 +29,7 @@ import { type ReactNode, useState } from "react";
 // weight: weight is the first row of the append-only measurement
 // history, so re-measuring is a separate action, not a field edit.
 interface FormState {
-	instituteId: number | "";
+	agencyId: number | "";
 	serialNumber: string;
 	purchaseDate: string;
 	purchaseValue: string;
@@ -44,7 +44,7 @@ const CURRENCIES = ["USD", "EUR", "NOK", "GBP"];
 
 function emptyForm(): FormState {
 	return {
-		instituteId: "",
+		agencyId: "",
 		serialNumber: "",
 		purchaseDate: "",
 		purchaseValue: "",
@@ -57,7 +57,7 @@ function emptyForm(): FormState {
 
 function formFromBattery(asset: Asset, battery: BatteryDetail): FormState {
 	return {
-		instituteId: battery.instituteId ?? "",
+		agencyId: battery.agencyId ?? "",
 		serialNumber: asset.serialNumber ?? "",
 		purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
 		purchaseValue: asset.purchaseValue?.toString() ?? "",
@@ -72,19 +72,19 @@ type Props =
 	| {
 			mode?: "create";
 			batteryAssetTypeId: number;
-			institutes: LookupOption[];
+			agencies: LookupOption[];
 			batteryModels: LookupOption[];
 	  }
 	| {
 			mode: "edit";
 			asset: Asset;
 			battery: BatteryDetail;
-			institutes: LookupOption[];
+			agencies: LookupOption[];
 			batteryModels: LookupOption[];
 	  };
 
 export default function BatteryFormDialog(props: Props) {
-	const { institutes, batteryModels } = props;
+	const { agencies, batteryModels } = props;
 	const editing = props.mode === "edit";
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -132,7 +132,7 @@ export default function BatteryFormDialog(props: Props) {
 
 		setSaving(true);
 		try {
-			const instituteId = form.instituteId === "" ? null : form.instituteId;
+			const agencyId = form.agencyId === "" ? null : form.agencyId;
 			const batteryModelId =
 				form.batteryModelId === "" ? null : form.batteryModelId;
 			if (props.mode === "edit") {
@@ -141,7 +141,7 @@ export default function BatteryFormDialog(props: Props) {
 					purchaseDate: form.purchaseDate || null,
 					purchaseValue,
 					purchaseCurrency: form.purchaseCurrency,
-					instituteId,
+					agencyId,
 					batteryModelId,
 					dateOfManufacture: form.dateOfManufacture || null,
 				});
@@ -152,7 +152,7 @@ export default function BatteryFormDialog(props: Props) {
 					purchaseDate: form.purchaseDate || null,
 					purchaseValue,
 					purchaseCurrency: form.purchaseCurrency,
-					instituteId,
+					agencyId,
 					batteryModelId,
 					dateOfManufacture: form.dateOfManufacture || null,
 					weight,
@@ -201,21 +201,21 @@ export default function BatteryFormDialog(props: Props) {
 				>
 					<Section label="Details">
 						<Grid>
-							<Field label="Institute">
+							<Field label="Agency">
 								<TextField
 									select
 									size="small"
 									fullWidth
-									value={form.instituteId}
+									value={form.agencyId}
 									onChange={(e) =>
 										setForm((s) => ({
 											...s,
-											instituteId: e.target.value ? Number(e.target.value) : "",
+											agencyId: e.target.value ? Number(e.target.value) : "",
 										}))
 									}
 								>
 									<MenuItem value="">— none —</MenuItem>
-									{institutes.map((i) => (
+									{agencies.map((i) => (
 										<MenuItem key={i.id} value={i.id}>
 											{i.name}
 										</MenuItem>

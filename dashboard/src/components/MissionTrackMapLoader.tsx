@@ -34,15 +34,15 @@ export default function MissionTrackMapLoader({
 	platform,
 	deployment,
 	deploymentDate,
-	recovery,
-	recoveryDate,
+	retrieval,
+	retrievalDate,
 }: {
 	tracks: MissionTrackPoint[];
 	platform: "slocum" | "seaglider" | null;
 	deployment: LatLon | null;
 	deploymentDate: string | null;
-	recovery: LatLon | null;
-	recoveryDate: string | null;
+	retrieval: LatLon | null;
+	retrievalDate: string | null;
 }) {
 	if (MAP_DISABLED) {
 		return (
@@ -68,8 +68,8 @@ export default function MissionTrackMapLoader({
 			platform={platform}
 			deployment={deployment}
 			deploymentDate={deploymentDate}
-			recovery={recovery}
-			recoveryDate={recoveryDate}
+			retrieval={retrieval}
+			retrievalDate={retrievalDate}
 		/>
 	);
 }

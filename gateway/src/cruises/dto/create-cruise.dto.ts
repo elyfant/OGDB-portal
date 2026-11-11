@@ -22,7 +22,7 @@ export class CreateCruiseDto {
 
 	@IsOptional()
 	@IsInt()
-	instituteId?: number;
+	agencyId?: number;
 
 	@IsOptional()
 	@IsString()

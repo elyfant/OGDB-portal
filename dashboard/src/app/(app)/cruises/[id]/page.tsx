@@ -49,7 +49,11 @@ export default async function CruiseDetailPage({
 						label="Vessel"
 						value={
 							cruise.vessel && cruise.vesselUrl ? (
-								<MuiLink href={cruise.vesselUrl} target="_blank" rel="noreferrer">
+								<MuiLink
+									href={cruise.vesselUrl}
+									target="_blank"
+									rel="noreferrer"
+								>
 									{cruise.vessel}{" "}
 									<OpenInNewIcon sx={{ fontSize: 13, verticalAlign: -1 }} />
 								</MuiLink>
@@ -58,7 +62,7 @@ export default async function CruiseDetailPage({
 							)
 						}
 					/>
-					<Field label="Institute" value={cruise.institute} />
+					<Field label="Agency" value={cruise.agency} />
 					<Field label="Cruise leader" value={cruise.cruiseLeader} />
 					<Field label="Area" value={cruise.area} />
 				</Box>

@@ -31,11 +31,11 @@ export default function BuildPanel({
 }: {
 	// "current": the last flown build, with each sensor's current
 	// calibration. "mission": one mission's build, with the calibration in
-	// effect at its launch.
+	// effect at its deployment.
 	mode: "current" | "mission";
 	components: GliderBuildComponent[];
 	sensors: ScienceSensorRecord[];
-	// The date calibrations are as of: launch date for a mission, otherwise
+	// The date calibrations are as of: deployment date for a mission, otherwise
 	// today.
 	asOfDate: string;
 	// Which glider this is, to pick its drawing. Only some platforms have one
@@ -49,7 +49,7 @@ export default function BuildPanel({
 	// Shown instead of the table when the build has nothing in it.
 	emptyMessage?: string;
 	// Overrides the mission-mode caption under "Science" (e.g. a mission that
-	// has not launched has no launch date to be "as of").
+	// has not deployed has no deployment date to be "as of").
 	calibrationNote?: string;
 }) {
 	const nonScience = components.filter((c) => c.assetTypeGroup !== "sensor");
@@ -113,7 +113,7 @@ export default function BuildPanel({
 						sx={{ mb: 1, display: "block" }}
 					>
 						{calibrationNote ??
-							`Calibration shown as of this mission's launch date, ${formatDate(asOfDate)}`}
+							`Calibration shown as of this mission's deployment date, ${formatDate(asOfDate)}`}
 					</Typography>
 				)}
 				<ScienceBuildTable

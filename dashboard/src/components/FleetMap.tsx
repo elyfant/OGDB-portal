@@ -247,12 +247,14 @@ export default function FleetMap({
 							</Typography>
 							<Typography sx={{ fontSize: "0.8rem" }}>
 								{selectedMission.glider ?? "Unknown glider"}
-								{selectedMission.site ? ` · ${selectedMission.site}` : ""}
+								{selectedMission.observatory
+									? ` · ${selectedMission.observatory}`
+									: ""}
 							</Typography>
 							<Typography sx={{ fontSize: "0.8rem", mb: 0.5 }}>
-								{formatDate(selectedMission.launchDate)} –{" "}
-								{selectedMission.recoveryDate
-									? formatDate(selectedMission.recoveryDate)
+								{formatDate(selectedMission.deploymentDate)} –{" "}
+								{selectedMission.retrievalDate
+									? formatDate(selectedMission.retrievalDate)
 									: "ongoing"}
 							</Typography>
 							<MuiLink

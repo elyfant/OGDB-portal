@@ -142,15 +142,15 @@ export default function MissionTrackMap({
 	platform,
 	deployment,
 	deploymentDate,
-	recovery,
-	recoveryDate,
+	retrieval,
+	retrievalDate,
 }: {
 	tracks: MissionTrackPoint[];
 	platform: "slocum" | "seaglider" | null;
 	deployment: LatLon | null;
 	deploymentDate: string | null;
-	recovery: LatLon | null;
-	recoveryDate: string | null;
+	retrieval: LatLon | null;
+	retrievalDate: string | null;
 }) {
 	// react-leaflet v4's MapContainer creates its Leaflet map from a
 	// useCallback ref with an empty dependency array -- that callback's
@@ -185,11 +185,11 @@ export default function MissionTrackMap({
 			...(deployment
 				? ([[deployment.latitude, deployment.longitude]] as [number, number][])
 				: []),
-			...(recovery
-				? ([[recovery.latitude, recovery.longitude]] as [number, number][])
+			...(retrieval
+				? ([[retrieval.latitude, retrieval.longitude]] as [number, number][])
 				: []),
 		],
-		[linePositions, deployment, recovery],
+		[linePositions, deployment, retrieval],
 	);
 
 	if (boundsPoints.length === 0) {
@@ -299,9 +299,9 @@ export default function MissionTrackMap({
 								</Tooltip>
 							</Marker>
 						)}
-						{recovery && (
+						{retrieval && (
 							<Marker
-								position={[recovery.latitude, recovery.longitude]}
+								position={[retrieval.latitude, retrieval.longitude]}
 								icon={buildGliderIcon(platform, "#e5473b")}
 							>
 								<Tooltip direction="top" offset={[0, -15]}>
@@ -310,10 +310,10 @@ export default function MissionTrackMap({
 											End of mission
 										</Typography>
 										<Typography sx={{ fontSize: "0.8rem" }}>
-											{formatDate(recoveryDate)}
+											{formatDate(retrievalDate)}
 										</Typography>
 										<Typography sx={{ fontSize: "0.8rem" }}>
-											{formatCoord(recovery.latitude, recovery.longitude)}
+											{formatCoord(retrieval.latitude, retrieval.longitude)}
 										</Typography>
 									</Box>
 								</Tooltip>

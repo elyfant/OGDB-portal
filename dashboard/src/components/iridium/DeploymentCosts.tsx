@@ -174,7 +174,7 @@ function PlatformCard({
 						sx={{ mt: 1 }}
 					>
 						* Airtime and line rental while deployed, plus the mission's
-						pre-launch testing spread over its days in the water, plus one{" "}
+						pre-deployment testing spread over its days in the water, plus one{" "}
 						{PLATFORM_LABEL[platform]}'s overhead
 						{overhead ? ` (${formatUsd0(overhead.usd)}/month)` : ""}.
 					</Typography>
@@ -334,8 +334,9 @@ export default function DeploymentCosts({
 								sx={{ mt: 1.5 }}
 							>
 								Each selected mission's in-water cost per day ×{" "}
-								{Math.round(nDays)} days, plus its own pre-launch testing, plus
-								overhead ({formatUsd0(oh?.usd ?? 0)}/month × {est.months} month
+								{Math.round(nDays)} days, plus its own pre-deployment testing,
+								plus overhead ({formatUsd0(oh?.usd ?? 0)}/month × {est.months}{" "}
+								month
 								{est.months === 1 ? "" : "s"} = {formatUsd0(est.overheadUsd)}):
 								the median, and the range across the {used.length} selected{" "}
 								{PLATFORM_LABEL[platform]} missions.

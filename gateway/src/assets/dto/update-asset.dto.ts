@@ -8,7 +8,7 @@ import { CreateAssetDto } from "./create-asset.dto";
 // change this form doesn't support, same as gliders not letting
 // glider-vs-non-glider change through UpdateGliderDto.
 //
-// l22ModelId, instituteId, batteryModelId and dateOfManufacture are
+// l22ModelId, agencyId, batteryModelId and dateOfManufacture are
 // omitted from the base rather than inherited as-is: the create-time
 // fields are plain optionals (absent = none), but the edit-time fields
 // need a genuine three-state absent/null/value (absent = don't touch,
@@ -17,7 +17,7 @@ import { CreateAssetDto } from "./create-asset.dto";
 export class UpdateAssetDto extends PartialType(
 	OmitType(CreateAssetDto, [
 		"l22ModelId",
-		"instituteId",
+		"agencyId",
 		"batteryModelId",
 		"dateOfManufacture",
 	] as const),
@@ -30,10 +30,10 @@ export class UpdateAssetDto extends PartialType(
 	@IsInt()
 	l22ModelId?: number | null;
 
-	// assets.institute_id.
+	// assets.agency_id.
 	@IsOptional()
 	@IsInt()
-	instituteId?: number | null;
+	agencyId?: number | null;
 
 	// Batteries only -- asset_battery_details.battery_model_id and
 	// .date_of_manufacture.

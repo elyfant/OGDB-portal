@@ -27,9 +27,9 @@ export default function GliderDeploymentHistory({
 					<TableRow>
 						<TableCell>Mission</TableCell>
 						<TableCell>Status</TableCell>
-						<TableCell>Site</TableCell>
-						<TableCell>Launch date</TableCell>
-						<TableCell>Recovery date</TableCell>
+						<TableCell>Observatory</TableCell>
+						<TableCell>Deployment date</TableCell>
+						<TableCell>Retrieval date</TableCell>
 						<TableCell align="right">Dives</TableCell>
 						<TableCell align="right">Distance (km)</TableCell>
 					</TableRow>
@@ -43,9 +43,9 @@ export default function GliderDeploymentHistory({
 							<TableCell sx={{ textTransform: "capitalize" }}>
 								{d.status ?? "—"}
 							</TableCell>
-							<TableCell>{d.site ?? "—"}</TableCell>
-							<TableCell>{formatDate(d.launchDate)}</TableCell>
-							<TableCell>{formatDate(d.recoveryDate)}</TableCell>
+							<TableCell>{d.observatory ?? "—"}</TableCell>
+							<TableCell>{formatDate(d.deploymentDate)}</TableCell>
+							<TableCell>{formatDate(d.retrievalDate)}</TableCell>
 							<TableCell align="right">{d.dives ?? "—"}</TableCell>
 							<TableCell align="right">
 								{d.distanceKm !== null ? d.distanceKm.toFixed(1) : "—"}

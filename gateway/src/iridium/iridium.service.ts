@@ -28,8 +28,8 @@ const SELECT_MISSION_COST = `
     glider_asset_id AS "gliderAssetId",
     glider_name AS "gliderName",
     platform,
-    launch_date AS "launchDate",
-    recovery_date AS "recoveryDate",
+    deployment_date AS "deploymentDate",
+    retrieval_date AS "retrievalDate",
     duration_days::float8 AS "durationDays",
     mission_months::int AS "missionMonths",
     invoiced_months::int AS "invoicedMonths",
@@ -84,7 +84,7 @@ export class IridiumService {
 
 	async getMissions(): Promise<IridiumMissionCost[]> {
 		const result = await this.pool.query(
-			`${SELECT_MISSION_COST} ORDER BY launch_date DESC`,
+			`${SELECT_MISSION_COST} ORDER BY deployment_date DESC`,
 		);
 		return result.rows;
 	}

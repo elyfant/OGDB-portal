@@ -81,7 +81,7 @@ export default function MissionIridiumSection({
 				series={[
 					{
 						data: months.map((r) => r.beforeLaunchUsd),
-						label: "Before launch",
+						label: "Before deployment",
 						stack: "t",
 						color: colors.beforeLaunch,
 						valueFormatter: fmt,
@@ -102,7 +102,7 @@ export default function MissionIridiumSection({
 					},
 					{
 						data: months.map((r) => r.afterRecoveryUsd),
-						label: "After recovery",
+						label: "After retrieval",
 						stack: "t",
 						color: colors.afterRecovery,
 						valueFormatter: fmt,
@@ -114,7 +114,7 @@ export default function MissionIridiumSection({
 				{cost.fullyInvoiced
 					? ""
 					: "† Some months have no invoice, so the total is too low. "}
-				Before launch / after recovery: airtime in the month either side,
+				Before deployment / after retrieval: airtime in the month either side,
 				charged to this mission.{" "}
 				<MuiLink component={Link} href="/iridium">
 					All Iridium costs

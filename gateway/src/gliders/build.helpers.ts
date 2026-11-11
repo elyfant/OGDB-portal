@@ -34,7 +34,7 @@ import { originalNameFromReference } from "../documents/documents.service";
 // against missions directly (glider_asset_id lives there) rather than
 // norglider_missions, which only exposes the glider's name, not its id.
 const DAYS_EXPR =
-	"ROUND(EXTRACT(EPOCH FROM (recovery_date - launch_date)) / 86400.0)";
+	"ROUND(EXTRACT(EPOCH FROM (retrieval_date - deployment_date)) / 86400.0)";
 
 type Db = Pool | PoolClient;
 
@@ -42,7 +42,7 @@ type Db = Pool | PoolClient;
 // mission (mission_build_items), and a mission's status says whether it is
 // still being prepared. "workshop" = glider being prepared, only the glider
 // known; "scheduled" = assigned a mission; "active" = at sea.
-const PRE_LAUNCH_STATUSES = ["workshop", "scheduled"];
+const PRE_DEPLOYMENT_STATUSES = ["workshop", "scheduled"];
 
 // A component before models are looked up.
 type RawComponent = Omit<GliderBuildComponent, "model" | "modelUri">;
@@ -117,13 +117,13 @@ export async function fetchLatestBuildTree(
 const MISSION_REF_SELECT = `
   SELECT m.id, m.mission_number AS "missionNumber", m.mission_name AS "missionName",
          nm.std_mission_name AS "stdMissionName", s.name AS status,
-         m.launch_date::date::text AS "launchDate",
-         m.recovery_date::date::text AS "recoveryDate"
+         m.deployment_date::date::text AS "deploymentDate",
+         m.retrieval_date::date::text AS "retrievalDate"
   FROM missions m
   LEFT JOIN status s ON s.id = m.status_id
   LEFT JOIN norglider_missions nm ON nm.id = m.id`;
 
-// The last mission that actually flew: launched, and not merely scheduled.
+// The last mission that actually flew: deployed, and not merely scheduled.
 // "Last flown build" on the glider page is this mission's build.
 async function fetchLastFlownMission(
 	db: Db,
@@ -131,11 +131,11 @@ async function fetchLastFlownMission(
 ): Promise<BuildMissionRef | null> {
 	const result = await db.query(
 		`${MISSION_REF_SELECT}
-     WHERE m.glider_asset_id = $1 AND m.launch_date IS NOT NULL
+     WHERE m.glider_asset_id = $1 AND m.deployment_date IS NOT NULL
        AND COALESCE(s.name, '') <> ALL($2)
-     ORDER BY m.launch_date DESC, m.id DESC
+     ORDER BY m.deployment_date DESC, m.id DESC
      LIMIT 1`,
-		[gliderAssetId, PRE_LAUNCH_STATUSES],
+		[gliderAssetId, PRE_DEPLOYMENT_STATUSES],
 	);
 	return result.rows[0] ?? null;
 }
@@ -148,9 +148,9 @@ async function fetchNextMission(
 	const result = await db.query(
 		`${MISSION_REF_SELECT}
      WHERE m.glider_asset_id = $1 AND s.name = ANY($2)
-     ORDER BY m.launch_date ASC NULLS FIRST, m.id ASC
+     ORDER BY m.deployment_date ASC NULLS FIRST, m.id ASC
      LIMIT 1`,
-		[gliderAssetId, PRE_LAUNCH_STATUSES],
+		[gliderAssetId, PRE_DEPLOYMENT_STATUSES],
 	);
 	return result.rows[0] ?? null;
 }
@@ -425,13 +425,13 @@ async function fetchBuildWarnings(
 }
 
 // One mission's build for the mission page: components, science payload as
-// of the launch date, and any overlap warnings.
+// of the deployment date, and any overlap warnings.
 export async function getMissionBuild(
 	pool: Pool,
 	missionId: number,
 ): Promise<MissionBuild> {
 	const mission = await pool.query(
-		`SELECT launch_date::date::text AS "launchDate" FROM missions WHERE id = $1`,
+		`SELECT deployment_date::date::text AS "deploymentDate" FROM missions WHERE id = $1`,
 		[missionId],
 	);
 	if (mission.rows.length === 0) {
@@ -443,7 +443,7 @@ export async function getMissionBuild(
 		buildSciencePayload(
 			pool,
 			components,
-			mission.rows[0].launchDate ?? today(),
+			mission.rows[0].deploymentDate ?? today(),
 		),
 		fetchBuildWarnings(pool, missionId),
 	]);
@@ -672,14 +672,14 @@ async function fetchDeployments(
 ): Promise<GliderDeployment[]> {
 	const result = await pool.query(
 		`SELECT nm.id, nm.mission_number AS "missionNumber",
-            nm.std_mission_name AS "stdMissionName", nm.status, nm.site,
-            nm.launch_date AS "launchDate", nm.recovery_date AS "recoveryDate",
+            nm.std_mission_name AS "stdMissionName", nm.status, nm.observatory,
+            nm.deployment_date AS "deploymentDate", nm.retrieval_date AS "retrievalDate",
             nm.dives, nm.distance_km AS "distanceKm"
      FROM norglider_missions nm
      JOIN missions m ON m.id = nm.id
      WHERE m.glider_asset_id = $1
        AND nm.status IS DISTINCT FROM 'workshop'
-     ORDER BY nm.launch_date DESC NULLS LAST`,
+     ORDER BY nm.deployment_date DESC NULLS LAST`,
 		[gliderAssetId],
 	);
 	return result.rows;
@@ -733,7 +733,7 @@ export async function getGliderBuild(
 		fetchMissionsSummary(pool, gliderAssetId),
 	]);
 	// Calibration as of today: this panel shows each sensor's current
-	// calibration, where a mission's own page shows the one at its launch.
+	// calibration, where a mission's own page shows the one at its deployment.
 	const sciencePayload = await buildSciencePayload(pool, buildTree, today());
 	const editHistory = await fetchEditHistory(
 		pool,
@@ -1221,12 +1221,12 @@ export async function seedMissionBuildTx(
 	const source = await client.query(
 		`SELECT m.id FROM missions m
      LEFT JOIN status s ON s.id = m.status_id
-     WHERE m.glider_asset_id = $1 AND m.id <> $2 AND m.launch_date IS NOT NULL
+     WHERE m.glider_asset_id = $1 AND m.id <> $2 AND m.deployment_date IS NOT NULL
        AND COALESCE(s.name, '') <> ALL($3)
        AND EXISTS (SELECT 1 FROM mission_build_items i WHERE i.mission_id = m.id)
-     ORDER BY m.launch_date DESC, m.id DESC
+     ORDER BY m.deployment_date DESC, m.id DESC
      LIMIT 1`,
-		[gliderAssetId, missionId, PRE_LAUNCH_STATUSES],
+		[gliderAssetId, missionId, PRE_DEPLOYMENT_STATUSES],
 	);
 	if (source.rows.length > 0) {
 		await copyMissionBuildTx(client, source.rows[0].id, missionId, userId);

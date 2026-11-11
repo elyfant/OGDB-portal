@@ -7,7 +7,7 @@ import type { IridiumGliderMonth, IridiumMissionCost } from "@ogdb/types";
 /** Average calendar month, for per-day <-> per-month conversions. */
 export const AVG_MONTH_DAYS = 365.25 / 12;
 
-/** Shorter missions are left out: pre-launch testing dominates their $/day. */
+/** Shorter missions are left out: pre-deployment testing dominates their $/day. */
 export const MIN_REFERENCE_DAYS = 14;
 
 export const PLATFORMS = ["seaglider", "slocum"] as const;
@@ -19,7 +19,7 @@ export const PLATFORM_LABEL: Record<string, string> = {
 	unassigned: "Unassigned",
 };
 
-/** Usage + line rental while deployed; no pre-launch / after-recovery. */
+/** Usage + line rental while deployed; no pre-deployment / after-retrieval. */
 export function inMissionUsd(m: IridiumMissionCost): number {
 	return m.missionUsageUsd + m.missionRentalUsd;
 }
@@ -32,7 +32,7 @@ export function inMissionUsd(m: IridiumMissionCost): number {
 export function isReferenceMission(m: IridiumMissionCost): boolean {
 	return (
 		m.fullyInvoiced &&
-		m.recoveryDate !== null &&
+		m.retrievalDate !== null &&
 		m.durationDays >= MIN_REFERENCE_DAYS
 	);
 }
@@ -45,7 +45,9 @@ export function referenceMissions(
 ): IridiumMissionCost[] {
 	const refs = missions
 		.filter((m) => m.platform === platform && isReferenceMission(m))
-		.sort((a, b) => (b.recoveryDate ?? "").localeCompare(a.recoveryDate ?? ""));
+		.sort((a, b) =>
+			(b.retrievalDate ?? "").localeCompare(a.retrievalDate ?? ""),
+		);
 	return count === null ? refs : refs.slice(0, count);
 }
 
@@ -103,7 +105,7 @@ export function overheadPerGlider(
 
 /**
  * All-in cost per deployed month for one mission: its usage + rental plus
- * its pre-launch testing, spread over its days in the water, plus one
+ * its pre-deployment testing, spread over its days in the water, plus one
  * glider's overhead for the month.
  */
 export function perMonthUsd(
@@ -124,7 +126,7 @@ export function perDeployedMonth(
 }
 
 export interface Estimate {
-	/** Mission usage + rental for `days`, plus that mission's pre-launch testing. */
+	/** Mission usage + rental for `days`, plus that mission's pre-deployment testing. */
 	raw: Range;
 	/** Whole months the mission runs, rounded up. */
 	months: number;
@@ -135,7 +137,7 @@ export interface Estimate {
 
 /**
  * "If the next mission is like one of these, what will it cost?" For each
- * reference mission: its in-mission $/day x `days`, plus its own pre-launch
+ * reference mission: its in-mission $/day x `days`, plus its own pre-deployment
  * testing. The estimate is the median of those, the range their min-max.
  */
 export function estimate(

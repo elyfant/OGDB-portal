@@ -138,18 +138,18 @@ export async function getProjects(): Promise<LookupOption[]> {
 	return res.json();
 }
 
-export async function getSites(): Promise<LookupOption[]> {
-	const res = await apiFetch("/lookups/sites");
+export async function getObservatories(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/observatories");
 	if (!res.ok) {
-		throw new Error(`Failed to fetch sites: ${res.status}`);
+		throw new Error(`Failed to fetch observatories: ${res.status}`);
 	}
 	return res.json();
 }
 
-export async function getInstitutes(): Promise<LookupOption[]> {
-	const res = await apiFetch("/lookups/institutes");
+export async function getAgencies(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/agencies");
 	if (!res.ok) {
-		throw new Error(`Failed to fetch institutes: ${res.status}`);
+		throw new Error(`Failed to fetch agencies: ${res.status}`);
 	}
 	return res.json();
 }

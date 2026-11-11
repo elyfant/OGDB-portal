@@ -21,7 +21,7 @@ interface FormState {
 	cruiseName: string;
 	cruiseNumber: string;
 	vesselId: number | "";
-	instituteId: number | "";
+	agencyId: number | "";
 	cruiseLeader: string;
 	area: string;
 	startDate: string;
@@ -35,7 +35,7 @@ function emptyForm(): FormState {
 		cruiseName: "",
 		cruiseNumber: "",
 		vesselId: "",
-		instituteId: "",
+		agencyId: "",
 		cruiseLeader: "",
 		area: "",
 		startDate: "",
@@ -47,10 +47,10 @@ function emptyForm(): FormState {
 
 export default function CruiseFormDialog({
 	vessels,
-	institutes,
+	agencies,
 }: {
 	vessels: LookupOption[];
-	institutes: LookupOption[];
+	agencies: LookupOption[];
 }) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -106,7 +106,7 @@ export default function CruiseFormDialog({
 				cruiseName: form.cruiseName.trim(),
 				cruiseNumber: form.cruiseNumber.trim() || null,
 				vesselId: form.vesselId || null,
-				instituteId: form.instituteId || null,
+				agencyId: form.agencyId || null,
 				cruiseLeader: form.cruiseLeader.trim() || null,
 				area: form.area.trim(),
 				startDate: form.startDate,
@@ -175,11 +175,11 @@ export default function CruiseFormDialog({
 									onChange={(v) => setForm((s) => ({ ...s, vesselId: v }))}
 								/>
 							</Field>
-							<Field label="Institute">
+							<Field label="Agency">
 								<LookupSelect
-									value={form.instituteId}
-									options={institutes}
-									onChange={(v) => setForm((s) => ({ ...s, instituteId: v }))}
+									value={form.agencyId}
+									options={agencies}
+									onChange={(v) => setForm((s) => ({ ...s, agencyId: v }))}
 								/>
 							</Field>
 							<Field label="Cruise leader">

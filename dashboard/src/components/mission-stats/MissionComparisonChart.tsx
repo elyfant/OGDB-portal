@@ -191,8 +191,8 @@ export default function MissionComparisonChart({
 												</Box>
 												Mission {m.id}
 												<br />
-												{formatDate(m.launchDate)} →{" "}
-												{formatDate(m.recoveryDate)}
+												{formatDate(m.deploymentDate)} →{" "}
+												{formatDate(m.retrievalDate)}
 												<br />
 												{m.numberOfDays ?? "—"} days | {m.dives ?? "—"} dives |{" "}
 												{distance}

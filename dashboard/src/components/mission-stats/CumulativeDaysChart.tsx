@@ -29,16 +29,16 @@ export default function CumulativeDaysChart({
 
 	const points = useMemo(() => {
 		const sorted = missions
-			.filter((m) => m.launchDate && m.numberOfDays != null)
+			.filter((m) => m.deploymentDate && m.numberOfDays != null)
 			.sort(
 				(a, b) =>
-					new Date(a.launchDate as string).getTime() -
-					new Date(b.launchDate as string).getTime(),
+					new Date(a.deploymentDate as string).getTime() -
+					new Date(b.deploymentDate as string).getTime(),
 			);
 		let running = 0;
 		const pts = sorted.map((m) => {
 			running += m.numberOfDays ?? 0;
-			return { date: new Date(m.launchDate as string), value: running };
+			return { date: new Date(m.deploymentDate as string), value: running };
 		});
 		if (pts.length > 0) pts.push({ date: today, value: running });
 		return pts;

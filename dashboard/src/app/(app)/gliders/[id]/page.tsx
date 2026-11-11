@@ -10,11 +10,11 @@ import PlatformIcon from "@/components/PlatformIcon";
 import StartWorkshopButton from "@/components/StartWorkshopButton";
 import StatTile from "@/components/StatTile";
 import {
+	getAgencies,
 	getAssetRmas,
 	getContacts,
 	getGlider,
 	getGliderBuild,
-	getInstitutes,
 	getPlatforms,
 	getServicingEventTypes,
 	getServicingEvents,
@@ -61,7 +61,7 @@ export default async function GliderDetailPage({
 	const [
 		build,
 		platforms,
-		institutes,
+		agencies,
 		user,
 		servicingEvents,
 		rmas,
@@ -70,7 +70,7 @@ export default async function GliderDetailPage({
 	] = await Promise.all([
 		getGliderBuild(Number(id)),
 		getPlatforms(),
-		getInstitutes(),
+		getAgencies(),
 		getCurrentUser(),
 		getServicingEvents(glider.id),
 		getAssetRmas(glider.id),
@@ -184,7 +184,7 @@ export default async function GliderDetailPage({
 									mode="edit"
 									glider={glider}
 									platforms={platforms}
-									institutes={institutes}
+									agencies={agencies}
 								/>
 							)}
 						</Box>

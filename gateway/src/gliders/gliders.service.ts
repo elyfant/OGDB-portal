@@ -54,13 +54,13 @@ const SELECT_FLEET = `
     a.decommissioned_date AS "decommissionedDate",
     a.decommission_reason AS "decommissionReason",
     agd.platform_id AS "platformId",
-    a.institute_id AS "instituteId"
+    a.agency_id AS "agencyId"
   FROM assets a
   JOIN asset_glider_details agd ON agd.asset_id = a.id
   LEFT JOIN platforms p ON p.id = agd.platform_id
   LEFT JOIN nvs_terms pm ON pm.id = p.b76_model_id
   LEFT JOIN nvs_terms pc ON pc.id = p.l06_category_id
-  LEFT JOIN institutes i ON i.id = a.institute_id
+  LEFT JOIN agencies i ON i.id = a.agency_id
   LEFT JOIN manufacturers_with_nvs m ON m.id = a.manufacturer_id
   LEFT JOIN manufacturers_with_nvs pmfr ON pmfr.id = p.manufacturer_id
   LEFT JOIN derived_asset_status das ON das.asset_id = a.id
@@ -101,13 +101,13 @@ export class GlidersService {
 		try {
 			await client.query("BEGIN");
 			const assetResult = await client.query(
-				`INSERT INTO assets (asset_type_id, serial_number, institute_id, purchase_date, purchase_value, changed_by)
+				`INSERT INTO assets (asset_type_id, serial_number, agency_id, purchase_date, purchase_value, changed_by)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
 				[
 					GLIDER_ASSET_TYPE_ID,
 					dto.serialNumber ?? null,
-					dto.instituteId ?? null,
+					dto.agencyId ?? null,
 					dto.purchaseDate ?? null,
 					dto.purchaseValue ?? null,
 					userId,
@@ -146,14 +146,14 @@ export class GlidersService {
 			await client.query("BEGIN");
 			if (
 				dto.serialNumber !== undefined ||
-				dto.instituteId !== undefined ||
+				dto.agencyId !== undefined ||
 				dto.purchaseDate !== undefined ||
 				dto.purchaseValue !== undefined
 			) {
 				await client.query(
 					`UPDATE assets SET
              serial_number = COALESCE($1, serial_number),
-             institute_id = COALESCE($2, institute_id),
+             agency_id = COALESCE($2, agency_id),
              purchase_date = COALESCE($3, purchase_date),
              purchase_value = COALESCE($4, purchase_value),
              updated_at = now(),
@@ -161,7 +161,7 @@ export class GlidersService {
            WHERE id = $5`,
 					[
 						dto.serialNumber ?? null,
-						dto.instituteId ?? null,
+						dto.agencyId ?? null,
 						dto.purchaseDate ?? null,
 						dto.purchaseValue ?? null,
 						id,

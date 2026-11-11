@@ -45,7 +45,7 @@ Placeholder values below are illustrative only.
 ```
 Missions > SG-0042-Mission-14                              [ recovered ]
 
-Glider: SG-0042   Site: Norwegian Sea   Launch: 2026-02-14   Recovery: 2026-03-09
+Glider: SG-0042   Observatory: Norwegian Sea   Deployment: 2026-02-14   Retrieval: 2026-03-09
 
 Processing status
 +--------------------+--------+----------+------------+----------+----------+
@@ -65,7 +65,7 @@ External references
 
 Layout notes:
 - Mission header (breadcrumb, name, status badge) and a small metadata row
-  (glider, site, launch/recovery dates) sit above the processing table.
+  (glider, observatory, deployment/retrieval dates) sit above the processing table.
 - Processing status is a plain table, not a checklist widget — one row per
   stage, consistent columns.
 - External references render as a simple label/value list, with an explicit
