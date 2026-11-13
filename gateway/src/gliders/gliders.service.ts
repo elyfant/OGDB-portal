@@ -206,6 +206,20 @@ export class GlidersService {
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
+			// Can't prep a "next build" for a glider that's still out at sea on
+			// its current one -- the workshop's whole premise (copy the last
+			// flown build, let the tech edit it in the lab) doesn't hold while
+			// that build is still actually deployed.
+			const active = await client.query(
+				`SELECT m.id FROM missions m JOIN status s ON s.id = m.status_id
+         WHERE m.glider_asset_id = $1 AND s.name = 'active'`,
+				[gliderAssetId],
+			);
+			if (active.rows.length > 0) {
+				throw new ConflictException(
+					`${glider.name} is still active on mission ${active.rows[0].id} -- a workshop can't be started until it's recovered.`,
+				);
+			}
 			const existing = await client.query(
 				`SELECT m.id FROM missions m JOIN status s ON s.id = m.status_id
          WHERE m.glider_asset_id = $1 AND s.name = 'workshop'`,

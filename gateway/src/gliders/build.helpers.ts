@@ -703,9 +703,37 @@ async function fetchMissionsSummary(
 	return result.rows[0];
 }
 
-// The glider page: a read-only view of the last flown mission's build, plus
-// pointers to that mission and to the one being prepared. Builds are edited
-// on their mission, never here.
+// components + componentDetails + sciencePayload for one mission -- the
+// same trio getMissionBuild computes for a mission's own page, minus
+// warnings/recorded, plus the full componentDetails that page doesn't
+// need. Shared by getGliderBuild for both the historical (last flown)
+// and display (current) builds below; null missionId (glider has never
+// flown, or has no next mission) is an empty build, not an error.
+async function fetchDisplayBuild(
+	pool: Pool,
+	missionId: number | null,
+): Promise<{
+	components: GliderBuildComponent[];
+	componentDetails: GliderComponentDetail[];
+	sciencePayload: ScienceSensorRecord[];
+}> {
+	if (missionId === null) {
+		return { components: [], componentDetails: [], sciencePayload: [] };
+	}
+	const raw = await fetchMissionTree(pool, missionId);
+	const [components, componentDetails] = await Promise.all([
+		withModels(pool, raw),
+		fetchComponentDetails(pool, raw),
+	]);
+	const sciencePayload = await buildSciencePayload(pool, components, today());
+	return { components, componentDetails, sciencePayload };
+}
+
+// The glider page: a read-only view of the last flown mission's build (for
+// its Timeline/history), plus whatever's actually worth showing as the
+// "Current build" -- the workshop/scheduled mission's build while one's
+// being prepped, otherwise the same last flown build. Builds are edited on
+// their mission, never here.
 export async function getGliderBuild(
 	pool: Pool,
 	gliderAssetId: number,
@@ -714,40 +742,39 @@ export async function getGliderBuild(
 		fetchLastFlownMission(pool, gliderAssetId),
 		fetchNextMission(pool, gliderAssetId),
 	]);
-	const rawBuildTree = buildMission
-		? await fetchMissionTree(pool, buildMission.id)
-		: [];
-	const allAssetIds = [gliderAssetId, ...rawBuildTree.map((c) => c.assetId)];
+	const currentBuildMission = nextMission ?? buildMission;
 
-	const [
-		statusHistory,
-		buildTree,
-		componentDetails,
-		deployments,
-		missionsSummary,
-	] = await Promise.all([
+	const [lastFlown, currentDisplay] = await Promise.all([
+		fetchDisplayBuild(pool, buildMission?.id ?? null),
+		fetchDisplayBuild(pool, currentBuildMission?.id ?? null),
+	]);
+	const allAssetIds = [
+		gliderAssetId,
+		...lastFlown.components.map((c) => c.assetId),
+	];
+
+	const [statusHistory, deployments, missionsSummary] = await Promise.all([
 		fetchStatusHistory(pool, allAssetIds),
-		withModels(pool, rawBuildTree),
-		fetchComponentDetails(pool, rawBuildTree),
 		fetchDeployments(pool, gliderAssetId),
 		fetchMissionsSummary(pool, gliderAssetId),
 	]);
-	// Calibration as of today: this panel shows each sensor's current
-	// calibration, where a mission's own page shows the one at its deployment.
-	const sciencePayload = await buildSciencePayload(pool, buildTree, today());
 	const editHistory = await fetchEditHistory(
 		pool,
 		gliderAssetId,
-		buildTree,
+		lastFlown.components,
 		statusHistory,
 	);
 
 	return {
-		components: buildTree,
-		componentDetails,
-		sciencePayload,
+		components: lastFlown.components,
+		componentDetails: lastFlown.componentDetails,
+		sciencePayload: lastFlown.sciencePayload,
 		buildMission,
 		nextMission,
+		currentBuildMission,
+		currentBuildComponents: currentDisplay.components,
+		currentBuildComponentDetails: currentDisplay.componentDetails,
+		currentSciencePayload: currentDisplay.sciencePayload,
 		deployments,
 		missionsSummary,
 		statusHistory,

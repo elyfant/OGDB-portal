@@ -1,17 +1,14 @@
 "use client";
 
-import AddIcon from "@mui/icons-material/Add";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
-import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
 import Popover from "@mui/material/Popover";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
 import {
 	type DateRangeFilterValue,
@@ -34,54 +31,18 @@ export default function FilterBar<T>({
 	value: FilterState;
 	onChange: (next: FilterState) => void;
 }) {
-	const [activeKeys, setActiveKeys] = useState<string[]>(() =>
-		filters.filter((f) => isFilterActive(f, value[f.key])).map((f) => f.key),
-	);
+	// Every filter is always visible as a dropdown button; clicking one
+	// opens a popover anchored to it. Only one popover is open at a time.
 	const [openKey, setOpenKey] = useState<string | null>(null);
 	const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-	const [addAnchorEl, setAddAnchorEl] = useState<HTMLElement | null>(null);
-	const chipRefs = useRef<Record<string, HTMLElement | null>>({});
 
-	const activeDefs = filters.filter((f) => activeKeys.includes(f.key));
-	const inactiveDefs = filters.filter((f) => !activeKeys.includes(f.key));
 	const openDef = filters.find((f) => f.key === openKey);
+	const hasActiveFilters = filters.some((f) => isFilterActive(f, value[f.key]));
 
-	// Anchors the popover to the chip's own DOM node rather than whatever
-	// element was clicked — a newly-added chip doesn't exist yet at click
-	// time (it comes from a menu item that unmounts on selection). Refs
-	// commit before effects run, and openKey is only ever set to a key
-	// after activeKeys already includes it, so the ref is always populated
-	// by the time this runs.
-	useEffect(() => {
-		setAnchorEl(openKey ? (chipRefs.current[openKey] ?? null) : null);
-	}, [openKey]);
-
-	function openChip(key: string) {
-		setOpenKey(key);
-	}
-
-	function closePopover() {
-		setOpenKey(null);
-	}
-
-	function addFilter(def: FilterDef<T>) {
-		setActiveKeys((prev) => [...prev, def.key]);
-		setAddAnchorEl(null);
-		setOpenKey(def.key);
-	}
-
-	function removeFilter(key: string) {
-		setActiveKeys((prev) => prev.filter((k) => k !== key));
-		const next = { ...value };
-		delete next[key];
-		onChange(next);
-		if (openKey === key) closePopover();
-	}
-
-	function summarize(def: FilterDef<T>): string {
+	function summarize(def: FilterDef<T>): string | null {
+		if (!isFilterActive(def, value[def.key])) return null;
 		if (def.type === "multiSelect") {
-			const selected = (value[def.key] as MultiSelectFilterValue) ?? [];
-			if (selected.length === 0) return "any";
+			const selected = value[def.key] as MultiSelectFilterValue;
 			if (selected.length === 1) {
 				const options = filterOptions(def, rows);
 				return (
@@ -90,59 +51,53 @@ export default function FilterBar<T>({
 			}
 			return `${selected.length} selected`;
 		}
-		const range = (value[def.key] as DateRangeFilterValue) ?? {
-			from: "",
-			to: "",
-		};
-		if (!range.from && !range.to) return "any";
+		const range = value[def.key] as DateRangeFilterValue;
 		if (range.from && range.to) return `${range.from} – ${range.to}`;
 		return range.from ? `after ${range.from}` : `before ${range.to}`;
 	}
 
 	return (
 		<>
-			{activeDefs.map((def) => (
-				<Chip
-					key={def.key}
-					ref={(el) => {
-						chipRefs.current[def.key] = el;
-					}}
-					size="small"
-					variant="outlined"
-					label={`${def.label}: ${summarize(def)}`}
-					onClick={() => openChip(def.key)}
-					onDelete={() => removeFilter(def.key)}
-					sx={{ height: TOOLBAR_CONTROL_HEIGHT }}
-				/>
-			))}
+			{filters.map((def) => {
+				const summary = summarize(def);
+				const active = summary !== null;
+				return (
+					<Button
+						key={def.key}
+						size="small"
+						variant="outlined"
+						color={active ? "primary" : "inherit"}
+						endIcon={<ArrowDropDownIcon />}
+						onClick={(e) => {
+							setAnchorEl(e.currentTarget);
+							setOpenKey(def.key);
+						}}
+						sx={{
+							height: TOOLBAR_CONTROL_HEIGHT,
+							textTransform: "none",
+							fontWeight: active ? 600 : 400,
+						}}
+					>
+						{active ? `${def.label}: ${summary}` : def.label}
+					</Button>
+				);
+			})}
 
-			<Button
-				size="small"
-				variant="outlined"
-				sx={{ height: TOOLBAR_CONTROL_HEIGHT, borderStyle: "dashed" }}
-				startIcon={<AddIcon fontSize="small" />}
-				onClick={(e) => setAddAnchorEl(e.currentTarget)}
-				disabled={inactiveDefs.length === 0}
-			>
-				Add filter
-			</Button>
-			<Menu
-				anchorEl={addAnchorEl}
-				open={Boolean(addAnchorEl)}
-				onClose={() => setAddAnchorEl(null)}
-			>
-				{inactiveDefs.map((def) => (
-					<MenuItem key={def.key} onClick={() => addFilter(def)}>
-						{def.label}
-					</MenuItem>
-				))}
-			</Menu>
+			{hasActiveFilters && (
+				<Button
+					size="small"
+					sx={{ textTransform: "none", fontSize: 12, minWidth: 0 }}
+					onClick={() => onChange({})}
+				>
+					Clear filters
+				</Button>
+			)}
 
 			{openDef && (
 				<Popover
 					open
 					anchorEl={anchorEl}
-					onClose={closePopover}
+					onClose={() => setOpenKey(null)}
 					anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
 				>
 					<Box sx={{ p: 2, minWidth: 220 }}>

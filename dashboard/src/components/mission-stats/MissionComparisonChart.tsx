@@ -165,13 +165,13 @@ export default function MissionComparisonChart({
 							textAnchor="middle"
 							fill={theme.palette.text.secondary}
 						>
-							Mission ID
+							Mission number
 						</text>
 						{rows.map((m, i) => {
 							const v = values[i];
 							const x = LEFT + i * (barW + barGap);
 							const label =
-								m.stdMissionName ?? m.missionName ?? `Mission ${m.id}`;
+								m.stdMissionName ?? m.missionName ?? `Mission ${m.missionNumber ?? m.id}`;
 							const distance =
 								m.distanceKm != null ? `${Math.round(m.distanceKm)} km` : "—";
 
@@ -189,7 +189,7 @@ export default function MissionComparisonChart({
 												>
 													{label}
 												</Box>
-												Mission {m.id}
+												Mission {m.missionNumber ?? "—"}
 												<br />
 												{formatDate(m.deploymentDate)} →{" "}
 												{formatDate(m.retrievalDate)}
@@ -232,7 +232,7 @@ export default function MissionComparisonChart({
 											)}
 										</>
 									)}
-									{i % 5 === 0 && (
+									{i % 5 === 0 && m.missionNumber != null && (
 										<text
 											x={x + barW / 2}
 											y={TOP + PLOT_H + 12}
@@ -240,7 +240,7 @@ export default function MissionComparisonChart({
 											textAnchor="middle"
 											fill={theme.palette.text.disabled}
 										>
-											{m.id}
+											{m.missionNumber}
 										</text>
 									)}
 								</g>

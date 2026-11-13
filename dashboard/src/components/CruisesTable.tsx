@@ -1,10 +1,8 @@
 "use client";
 
-import Button from "@mui/material/Button";
 import type { Cruise } from "@ogdb/types";
 import { useMemo, useState } from "react";
 import { CRUISE_COLUMNS } from "../lib/cruise-columns";
-import { TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
 import {
 	type FilterDef,
 	type FilterState,
@@ -50,10 +48,6 @@ export default function CruisesTable({ cruises }: { cruises: Cruise[] }) {
 		[cruises, filters, filterState],
 	);
 
-	const hasActiveFilters = filters.some((f) =>
-		isFilterActive(f, filterState[f.key]),
-	);
-
 	return (
 		<DataTable<Cruise>
 			rows={filteredRows}
@@ -63,23 +57,12 @@ export default function CruisesTable({ cruises }: { cruises: Cruise[] }) {
 			defaultSort={{ key: "startDate", direction: "desc" }}
 			csvFileNameBase="cruises"
 			toolbarLeft={
-				<>
-					<FilterBar
-						rows={cruises}
-						filters={filters}
-						value={filterState}
-						onChange={setFilterState}
-					/>
-					{hasActiveFilters && (
-						<Button
-							size="small"
-							sx={{ height: TOOLBAR_CONTROL_HEIGHT }}
-							onClick={() => setFilterState({})}
-						>
-							Clear filters
-						</Button>
-					)}
-				</>
+				<FilterBar
+					rows={cruises}
+					filters={filters}
+					value={filterState}
+					onChange={setFilterState}
+				/>
 			}
 		/>
 	);

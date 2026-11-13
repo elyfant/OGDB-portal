@@ -80,9 +80,11 @@ export default async function GliderDetailPage({
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
 	// Full calibration history per sensor, for the Current build's science
-	// rows to expand into.
+	// rows to expand into -- sourced from currentBuildComponentDetails (the
+	// workshop build while one's in progress, otherwise the last flown
+	// build), matching whatever BuildPanel is actually showing below.
 	const calibrationHistory: Record<number, SensorCalRecord[]> = {};
-	for (const d of build.componentDetails) {
+	for (const d of build.currentBuildComponentDetails) {
 		if (d.calibrations) calibrationHistory[d.assetId] = d.calibrations;
 	}
 
@@ -273,9 +275,30 @@ export default async function GliderDetailPage({
 							}}
 						>
 							<Box>
-								<Typography variant="h6">Last flown build</Typography>
+								<Typography variant="h6">
+									{build.nextMission
+										? "Current build: In progress workshop build"
+										: "Current build: Last flown build"}
+								</Typography>
 								<Typography variant="caption" color="text.secondary">
-									{build.buildMission ? (
+									{build.nextMission ? (
+										<>
+											{build.nextMission.status === "workshop" ? (
+												"Being prepared in the workshop"
+											) : (
+												<>
+													Being prepared for{" "}
+													<MuiLink
+														component={Link}
+														href={`/missions/${build.nextMission.id}`}
+													>
+														{missionLabel(build.nextMission)}
+													</MuiLink>
+												</>
+											)}
+											. Read-only -- a build is edited on its mission.
+										</>
+									) : build.buildMission ? (
 										<>
 											As recorded for{" "}
 											<MuiLink
@@ -300,9 +323,16 @@ export default async function GliderDetailPage({
 									startIcon={<BuildIcon fontSize="small" />}
 								>
 									{build.nextMission.status === "workshop"
-										? "Next mission in workshop"
-										: `Next mission: ${missionLabel(build.nextMission)}`}
+										? "Edit workshop build"
+										: `Edit build for ${missionLabel(build.nextMission)}`}
 								</Button>
+							) : build.buildMission?.status === "active" ? (
+								// Mirrors the gateway's own guard (GlidersService.createWorkshop)
+								// -- still out at sea, so there's no "last flown build" to copy
+								// into a workshop yet.
+								<Typography variant="caption" color="text.secondary">
+									Workshop unavailable while {glider.name} is active
+								</Typography>
 							) : (
 								canEdit && <StartWorkshopButton gliderId={glider.id} />
 							)}
@@ -310,17 +340,19 @@ export default async function GliderDetailPage({
 						<Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
 							<BuildPanel
 								mode="current"
-								components={build.components}
-								sensors={build.sciencePayload}
+								components={build.currentBuildComponents}
+								sensors={build.currentSciencePayload}
 								asOfDate={new Date().toISOString()}
 								platform={glider.platform}
 								platformModel={glider.platformModel}
-								componentDetails={build.componentDetails}
+								componentDetails={build.currentBuildComponentDetails}
 								calibrationHistory={calibrationHistory}
 								emptyMessage={
-									build.buildMission
-										? `No build is recorded for ${missionLabel(build.buildMission)} yet.`
-										: "This glider has not flown with a recorded build. Start a workshop to prepare one."
+									build.nextMission
+										? "No components recorded in the workshop build yet."
+										: build.buildMission
+											? `No build is recorded for ${missionLabel(build.buildMission)} yet.`
+											: "This glider has not flown with a recorded build. Start a workshop to prepare one."
 								}
 							/>
 						</Paper>

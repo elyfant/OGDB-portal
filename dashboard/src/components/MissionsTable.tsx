@@ -1,7 +1,6 @@
 "use client";
 
 import EditIcon from "@mui/icons-material/Edit";
-import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
 import Tooltip from "@mui/material/Tooltip";
@@ -9,7 +8,6 @@ import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
 import type { Cruise, Glider, LookupOption, Mission } from "@ogdb/types";
 import { useMemo, useState } from "react";
-import { TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
 import { MISSION_COLUMNS } from "../lib/mission-columns";
 import { buildMissionFilters } from "../lib/mission-filters";
 import { oceanOpsPlatformUrl } from "../lib/oceanops";
@@ -100,10 +98,6 @@ export default function MissionsTable({
 		[missions, missionFilters, filterState],
 	);
 
-	const hasActiveFilters = missionFilters.some((f) =>
-		isFilterActive(f, filterState[f.key]),
-	);
-
 	return (
 		<>
 			<DataTable<Mission>
@@ -133,23 +127,12 @@ export default function MissionsTable({
 						: undefined
 				}
 				toolbarLeft={
-					<>
-						<FilterBar
-							rows={missions}
-							filters={missionFilters}
-							value={filterState}
-							onChange={setFilterState}
-						/>
-						{hasActiveFilters && (
-							<Button
-								size="small"
-								sx={{ height: TOOLBAR_CONTROL_HEIGHT }}
-								onClick={() => setFilterState({})}
-							>
-								Clear filters
-							</Button>
-						)}
-					</>
+					<FilterBar
+						rows={missions}
+						filters={missionFilters}
+						value={filterState}
+						onChange={setFilterState}
+					/>
 				}
 				toolbarRight={
 					<Typography variant="body2" color="text.secondary">

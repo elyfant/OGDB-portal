@@ -68,7 +68,17 @@ export default function MissionStatsCharts({
 	}, [missions, gliderColors]);
 
 	return (
-		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+		<Box
+			sx={{
+				display: "flex",
+				flexDirection: "column",
+				gap: 2,
+				// Full width on small/medium screens; cap at 75% on large (lg)
+				// and very large (xl) screens so plots don't stretch absurdly.
+				width: { xs: "100%", lg: "75%" },
+				mx: "auto",
+			}}
+		>
 			<ChartCard
 				title="Deployment timeline"
 				description="One row per group, ranked by total days in the water — switch what it's grouped by, or click a row to isolate it. Hover a bar for the mission."

@@ -1279,6 +1279,17 @@ export interface GliderBuild {
 	// The mission being prepared for this glider: its workshop, or else its
 	// earliest scheduled mission. null when nothing is planned.
 	nextMission: BuildMissionRef | null;
+	// What the glider page's "Current build" panel actually displays:
+	// nextMission's build while one is being prepped (workshop/scheduled),
+	// otherwise the same as buildMission/components/componentDetails/
+	// sciencePayload above. Kept separate from those three -- which stay
+	// pinned to the last flown build for the Timeline tab's history and
+	// edit log -- so a build still being drafted in the workshop doesn't
+	// change what the glider's history says it actually flew with.
+	currentBuildMission: BuildMissionRef | null;
+	currentBuildComponents: GliderBuildComponent[];
+	currentBuildComponentDetails: GliderComponentDetail[];
+	currentSciencePayload: ScienceSensorRecord[];
 	deployments: GliderDeployment[];
 	// Same shape as the fleet-wide MissionsSummary, scoped to this glider's
 	// own missions — reused rather than a new type since the fields match

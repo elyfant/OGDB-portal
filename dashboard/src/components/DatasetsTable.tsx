@@ -2,11 +2,10 @@
 
 import CancelIcon from "@mui/icons-material/Cancel";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import type { DatasetProcessingStatus } from "@ogdb/types";
 import { useMemo, useState } from "react";
-import { type ColumnDef, TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
+import type { ColumnDef } from "../lib/data-table";
 import {
 	type FilterDef,
 	type FilterState,
@@ -121,23 +120,12 @@ export default function DatasetsTable({
 			defaultSort={{ key: "missionNumber", direction: "desc" }}
 			csvFileNameBase="datasets"
 			toolbarLeft={
-				<>
-					<FilterBar
-						rows={datasets}
-						filters={filters}
-						value={filterState}
-						onChange={setFilterState}
-					/>
-					{hasActiveFilters && (
-						<Button
-							size="small"
-							sx={{ height: TOOLBAR_CONTROL_HEIGHT }}
-							onClick={() => setFilterState({})}
-						>
-							Clear filters
-						</Button>
-					)}
-				</>
+				<FilterBar
+					rows={datasets}
+					filters={filters}
+					value={filterState}
+					onChange={setFilterState}
+				/>
 			}
 			toolbarRight={
 				hasActiveFilters ? (

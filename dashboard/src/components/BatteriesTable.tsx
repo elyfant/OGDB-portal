@@ -3,12 +3,11 @@
 import StatusEditor from "@/components/StatusEditor";
 import { formatMoney } from "@/lib/format";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import type { AssetStatusOption, Battery } from "@ogdb/types";
 import { useMemo, useState } from "react";
-import { type ColumnDef, TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
+import type { ColumnDef } from "../lib/data-table";
 import { STATUS_LABEL } from "../lib/status-meta";
 import {
 	type FilterDef,
@@ -155,10 +154,6 @@ export default function BatteriesTable({
 		[visibleBatteries, filters, filterState],
 	);
 
-	const hasActiveFilters = filters.some((f) =>
-		isFilterActive(f, filterState[f.key]),
-	);
-
 	return (
 		<DataTable<Battery>
 			rows={filteredRows}
@@ -168,23 +163,12 @@ export default function BatteriesTable({
 			defaultSort={{ key: "serialNumber", direction: "asc" }}
 			csvFileNameBase="batteries"
 			toolbarLeft={
-				<>
-					<FilterBar
-						rows={batteries}
-						filters={filters}
-						value={filterState}
-						onChange={setFilterState}
-					/>
-					{hasActiveFilters && (
-						<Button
-							size="small"
-							sx={{ height: TOOLBAR_CONTROL_HEIGHT }}
-							onClick={() => setFilterState({})}
-						>
-							Clear filters
-						</Button>
-					)}
-				</>
+				<FilterBar
+					rows={batteries}
+					filters={filters}
+					value={filterState}
+					onChange={setFilterState}
+				/>
 			}
 			toolbarRight={
 				<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
