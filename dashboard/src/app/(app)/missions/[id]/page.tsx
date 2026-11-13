@@ -301,7 +301,7 @@ export default async function MissionDetailPage({
 						value={externalLink(mission.piFullName, mission.piWebpage)}
 					/>
 					<Field
-						label="Lead engineer"
+						label="Operations manager"
 						value={externalLink(
 							mission.operationsManagerFullName,
 							mission.operationsManagerWebpage,
