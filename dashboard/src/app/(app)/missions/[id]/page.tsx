@@ -34,6 +34,7 @@ import {
 	formatDate,
 	statusColor,
 } from "@/lib/format";
+import { oceanOpsPlatformUrl } from "@/lib/oceanops";
 import DatasetIcon from "@mui/icons-material/Dataset";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -309,7 +310,13 @@ export default async function MissionDetailPage({
 					/>
 					<Field label="Operating agency" value={mission.operatingAgency} />
 					<Field label="Funding agency" value={mission.fundingAgency} />
-					<Field label="Passport ID" value={mission.wigosId} />
+					<Field
+						label="Passport ID"
+						value={externalLink(
+							mission.wigosId,
+							oceanOpsPlatformUrl(mission.wigosId),
+						)}
+					/>
 				</Box>
 			</Paper>
 
