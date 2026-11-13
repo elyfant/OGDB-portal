@@ -16,6 +16,7 @@ const SELECT_CRUISES = `
     c.cruise_number AS "cruiseNumber",
     v.name AS vessel,
     v.url AS "vesselUrl",
+    v.imo_number AS "vesselImoNumber",
     i.name AS agency,
     c.cruise_leader AS "cruiseLeader",
     c.area,

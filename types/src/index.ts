@@ -1294,6 +1294,8 @@ export interface Cruise {
 	cruiseNumber: string | null;
 	vessel: string | null;
 	vesselUrl: string | null;
+	/** IMO ship number: seven digits, permanent for the hull. Null for small boats that have none. */
+	vesselImoNumber: string | null;
 	agency: string | null;
 	// Plain text in the DB, not linked to contacts like missions' PI/operations manager
 	// are — surfaced as-is. Deliberately not called "pi": a cruise leader

@@ -62,6 +62,7 @@ export default async function CruiseDetailPage({
 							)
 						}
 					/>
+					<Field label="Vessel IMO number" value={cruise.vesselImoNumber} />
 					<Field label="Agency" value={cruise.agency} />
 					<Field label="Cruise leader" value={cruise.cruiseLeader} />
 					<Field label="Area" value={cruise.area} />
