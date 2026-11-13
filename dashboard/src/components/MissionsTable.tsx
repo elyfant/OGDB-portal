@@ -3,6 +3,7 @@
 import EditIcon from "@mui/icons-material/Edit";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import MuiLink from "@mui/material/Link";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
@@ -11,6 +12,7 @@ import { useMemo, useState } from "react";
 import { TOOLBAR_CONTROL_HEIGHT } from "../lib/data-table";
 import { MISSION_COLUMNS } from "../lib/mission-columns";
 import { buildMissionFilters } from "../lib/mission-filters";
+import { oceanOpsPlatformUrl } from "../lib/oceanops";
 import {
 	type FilterState,
 	applyFilters,
@@ -52,6 +54,36 @@ export default function MissionsTable({
 	const [filterState, setFilterState] = useState<FilterState>({});
 	const [editingMission, setEditingMission] = useState<Mission | null>(null);
 
+	// The Passport ID cell links out to the mission's OceanOPS page. The
+	// whole row is itself a link to the mission, so the click is stopped
+	// from reaching it. Sorting and CSV export still use the raw ID.
+	const columns = useMemo(
+		() =>
+			MISSION_COLUMNS.map((col) =>
+				col.key === "wigosId"
+					? {
+							...col,
+							renderCell: (m: Mission) => {
+								const url = oceanOpsPlatformUrl(m.wigosId);
+								if (!m.wigosId) return "—";
+								if (!url) return m.wigosId;
+								return (
+									<MuiLink
+										href={url}
+										target="_blank"
+										rel="noreferrer"
+										onClick={(e) => e.stopPropagation()}
+									>
+										{m.wigosId}
+									</MuiLink>
+								);
+							},
+						}
+					: col,
+			),
+		[],
+	);
+
 	const missionFilters = useMemo(
 		() =>
 			buildMissionFilters({
@@ -76,7 +108,7 @@ export default function MissionsTable({
 		<>
 			<DataTable<Mission>
 				rows={filteredRows}
-				columns={MISSION_COLUMNS}
+				columns={columns}
 				getRowId={(m) => m.id}
 				getRowHref={(m) => `/missions/${m.id}`}
 				rowSx={(m) => rowSx(m.status)}
