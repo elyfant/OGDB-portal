@@ -81,6 +81,7 @@ const SELECT_MISSIONS = `
     (SELECT p.url FROM missions m JOIN projects p ON p.id = m.project_id WHERE m.id = norglider_missions.id) AS "projectUrl",
     (SELECT operating_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "operatingAgencyId",
     (SELECT funding_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "fundingAgencyId",
+    (SELECT wigos_id FROM missions WHERE missions.id = norglider_missions.id) AS "wigosId",
     mission_number AS "missionNumber",
     mission_name AS "missionName",
     std_mission_name AS "stdMissionName",
@@ -480,14 +481,14 @@ export class MissionsService {
            deployment_date, deployment_latitude, deployment_longitude, deployment_cruise_id,
            end_date_science, retrieval_date, retrieval_latitude, retrieval_longitude, retrieval_cruise_id,
            volume, weight_in_air, density, dives, distance_km, iridium_minutes,
-           changed_by
+           changed_by, wigos_id
          ) VALUES (
            $1, $2, $3, $4, $5, $6,
            $7, $8, $9, $10,
            $11, $12, $13, $14,
            $15, $16, $17, $18, $19,
            $20, $21, $22, $23, $24, $25,
-           $26
+           $26, $27
          ) RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
 					missionNumber,
@@ -516,6 +517,7 @@ export class MissionsService {
 					dto.distanceKm ?? null,
 					dto.iridiumMinutes ?? null,
 					userId,
+					dto.wigosId ?? null,
 				],
 			);
 			const created: CreatedMission = inserted.rows[0];
@@ -626,7 +628,8 @@ export class MissionsService {
            volume = $18, weight_in_air = $19, density = $20, dives = $21, distance_km = $22,
            iridium_minutes = $23, changed_by = $24, updated_at = now(),
            mission_number = COALESCE(mission_number, $26::integer),
-           mission_name = COALESCE($27::text, mission_name)
+           mission_name = COALESCE($27::text, mission_name),
+           wigos_id = $28
          WHERE id = $25
          RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
@@ -657,6 +660,7 @@ export class MissionsService {
 					id,
 					assignedNumber,
 					newName,
+					dto.wigosId ?? null,
 				],
 			);
 			const result: CreatedMission = updated.rows[0];
@@ -799,6 +803,13 @@ function mapMissionDbError(err: unknown): Error {
 		"code" in err &&
 		(err as { code: string }).code === "23505"
 	) {
+		if (
+			(err as { constraint?: string }).constraint === "uq_missions_wigos_id"
+		) {
+			return new ConflictException(
+				"Another mission already has that Passport ID.",
+			);
+		}
 		return new ConflictException(
 			"A mission with that name or number already exists.",
 		);

@@ -9,6 +9,14 @@ export const MISSION_COLUMNS: ColumnDef<Mission>[] = [
 		defaultVisible: true,
 	},
 	{
+		key: "wigosId",
+		label: "Passport ID",
+		headerInfo:
+			"OceanOPS Passport ID: the mission's WIGOS Station Identifier (WSI). Empty until the mission is registered with OceanOPS.",
+		kind: "string",
+		defaultVisible: true,
+	},
+	{
 		key: "missionName",
 		label: "Mission name",
 		kind: "string",

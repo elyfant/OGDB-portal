@@ -63,6 +63,7 @@ interface FormState {
 	dives: string;
 	distanceKm: string;
 	iridiumMinutes: string;
+	wigosId: string;
 }
 
 function emptyForm(): FormState {
@@ -91,6 +92,7 @@ function emptyForm(): FormState {
 		dives: "",
 		distanceKm: "",
 		iridiumMinutes: "",
+		wigosId: "",
 	};
 }
 
@@ -125,6 +127,7 @@ function formFromMission(m: Mission): FormState {
 		dives: m.dives?.toString() ?? "",
 		distanceKm: m.distanceKm?.toString() ?? "",
 		iridiumMinutes: m.iridiumMinutes?.toString() ?? "",
+		wigosId: m.wigosId ?? "",
 	};
 }
 
@@ -249,6 +252,8 @@ export default function MissionFormDialog({
 			dives: source.dives?.toString() ?? "",
 			distanceKm: source.distanceKm?.toString() ?? "",
 			iridiumMinutes: source.iridiumMinutes?.toString() ?? "",
+			// A Passport ID is issued per mission -- never copied.
+			wigosId: "",
 			// L1/L2 dataset pointers belong to the source mission's data --
 			// nothing to carry over to a mission that hasn't happened yet.
 		}));
@@ -340,6 +345,7 @@ export default function MissionFormDialog({
 				dives: toNumberOrNull(form.dives),
 				distanceKm: toNumberOrNull(form.distanceKm),
 				iridiumMinutes: toNumberOrNull(form.iridiumMinutes),
+				wigosId: form.wigosId.trim() || null,
 			};
 			const result =
 				mode === "edit" && mission
@@ -546,6 +552,17 @@ export default function MissionFormDialog({
 									options={agencies}
 									onChange={(v) =>
 										setForm((s) => ({ ...s, fundingAgencyId: v }))
+									}
+								/>
+							</Field>
+							<Field label="Passport ID">
+								<TextField
+									size="small"
+									fullWidth
+									placeholder="0-22000-0-6801623"
+									value={form.wigosId}
+									onChange={(e) =>
+										setForm((s) => ({ ...s, wigosId: e.target.value }))
 									}
 								/>
 							</Field>

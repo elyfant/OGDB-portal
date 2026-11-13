@@ -309,6 +309,7 @@ export default async function MissionDetailPage({
 					/>
 					<Field label="Operating agency" value={mission.operatingAgency} />
 					<Field label="Funding agency" value={mission.fundingAgency} />
+					<Field label="Passport ID" value={mission.wigosId} />
 				</Box>
 			</Paper>
 

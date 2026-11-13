@@ -4,6 +4,7 @@ import {
 	IsNumber,
 	IsOptional,
 	IsString,
+	Matches,
 } from "class-validator";
 
 // L1/L2 NetCDF files are deliberately not fields here either: they live on
@@ -116,4 +117,16 @@ export class CreateMissionDto {
 	@IsOptional()
 	@IsInt()
 	iridiumMinutes?: number | null;
+
+	// OceanOPS Passport ID = WIGOS Station Identifier, e.g.
+	// 0-22000-3-6801623. Same shape as the ck_missions_wigos_id_format
+	// check on missions.wigos_id, so a typo gets a readable 400 here
+	// instead of a database error.
+	@IsOptional()
+	@IsString()
+	@Matches(/^[0-9]-[0-9]{1,5}-[0-9]{1,5}-[A-Za-z0-9]{1,16}$/, {
+		message:
+			"Passport ID must look like 0-22000-3-6801623 (four blocks separated by hyphens).",
+	})
+	wigosId?: string | null;
 }

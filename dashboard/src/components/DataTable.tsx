@@ -1,6 +1,7 @@
 "use client";
 
 import DownloadIcon from "@mui/icons-material/Download";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -15,6 +16,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
+import Tooltip from "@mui/material/Tooltip";
 import { alpha } from "@mui/material/styles";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { type ReactNode, useMemo, useState } from "react";
@@ -175,6 +177,24 @@ export default function DataTable<T>({
 									>
 										{col.label}
 									</TableSortLabel>
+									{col.headerInfo && (
+										<Tooltip title={col.headerInfo} placement="top">
+											<HelpOutlineIcon
+												tabIndex={0}
+												aria-label={`About the ${col.label} column`}
+												sx={{
+													fontSize: 15,
+													ml: 0.5,
+													verticalAlign: "middle",
+													color: "text.disabled",
+													cursor: "help",
+													"&:hover, &:focus-visible": {
+														color: "text.secondary",
+													},
+												}}
+											/>
+										</Tooltip>
+									)}
 								</TableCell>
 							))}
 							{renderRowActions && (

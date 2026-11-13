@@ -52,7 +52,18 @@ export default function GlidersTable({
 				kind: "string",
 				defaultVisible: true,
 			},
-			{ key: "wmo", label: "WMO", kind: "string", defaultVisible: true },
+			{
+				key: "wmo",
+				label: "WMO",
+				headerInfo: (
+					<>
+						Referred to as <em>WMO id</em> in OG1 terminology, and{" "}
+						<em>GTS id</em> in OceanOPS's API
+					</>
+				),
+				kind: "string",
+				defaultVisible: true,
+			},
 			{
 				key: "platform",
 				label: "Platform",

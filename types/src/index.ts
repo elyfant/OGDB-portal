@@ -622,6 +622,9 @@ export interface Mission {
 	operatingAgencyId: number | null;
 	fundingAgency: string | null;
 	fundingAgencyId: number | null;
+	// OceanOPS Passport ID (a WIGOS Station Identifier, e.g.
+	// 0-22000-3-6801623). Null until the mission is registered.
+	wigosId: string | null;
 	deploymentCruiseId: number | null;
 	retrievalCruiseId: number | null;
 	volume: number | null;
@@ -751,6 +754,7 @@ export interface CreateMissionInput {
 	dives?: number | null;
 	distanceKm?: number | null;
 	iridiumMinutes?: number | null;
+	wigosId?: string | null;
 }
 
 export interface CreatedMission {

@@ -10,6 +10,8 @@ export type ColumnKind = "string" | "number" | "date" | "boolean";
 export interface ColumnDef<T> {
 	key: Extract<keyof T, string>;
 	label: string;
+	/** Explanatory note for the column header, shown when hovering a "?" marker beside the label. Not a link -- NVS term links use NvsLink's "i" marker instead. */
+	headerInfo?: ReactNode;
 	kind: ColumnKind;
 	defaultVisible: boolean;
 	align?: "right" | "center";
