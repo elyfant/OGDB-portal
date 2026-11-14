@@ -1,6 +1,11 @@
+import ChampionshipBoard from "@/components/ChampionshipBoard";
 import StatTile from "@/components/StatTile";
 import MissionStatsCharts from "@/components/mission-stats/MissionStatsCharts";
-import { getMissions, getMissionsSummary } from "@/lib/api";
+import {
+	getMissions,
+	getMissionsLeaderboard,
+	getMissionsSummary,
+} from "@/lib/api";
 import ExploreIcon from "@mui/icons-material/Explore";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import StraightenIcon from "@mui/icons-material/Straighten";
@@ -13,9 +18,10 @@ function formatCount(value: number) {
 }
 
 export default async function MissionStatsPage() {
-	const [missions, summary] = await Promise.all([
+	const [missions, summary, leaderboard] = await Promise.all([
 		getMissions(),
 		getMissionsSummary(),
+		getMissionsLeaderboard(),
 	]);
 
 	return (
@@ -57,6 +63,12 @@ export default async function MissionStatsPage() {
 					href="/missions"
 					tooltip="Go to missions"
 				/>
+			</Box>
+
+			{/* Same width rule as the plots below (MissionStatsCharts) so the
+			    board lines up with them. */}
+			<Box sx={{ width: { xs: "100%", lg: "75%" }, mx: "auto", mb: 4 }}>
+				<ChampionshipBoard leaderboard={leaderboard} />
 			</Box>
 
 			<MissionStatsCharts missions={missions} />
