@@ -49,6 +49,7 @@ import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import type { Cruise } from "@ogdb/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -76,6 +77,27 @@ function externalLink(name: string | null, webpage: string | null) {
 		<MuiLink href={href} target="_blank" rel="noreferrer">
 			{name}
 		</MuiLink>
+	);
+}
+
+// Cruise (by name, linked to its page) and the vessel that sailed it, for
+// the Deployment / Retrieval boxes. Both come from the cruise record, so
+// picking a cruise is all it takes for the vessel to show.
+function CruiseVesselFields({ cruise }: { cruise: Cruise | undefined }) {
+	return (
+		<>
+			<Field
+				label="Cruise"
+				value={
+					cruise ? (
+						<MuiLink component={Link} href={`/cruises/${cruise.id}`}>
+							{cruise.cruiseName}
+						</MuiLink>
+					) : null
+				}
+			/>
+			<Field label="Vessel" value={cruise?.vessel ?? null} />
+		</>
 	);
 }
 
@@ -124,6 +146,8 @@ export default async function MissionDetailPage({
 		getCruises(),
 		getIridiumMission(mission.id),
 	]);
+
+	const cruiseById = new Map(cruises.map((c) => [c.id, c]));
 
 	const name =
 		mission.stdMissionName ?? mission.missionName ?? `Mission ${mission.id}`;
@@ -379,15 +403,9 @@ export default async function MissionDetailPage({
 										mission.deploymentLongitude,
 									)}
 								/>
-								<Field
-									label="Cruise"
-									value={
-										mission.deploymentCruiseId
-											? `Cruise #${mission.deploymentCruiseId}`
-											: null
-									}
+								<CruiseVesselFields
+									cruise={cruiseById.get(mission.deploymentCruiseId ?? -1)}
 								/>
-								<Field label="Vessel" value={null} />
 							</Box>
 							<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 								<Typography
@@ -405,15 +423,9 @@ export default async function MissionDetailPage({
 										mission.retrievalLongitude,
 									)}
 								/>
-								<Field
-									label="Cruise"
-									value={
-										mission.retrievalCruiseId
-											? `Cruise #${mission.retrievalCruiseId}`
-											: null
-									}
+								<CruiseVesselFields
+									cruise={cruiseById.get(mission.retrievalCruiseId ?? -1)}
 								/>
-								<Field label="Vessel" value={null} />
 							</Box>
 						</Box>
 					</Paper>
