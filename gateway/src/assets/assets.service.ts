@@ -12,6 +12,7 @@ import type {
 	AssetDetails,
 	AssetSearchResult,
 	AssetStatusHistoryEntry,
+	AssetWear,
 	Battery,
 	BatteryDetail,
 } from "@ogdb/types";
@@ -390,6 +391,37 @@ export class AssetsService {
 				userId,
 			],
 		);
+	}
+
+	// Wear counters (asset_wear_counters). One asset: null when its type or
+	// platform isn't tracked. No id: every tracked asset.
+	private readonly WEAR_SELECT = `
+    SELECT w.asset_id AS "assetId", t.name AS "assetType",
+           a.serial_number AS "serialNumber",
+           agd.glider_name AS "gliderName",
+           to_char(w.last_servicing_date, 'YYYY-MM-DD') AS "lastServicingDate",
+           w.last_servicing_event_type AS "lastServicingEventType",
+           w.days_since_servicing AS "daysSinceServicing",
+           w.days_in_water_since_servicing AS "daysInWaterSinceServicing",
+           w.never_serviced AS "neverServiced",
+           to_char(a.decommissioned_date, 'YYYY-MM-DD') AS "decommissionedDate"
+    FROM asset_wear_counters w
+    JOIN assets a ON a.id = w.asset_id
+    JOIN asset_types t ON t.id = a.asset_type_id
+    LEFT JOIN asset_glider_details agd ON agd.asset_id = a.id`;
+
+	async getAllWear(): Promise<AssetWear[]> {
+		const result = await this.pool.query(this.WEAR_SELECT);
+		return result.rows;
+	}
+
+	async getWear(id: number): Promise<AssetWear | null> {
+		await this.findOne(id);
+		const result = await this.pool.query(
+			`${this.WEAR_SELECT} WHERE w.asset_id = $1`,
+			[id],
+		);
+		return result.rows[0] ?? null;
 	}
 
 	// Read-only: every column of the asset's per-type detail table, as-is.

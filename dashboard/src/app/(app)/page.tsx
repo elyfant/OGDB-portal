@@ -1,13 +1,14 @@
 import ClickableTableRow from "@/components/ClickableTableRow";
 import PlatformIcon from "@/components/PlatformIcon";
 import {
+	getAllAssetWear,
 	getAssetRmas,
 	getGliders,
 	getMissions,
 	getRmas,
 	getServicingEvents,
 } from "@/lib/api";
-import { formatDate, statusColor } from "@/lib/format";
+import { formatAssetType, formatDate, statusColor } from "@/lib/format";
 import { formatRmaStage } from "@/lib/rma-columns";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import {
@@ -114,11 +115,18 @@ function lastEventFor(
 }
 
 export default async function HomePage() {
-	const [gliders, missions, allRmas] = await Promise.all([
+	const [gliders, missions, allRmas, allWear] = await Promise.all([
 		getGliders(),
 		getMissions(),
 		getRmas(),
+		getAllAssetWear(),
 	]);
+	// Tracked, still-in-service assets with the most water-days since they were
+	// last serviced or calibrated.
+	const wearWatch = allWear
+		.filter((w) => !w.decommissionedDate)
+		.sort((a, b) => b.daysInWaterSinceServicing - a.daysInWaterSinceServicing)
+		.slice(0, 10);
 	const openRmas = allRmas
 		.filter((r) => r.open)
 		.sort((a, b) => b.openedDate.localeCompare(a.openedDate));
@@ -470,6 +478,71 @@ export default async function HomePage() {
 												/>
 											</TableCell>
 											<TableCell>{r.assetSerials.join(", ") || "—"}</TableCell>
+										</ClickableTableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					)}
+				</Box>
+
+				{/* Section 5 -- wear watch */}
+				<Box>
+					<SectionHeading
+						title="Wear watch"
+						subtitle="Assets with the most days in the water since their last factory repair or calibration."
+					/>
+					{wearWatch.length === 0 ? (
+						<EmptyNote>No wear-tracked assets.</EmptyNote>
+					) : (
+						<TableContainer component={Paper} variant="outlined">
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Asset</TableCell>
+										<TableCell>Serial number</TableCell>
+										<TableCell align="right">Days in water</TableCell>
+										<TableCell align="right">Days since service</TableCell>
+										<TableCell>Last servicing</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{wearWatch.map((w) => (
+										<ClickableTableRow
+											key={w.assetId}
+											href={
+												w.gliderName
+													? `/gliders/${w.assetId}`
+													: `/assets/${w.assetId}`
+											}
+										>
+											<TableCell>
+												{w.gliderName ? (
+													<Typography
+														variant="body2"
+														sx={{
+															textTransform: "capitalize",
+															fontWeight: 600,
+														}}
+													>
+														{w.gliderName}
+													</Typography>
+												) : (
+													formatAssetType(w.assetType)
+												)}
+											</TableCell>
+											<TableCell>{w.serialNumber ?? "—"}</TableCell>
+											<TableCell align="right">
+												{w.daysInWaterSinceServicing}
+											</TableCell>
+											<TableCell align="right">
+												{w.daysSinceServicing ?? "—"}
+											</TableCell>
+											<TableCell>
+												{w.neverServiced
+													? "Never serviced"
+													: `${formatDate(w.lastServicingDate)} (${formatAssetType(w.lastServicingEventType ?? "servicing")})`}
+											</TableCell>
 										</ClickableTableRow>
 									))}
 								</TableBody>

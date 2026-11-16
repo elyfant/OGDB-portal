@@ -2,6 +2,7 @@
 
 import GliderComponentDetailPanel from "@/components/GliderComponentDetailPanel";
 import NvsLink from "@/components/NvsLink";
+import { WearCells, WearHeadCells } from "@/components/WearCells";
 import { formatAssetType } from "@/lib/format";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import Box from "@mui/material/Box";
@@ -14,7 +15,11 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import type { GliderBuildComponent, GliderComponentDetail } from "@ogdb/types";
+import type {
+	AssetWear,
+	GliderBuildComponent,
+	GliderComponentDetail,
+} from "@ogdb/types";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 
@@ -45,16 +50,22 @@ function displayGroup(c: GliderBuildComponent): string {
 // <Table> (for the section heading above it), so without an explicit,
 // shared column layout each one auto-sizes independently.
 const COLUMN_WIDTHS = ["40%", "35%", "25%"];
+// With the wear columns added.
+const COLUMN_WIDTHS_WEAR = ["28%", "24%", "16%", "16%", "16%"];
 
 export default function GliderCurrentBuild({
 	components,
 	componentDetails = [],
+	wear,
 }: {
 	components: GliderBuildComponent[];
 	// Rows with a detail record expand to show it; without any (a mission's
 	// build as of deployment has none loaded) the rows are plain.
 	componentDetails?: GliderComponentDetail[];
+	// Wear counters by assetId; when given, two extra columns are shown.
+	wear?: Record<number, AssetWear>;
 }) {
+	const widths = wear ? COLUMN_WIDTHS_WEAR : COLUMN_WIDTHS;
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
 	const typeByAssetId = new Map(
@@ -93,11 +104,10 @@ export default function GliderCurrentBuild({
 					<Table size="small" sx={{ tableLayout: "fixed" }}>
 						<TableHead>
 							<TableRow>
-								<TableCell sx={{ width: COLUMN_WIDTHS[0] }}>Asset</TableCell>
-								<TableCell sx={{ width: COLUMN_WIDTHS[1] }}>Model</TableCell>
-								<TableCell sx={{ width: COLUMN_WIDTHS[2] }}>
-									Serial number
-								</TableCell>
+								<TableCell sx={{ width: widths[0] }}>Asset</TableCell>
+								<TableCell sx={{ width: widths[1] }}>Model</TableCell>
+								<TableCell sx={{ width: widths[2] }}>Serial number</TableCell>
+								{wear && <WearHeadCells widths={[widths[3], widths[4]]} />}
 							</TableRow>
 						</TableHead>
 						<TableBody>
@@ -183,11 +193,12 @@ export default function GliderCurrentBuild({
 													"—"
 												)}
 											</TableCell>
+											{wear && <WearCells wear={wear[c.assetId]} />}
 										</TableRow>
 										{detail && (
 											<TableRow>
 												<TableCell
-													colSpan={3}
+													colSpan={widths.length}
 													sx={{
 														py: 0,
 														borderBottom: isOpen ? undefined : "none",

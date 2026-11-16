@@ -6,6 +6,7 @@ import type {
 	AssetRmaSummary,
 	AssetStatusHistoryEntry,
 	AssetStatusOption,
+	AssetWear,
 	Battery,
 	BatteryDetail,
 	CalibrationCatalogueRow,
@@ -484,3 +485,23 @@ export const getIridiumMonthly = () =>
 	getIridium<IridiumMonthlyCost[]>("/monthly");
 export const getIridiumGliderMonths = () =>
 	getIridium<IridiumGliderMonth[]>("/gliders/monthly");
+
+export async function getAllAssetWear(): Promise<AssetWear[]> {
+	const res = await apiFetch("/assets/wear");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch wear counters: ${res.status}`);
+	}
+	return res.json();
+}
+
+// null when the asset isn't a wear-tracked type.
+export async function getAssetWear(assetId: number): Promise<AssetWear | null> {
+	const res = await apiFetch(`/assets/${assetId}/wear`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch wear counters for asset ${assetId}: ${res.status}`,
+		);
+	}
+	const text = await res.text();
+	return text ? JSON.parse(text) : null;
+}

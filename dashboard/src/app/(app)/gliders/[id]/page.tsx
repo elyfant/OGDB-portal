@@ -9,8 +9,10 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
 import StartWorkshopButton from "@/components/StartWorkshopButton";
 import StatTile from "@/components/StatTile";
+import WearPanel from "@/components/WearPanel";
 import {
 	getAgencies,
+	getAllAssetWear,
 	getAssetRmas,
 	getContacts,
 	getGlider,
@@ -67,6 +69,7 @@ export default async function GliderDetailPage({
 		rmas,
 		eventTypes,
 		contacts,
+		allWear,
 	] = await Promise.all([
 		getGliderBuild(Number(id)),
 		getPlatforms(),
@@ -76,7 +79,11 @@ export default async function GliderDetailPage({
 		getAssetRmas(glider.id),
 		getServicingEventTypes(),
 		getContacts(),
+		getAllAssetWear(),
 	]);
+	const wearByAsset = Object.fromEntries(allWear.map((w) => [w.assetId, w]));
+	// Only present for a wear-tracked glider (Seagliders, not Slocums).
+	const gliderWear = wearByAsset[glider.id];
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
 	// Full calibration history per sensor, for the Current build's science
@@ -264,6 +271,15 @@ export default async function GliderDetailPage({
 							/>
 						</Paper>
 
+						{gliderWear && (
+							<>
+								<Typography variant="h6" sx={{ mb: 1.5 }}>
+									Wear
+								</Typography>
+								<WearPanel wear={gliderWear} />
+							</>
+						)}
+
 						<Box
 							sx={{
 								display: "flex",
@@ -347,6 +363,7 @@ export default async function GliderDetailPage({
 								platformModel={glider.platformModel}
 								componentDetails={build.currentBuildComponentDetails}
 								calibrationHistory={calibrationHistory}
+								wear={wearByAsset}
 								emptyMessage={
 									build.nextMission
 										? "No components recorded in the workshop build yet."

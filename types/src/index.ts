@@ -191,6 +191,25 @@ export interface AssetDetails {
 	fields: Record<string, string | number | boolean | null> | null;
 }
 
+// Wear counters from the asset_wear_counters view -- only assets whose type
+// (and, for gliders, platform) is flagged tracks_wear have one. Days since
+// servicing restart on a factory repair or calibration; both are null /
+// lifetime when `neverServiced`.
+export interface AssetWear {
+	assetId: number;
+	assetType: string;
+	serialNumber: string | null;
+	// Glider name for a glider asset, otherwise null.
+	gliderName: string | null;
+	lastServicingDate: string | null;
+	lastServicingEventType: string | null;
+	daysSinceServicing: number | null;
+	// Mission-days since last servicing (lifetime total if never serviced).
+	daysInWaterSinceServicing: number;
+	neverServiced: boolean;
+	decommissionedDate: string | null;
+}
+
 // One asset_status_history row for a single asset (the per-asset
 // counterpart of GliderStatusHistoryItem, which spans a glider's build).
 export interface AssetStatusHistoryEntry {

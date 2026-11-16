@@ -113,6 +113,11 @@ export class AssetsController {
 	}
 
 	// Same reason: must come before :id.
+	@Get("wear")
+	getAllWear() {
+		return this.assets.getAllWear();
+	}
+
 	@Get("batteries")
 	findBatteries() {
 		return this.assets.findBatteries();
@@ -238,6 +243,11 @@ export class AssetsController {
 		@UploadedFile() certificate?: Express.Multer.File,
 	) {
 		return this.assets.updateCalibration(id, calId, dto, user.sub, certificate);
+	}
+
+	@Get(":id/wear")
+	getWear(@Param("id", ParseIntPipe) id: number) {
+		return this.assets.getWear(id);
 	}
 
 	@Get(":id/servicing")

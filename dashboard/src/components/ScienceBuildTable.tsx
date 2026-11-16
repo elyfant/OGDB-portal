@@ -2,6 +2,7 @@
 
 import CalibrationHistory from "@/components/CalibrationHistory";
 import NvsLink from "@/components/NvsLink";
+import { WearCells, WearHeadCells } from "@/components/WearCells";
 import { formatAssetType, formatDate } from "@/lib/format";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import Box from "@mui/material/Box";
@@ -14,7 +15,11 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import type { ScienceSensorRecord, SensorCalRecord } from "@ogdb/types";
+import type {
+	AssetWear,
+	ScienceSensorRecord,
+	SensorCalRecord,
+} from "@ogdb/types";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 
@@ -23,6 +28,8 @@ import { Fragment, useState } from "react";
 // belongs to a mission and has no dates of its own. Fixed so the columns
 // hold their widths when a row expands.
 const COLUMN_WIDTHS = ["18%", "20%", "28%", "16%", "18%"];
+// With the wear columns added.
+const COLUMN_WIDTHS_WEAR = ["15%", "16%", "19%", "12%", "14%", "12%", "12%"];
 
 // The science sensors of a build -- today's on a glider's Current build, or
 // as of deployment on a mission's Glider build. Same columns and same row
@@ -33,6 +40,7 @@ export default function ScienceBuildTable({
 	mode,
 	asOfDate,
 	calibrationHistory,
+	wear,
 }: {
 	sensors: ScienceSensorRecord[];
 	// "current": live build, so a new calibration can be pasted in and the
@@ -43,7 +51,10 @@ export default function ScienceBuildTable({
 	// it (the glider page). Without it a row shows the one record in effect
 	// as of `asOfDate`.
 	calibrationHistory?: Record<number, SensorCalRecord[]>;
+	// Wear counters by assetId; when given, two extra columns are shown.
+	wear?: Record<number, AssetWear>;
 }) {
+	const widths = wear ? COLUMN_WIDTHS_WEAR : COLUMN_WIDTHS;
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
 	function toggle(assetId: number) {
@@ -69,13 +80,12 @@ export default function ScienceBuildTable({
 		<Table size="small" sx={{ tableLayout: "fixed" }}>
 			<TableHead>
 				<TableRow>
-					<TableCell sx={{ width: COLUMN_WIDTHS[0] }}>Asset</TableCell>
-					<TableCell sx={{ width: COLUMN_WIDTHS[1] }}>L22 Model</TableCell>
-					<TableCell sx={{ width: COLUMN_WIDTHS[2] }}>Parameters</TableCell>
-					<TableCell sx={{ width: COLUMN_WIDTHS[3] }}>Serial number</TableCell>
-					<TableCell sx={{ width: COLUMN_WIDTHS[4] }}>
-						Last calibration
-					</TableCell>
+					<TableCell sx={{ width: widths[0] }}>Asset</TableCell>
+					<TableCell sx={{ width: widths[1] }}>L22 Model</TableCell>
+					<TableCell sx={{ width: widths[2] }}>Parameters</TableCell>
+					<TableCell sx={{ width: widths[3] }}>Serial number</TableCell>
+					<TableCell sx={{ width: widths[4] }}>Last calibration</TableCell>
+					{wear && <WearHeadCells widths={[widths[5], widths[6]]} />}
 				</TableRow>
 			</TableHead>
 			<TableBody>
@@ -156,10 +166,11 @@ export default function ScienceBuildTable({
 										formatDate(s.calibration?.date ?? null)
 									)}
 								</TableCell>
+								{wear && <WearCells wear={wear[s.assetId]} />}
 							</TableRow>
 							<TableRow>
 								<TableCell
-									colSpan={COLUMN_WIDTHS.length}
+									colSpan={widths.length}
 									sx={{ py: 0, borderBottom: isOpen ? undefined : "none" }}
 								>
 									<Collapse in={isOpen} timeout="auto" unmountOnExit>

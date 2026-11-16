@@ -6,6 +6,7 @@ import AssetStatusHistoryTable from "@/components/AssetStatusHistoryTable";
 import CalibrationHistorySection from "@/components/CalibrationHistorySection";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import WearPanel from "@/components/WearPanel";
 import {
 	getAsset,
 	getAssetCalibrations,
@@ -15,6 +16,7 @@ import {
 	getAssetRmas,
 	getAssetStatusHistory,
 	getAssetTypes,
+	getAssetWear,
 	getContacts,
 	getSensorModels,
 	getServicingEventTypes,
@@ -94,6 +96,7 @@ export default async function AssetDetailPage({
 		details,
 		statusHistory,
 		changes,
+		wear,
 		user,
 	] = await Promise.all([
 		getAssetCalibrations(asset.id),
@@ -107,6 +110,7 @@ export default async function AssetDetailPage({
 		getAssetDetails(asset.id),
 		getAssetStatusHistory(asset.id),
 		getAssetChanges(asset.id),
+		getAssetWear(asset.id),
 		getCurrentUser(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
@@ -205,6 +209,15 @@ export default async function AssetDetailPage({
 					/>
 				</Box>
 			</Paper>
+
+			{wear && (
+				<>
+					<Typography variant="h6" sx={{ mb: 1.5 }}>
+						Wear
+					</Typography>
+					<WearPanel wear={wear} />
+				</>
+			)}
 
 			<AssetDetailsSection details={details} />
 

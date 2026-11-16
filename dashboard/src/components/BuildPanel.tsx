@@ -7,6 +7,7 @@ import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 import type {
+	AssetWear,
 	GliderBuildComponent,
 	GliderComponentDetail,
 	ScienceSensorRecord,
@@ -26,6 +27,7 @@ export default function BuildPanel({
 	platformModel,
 	componentDetails,
 	calibrationHistory,
+	wear,
 	emptyMessage,
 	calibrationNote,
 }: {
@@ -46,6 +48,9 @@ export default function BuildPanel({
 	// the live build).
 	componentDetails?: GliderComponentDetail[];
 	calibrationHistory?: Record<number, SensorCalRecord[]>;
+	// Wear counters by assetId (the glider page only -- they are as of today,
+	// so not meaningful on a past mission's build).
+	wear?: Record<number, AssetWear>;
 	// Shown instead of the table when the build has nothing in it.
 	emptyMessage?: string;
 	// Overrides the mission-mode caption under "Science" (e.g. a mission that
@@ -97,6 +102,7 @@ export default function BuildPanel({
 			<GliderCurrentBuild
 				components={nonScience}
 				componentDetails={componentDetails}
+				wear={wear}
 			/>
 
 			<Box>
@@ -121,6 +127,7 @@ export default function BuildPanel({
 					mode={mode}
 					asOfDate={asOfDate}
 					calibrationHistory={calibrationHistory}
+					wear={wear}
 				/>
 			</Box>
 		</Box>
