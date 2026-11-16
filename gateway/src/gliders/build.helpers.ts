@@ -392,9 +392,15 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 // Assets in this mission's build that another glider's OPEN mission (active,
 // scheduled or workshop) also lists. A different glider's build can't
-// physically hold the same sensor at the same time. Missions of the same
-// glider are ignored on purpose: a workshop is seeded as a copy of the last
-// build, so they share everything by design.
+// physically hold the same sensor at the same time -- but that's only a
+// live conflict if THIS mission is itself currently live. A recovered
+// mission from years ago is a closed historical snapshot; its build items
+// having since moved on to some other glider's current build is normal,
+// not a conflict, so `m` is held to the same open-status requirement as
+// `om` (previously missing -- see the bug this was filed for: a 2020-2021
+// mission flagging an overlap with durin's 2026 workshop). Missions of the
+// same glider are ignored on purpose: a workshop is seeded as a copy of
+// the last build, so they share everything by design.
 async function fetchBuildWarnings(
 	db: Db,
 	missionId: number,
@@ -405,6 +411,7 @@ async function fetchBuildWarnings(
             om.mission_number AS "missionNumber", os.name AS status
      FROM mission_build_items i
      JOIN missions m ON m.id = i.mission_id
+     JOIN status s ON s.id = m.status_id AND s.name IN ('active', 'scheduled', 'workshop')
      JOIN mission_build_items oi ON oi.asset_id = i.asset_id AND oi.mission_id <> i.mission_id
      JOIN missions om ON om.id = oi.mission_id
                      AND om.glider_asset_id IS DISTINCT FROM m.glider_asset_id
