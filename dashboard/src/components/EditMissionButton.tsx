@@ -16,6 +16,7 @@ export default function EditMissionButton({
 	mission,
 	gliders,
 	missionStatuses,
+	endingCauses,
 	projects,
 	observatories,
 	contacts,
@@ -25,6 +26,7 @@ export default function EditMissionButton({
 	mission: Mission;
 	gliders: Glider[];
 	missionStatuses: LookupOption[];
+	endingCauses: LookupOption[];
 	projects: LookupOption[];
 	observatories: LookupOption[];
 	contacts: LookupOption[];
@@ -50,6 +52,7 @@ export default function EditMissionButton({
 				missions={[]}
 				gliders={gliders}
 				missionStatuses={missionStatuses}
+				endingCauses={endingCauses}
 				projects={projects}
 				observatories={observatories}
 				contacts={contacts}

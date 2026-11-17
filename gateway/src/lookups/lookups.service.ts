@@ -57,6 +57,15 @@ export class LookupsService {
 		return result.rows;
 	}
 
+	// OceanOPS ending-cause vocabulary (why a mission ended). Alphabetical for
+	// the dropdown; the ids are ours, not OceanOPS's.
+	async getEndingCauses(): Promise<LookupOption[]> {
+		const result = await this.pool.query(
+			"SELECT id, name FROM ending_causes ORDER BY name",
+		);
+		return result.rows;
+	}
+
 	async getVessels(): Promise<LookupOption[]> {
 		const result = await this.pool.query(
 			"SELECT id, name FROM vessels ORDER BY name",

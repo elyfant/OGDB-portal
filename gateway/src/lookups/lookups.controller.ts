@@ -30,6 +30,11 @@ export class LookupsController {
 		return this.lookups.getMissionStatuses();
 	}
 
+	@Get("ending-causes")
+	getEndingCauses() {
+		return this.lookups.getEndingCauses();
+	}
+
 	@Get("vessels")
 	getVessels() {
 		return this.lookups.getVessels();

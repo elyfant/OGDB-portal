@@ -33,6 +33,7 @@ export default function MissionsTable({
 	canEdit,
 	gliders,
 	missionStatuses,
+	endingCauses,
 	projects,
 	observatories,
 	contacts,
@@ -43,6 +44,7 @@ export default function MissionsTable({
 	canEdit: boolean;
 	gliders: Glider[];
 	missionStatuses: LookupOption[];
+	endingCauses: LookupOption[];
 	projects: LookupOption[];
 	observatories: LookupOption[];
 	contacts: LookupOption[];
@@ -149,6 +151,7 @@ export default function MissionsTable({
 					missions={missions}
 					gliders={gliders}
 					missionStatuses={missionStatuses}
+					endingCauses={endingCauses}
 					projects={projects}
 					observatories={observatories}
 					contacts={contacts}

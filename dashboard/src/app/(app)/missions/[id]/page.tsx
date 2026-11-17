@@ -15,6 +15,7 @@ import {
 	getAgencies,
 	getContacts,
 	getCruises,
+	getEndingCauses,
 	getGlider,
 	getGliders,
 	getIridiumMission,
@@ -119,6 +120,7 @@ export default async function MissionDetailPage({
 		missionFiles,
 		gliders,
 		missionStatuses,
+		endingCauses,
 		projects,
 		observatories,
 		contacts,
@@ -139,6 +141,7 @@ export default async function MissionDetailPage({
 		// missions catalogue's own edit dialog uses.
 		getGliders(),
 		getMissionStatuses(),
+		getEndingCauses(),
 		getProjects(),
 		getObservatories(),
 		getContacts(),
@@ -276,6 +279,7 @@ export default async function MissionDetailPage({
 					mission={mission}
 					gliders={gliders}
 					missionStatuses={missionStatuses}
+					endingCauses={endingCauses}
 					projects={projects}
 					observatories={observatories}
 					contacts={contacts}
@@ -341,6 +345,7 @@ export default async function MissionDetailPage({
 							oceanOpsPlatformUrl(mission.wigosId),
 						)}
 					/>
+					<Field label="Cause of mission end" value={mission.endingCause} />
 				</Box>
 			</Paper>
 

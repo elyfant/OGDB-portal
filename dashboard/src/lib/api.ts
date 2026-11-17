@@ -211,6 +211,14 @@ export async function getMissionStatuses(): Promise<LookupOption[]> {
 	return res.json();
 }
 
+export async function getEndingCauses(): Promise<LookupOption[]> {
+	const res = await apiFetch("/lookups/ending-causes");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch ending causes: ${res.status}`);
+	}
+	return res.json();
+}
+
 export async function getMissions(): Promise<Mission[]> {
 	const res = await apiFetch("/missions");
 	if (!res.ok) {

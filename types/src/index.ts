@@ -644,6 +644,10 @@ export interface Mission {
 	// OceanOPS Passport ID (a WIGOS Station Identifier, e.g.
 	// 0-22000-3-6801623). Null until the mission is registered.
 	wigosId: string | null;
+	// Why the mission ended (OceanOPS ending-cause vocabulary, ending_causes
+	// table). Null while the mission is running or not yet reviewed.
+	endingCauseId: number | null;
+	endingCause: string | null;
 	deploymentCruiseId: number | null;
 	retrievalCruiseId: number | null;
 	volume: number | null;
@@ -774,6 +778,11 @@ export interface CreateMissionInput {
 	distanceKm?: number | null;
 	iridiumMinutes?: number | null;
 	wigosId?: string | null;
+}
+
+// Editing adds one field creating doesn't have: a new mission hasn't ended.
+export interface UpdateMissionInput extends CreateMissionInput {
+	endingCauseId?: number | null;
 }
 
 export interface CreatedMission {

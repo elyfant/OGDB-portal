@@ -82,6 +82,8 @@ const SELECT_MISSIONS = `
     (SELECT operating_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "operatingAgencyId",
     (SELECT funding_agency_id FROM missions WHERE missions.id = norglider_missions.id) AS "fundingAgencyId",
     (SELECT wigos_id FROM missions WHERE missions.id = norglider_missions.id) AS "wigosId",
+    (SELECT ending_cause_id FROM missions WHERE missions.id = norglider_missions.id) AS "endingCauseId",
+    (SELECT ec.name FROM missions m JOIN ending_causes ec ON ec.id = m.ending_cause_id WHERE m.id = norglider_missions.id) AS "endingCause",
     mission_number AS "missionNumber",
     mission_name AS "missionName",
     std_mission_name AS "stdMissionName",
@@ -629,7 +631,8 @@ export class MissionsService {
            iridium_minutes = $23, changed_by = $24, updated_at = now(),
            mission_number = COALESCE(mission_number, $26::integer),
            mission_name = COALESCE($27::text, mission_name),
-           wigos_id = $28
+           wigos_id = $28,
+           ending_cause_id = $29
          WHERE id = $25
          RETURNING id, mission_number AS "missionNumber", mission_name AS "missionName"`,
 				[
@@ -661,6 +664,7 @@ export class MissionsService {
 					assignedNumber,
 					newName,
 					dto.wigosId ?? null,
+					dto.endingCauseId ?? null,
 				],
 			);
 			const result: CreatedMission = updated.rows[0];

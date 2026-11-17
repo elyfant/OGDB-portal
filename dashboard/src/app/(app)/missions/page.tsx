@@ -4,6 +4,7 @@ import {
 	getAgencies,
 	getContacts,
 	getCruises,
+	getEndingCauses,
 	getGliders,
 	getMissionStatuses,
 	getMissions,
@@ -19,6 +20,7 @@ export default async function MissionsPage() {
 		missions,
 		gliders,
 		missionStatuses,
+		endingCauses,
 		projects,
 		observatories,
 		contacts,
@@ -29,6 +31,7 @@ export default async function MissionsPage() {
 		getMissions(),
 		getGliders(),
 		getMissionStatuses(),
+		getEndingCauses(),
 		getProjects(),
 		getObservatories(),
 		getContacts(),
@@ -68,6 +71,7 @@ export default async function MissionsPage() {
 				canEdit={canEdit}
 				gliders={gliders}
 				missionStatuses={missionStatuses}
+				endingCauses={endingCauses}
 				projects={projects}
 				observatories={observatories}
 				contacts={contacts}

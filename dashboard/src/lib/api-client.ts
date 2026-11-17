@@ -35,6 +35,7 @@ import type {
 	UpdateAssetInput,
 	UpdateExternalReferencesInput,
 	UpdateGliderInput,
+	UpdateMissionInput,
 	UpdateRmaAssetReasonInput,
 	UpdateRmaInput,
 } from "@ogdb/types";
@@ -454,7 +455,7 @@ export async function createMission(
 
 export async function updateMission(
 	id: number,
-	input: CreateMissionInput,
+	input: UpdateMissionInput,
 ): Promise<CreatedMission> {
 	const res = await fetch(`/api/missions/${id}`, {
 		method: "PATCH",

@@ -42,6 +42,7 @@ interface FormState {
 	missionNumber: string;
 	gliderAssetId: number | "";
 	statusId: number | "";
+	endingCauseId: number | "";
 	projectId: number | "";
 	observatoryId: number | "";
 	principalInvestigatorId: number | "";
@@ -71,6 +72,7 @@ function emptyForm(): FormState {
 		missionNumber: "",
 		gliderAssetId: "",
 		statusId: "",
+		endingCauseId: "",
 		projectId: "",
 		observatoryId: "",
 		principalInvestigatorId: "",
@@ -106,6 +108,7 @@ function formFromMission(m: Mission): FormState {
 		missionNumber: m.missionNumber?.toString() ?? "",
 		gliderAssetId: m.gliderAssetId ?? "",
 		statusId: m.statusId ?? "",
+		endingCauseId: m.endingCauseId ?? "",
 		projectId: m.projectId ?? "",
 		observatoryId: m.observatoryId ?? "",
 		principalInvestigatorId: m.principalInvestigatorId ?? "",
@@ -151,6 +154,7 @@ export default function MissionFormDialog({
 	missions,
 	gliders,
 	missionStatuses,
+	endingCauses = [],
 	projects,
 	observatories,
 	contacts,
@@ -163,6 +167,8 @@ export default function MissionFormDialog({
 	missions: Mission[];
 	gliders: Glider[];
 	missionStatuses: LookupOption[];
+	// Only used in edit mode: a mission being created hasn't ended.
+	endingCauses?: LookupOption[];
 	projects: LookupOption[];
 	observatories: LookupOption[];
 	contacts: LookupOption[];
@@ -349,7 +355,10 @@ export default function MissionFormDialog({
 			};
 			const result =
 				mode === "edit" && mission
-					? await updateMission(mission.id, payload)
+					? await updateMission(mission.id, {
+							...payload,
+							endingCauseId: form.endingCauseId || null,
+						})
 					: await createMission(payload);
 			closeDialog();
 			setBanner({
@@ -500,6 +509,17 @@ export default function MissionFormDialog({
 									))}
 								</TextField>
 							</Field>
+							{mode === "edit" && (
+								<Field label="Cause of mission end">
+									<LookupSelect
+										value={form.endingCauseId}
+										options={endingCauses}
+										onChange={(v) =>
+											setForm((s) => ({ ...s, endingCauseId: v }))
+										}
+									/>
+								</Field>
+							)}
 						</Grid>
 					</Section>
 
