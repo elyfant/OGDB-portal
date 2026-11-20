@@ -72,6 +72,12 @@ function buildTimelineEvents(
 		}
 		if (!detail.calibrations) continue;
 		const component = componentsById.get(detail.assetId);
+		// Science sensors (CT, DO, ECO, ...) are recalibrated on their own
+		// schedule and swapped between gliders, so their calibrations
+		// belong on the sensor's own page, not in the glider's timeline --
+		// even while installed. Applies to every glider model: this tab
+		// is shared, and "sensor" is the asset type group, not a model.
+		if (component?.assetTypeGroup === "sensor") continue;
 		for (const [i, cal] of detail.calibrations.entries()) {
 			if (!cal.date) continue;
 			// Only ct_sensor's coefficients bag ever has `note` -- left in
