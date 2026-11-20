@@ -804,6 +804,12 @@ export interface GliderBuildComponent {
 	assetTypeGroup: string;
 	serialNumber: string | null;
 	position: string | null;
+	// What this glider's platform calls that position, where it translates it
+	// -- batteries: a Seaglider's fore/aft slots are "Secondary"/"Primary", an
+	// SGX's fore/middle/aft are "Secondary"/"Primary"/"Aft", a Slocum's are
+	// "Fore"/"Energy"/"Aft". Null when there's nothing to translate (show
+	// `position` as is).
+	positionLabel: string | null;
 	depth: number;
 	// Only populated for science sensors (NVS L22 model), batteries
 	// (battery_models.model), and hulls (hull_models.teledyne_part_number)

@@ -78,7 +78,8 @@ export const ATTACHED_SLOTS: AttachedSlot[] = [
 		key: "fore_battery",
 		label: "Fore battery",
 		assetType: "battery",
-		// Positions are fore / energy / aft. "Pitch" is only a battery
+		// Positions are fore / middle / aft (a Slocum's middle pack is its
+		// energy battery). "Pitch" is only a battery
 		// *model* (it picks the drawing, in artFor below).
 		positions: ["fore"],
 		art: "battery_pitch",
@@ -101,7 +102,9 @@ export const ATTACHED_SLOTS: AttachedSlot[] = [
 		key: "energy_battery",
 		label: "Energy battery",
 		assetType: "battery",
-		positions: ["energy"],
+		// "energy" is the old name for the middle slot; the migration renames
+		// it, and matching both keeps a not-yet-migrated build drawn.
+		positions: ["middle", "energy"],
 		art: "battery_pitch",
 		parent: "energy_hull",
 		dx: 35,

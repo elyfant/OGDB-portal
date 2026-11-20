@@ -61,9 +61,12 @@ async function fetchMissionTree(
             COALESCE(p.asset_id, m.glider_asset_id) AS "parentAssetId",
             i."position" AS position,
             a.serial_number AS "serialNumber",
-            at.name AS "assetType", atg.name AS "assetTypeGroup"
+            at.name AS "assetType", atg.name AS "assetTypeGroup",
+            pl.name AS "platformName", trim(pl.model) AS "platformModel"
      FROM mission_build_items i
      JOIN missions m ON m.id = i.mission_id
+     LEFT JOIN asset_glider_details gd ON gd.asset_id = m.glider_asset_id
+     LEFT JOIN platforms pl ON pl.id = gd.platform_id
      LEFT JOIN mission_build_items p ON p.id = i.parent_item_id
      JOIN assets a ON a.id = i.asset_id
      JOIN asset_types at ON at.id = a.asset_type_id
@@ -85,8 +88,14 @@ async function fetchMissionTree(
 		return depth;
 	};
 	return result.rows
-		.map(({ parentItemId: _parent, ...r }) => ({
+		.map(({ parentItemId: _parent, platformName, platformModel, ...r }) => ({
 			...r,
+			positionLabel: positionLabelFor(
+				r.assetType,
+				r.position,
+				platformName,
+				platformModel,
+			),
 			depth: depthOf(r.itemId),
 		}))
 		.sort(
@@ -890,6 +899,72 @@ const SENSOR_POSITIONS = [
 	"centre",
 ] as const;
 
+// A battery's position is the physical SLOT it sits in, counted from the
+// nose: fore, middle, aft. What the pack is CALLED depends on the glider, so
+// each platform translates the slots (see batteryPositionLabel):
+//   Slocum   fore = Fore,      middle = Energy (optional), aft = Aft
+//   SG       fore = Secondary, middle = (unused),          aft = Primary
+//   SGX      fore = Secondary, middle = Primary,           aft = Aft
+const SLOCUM_BATTERY_POSITIONS = ["fore", "middle", "aft"] as const;
+const SEAGLIDER_BATTERY_POSITIONS = ["fore", "aft"] as const;
+const SGX_BATTERY_POSITIONS = ["fore", "middle", "aft"] as const;
+
+type BatteryPlatform = "slocum" | "seaglider" | "sgx";
+
+function batteryPlatform(
+	platformName: string | null | undefined,
+	platformModel: string | null | undefined,
+): BatteryPlatform {
+	if (platformName === "seaglider") {
+		return platformModel?.trim().toUpperCase() === "SGX" ? "sgx" : "seaglider";
+	}
+	// Slocum, or a glider with no platform recorded: the original names.
+	return "slocum";
+}
+
+const BATTERY_POSITION_LABELS: Record<
+	BatteryPlatform,
+	Record<string, string>
+> = {
+	slocum: { fore: "Fore", middle: "Energy", aft: "Aft" },
+	seaglider: { fore: "Secondary", aft: "Primary" },
+	sgx: { fore: "Secondary", middle: "Primary", aft: "Aft" },
+};
+
+// The name a platform gives a position, or null where it has no translation
+// (non-battery parts, and rows still holding an older free-text position).
+// Keep in step with dashboard/src/lib/asset-positions.ts.
+function positionLabelFor(
+	assetType: string,
+	position: string | null,
+	platformName: string | null | undefined,
+	platformModel: string | null | undefined,
+): string | null {
+	if (assetType !== "battery" || !position) return null;
+	return (
+		BATTERY_POSITION_LABELS[batteryPlatform(platformName, platformModel)][
+			position
+		] ?? null
+	);
+}
+
+async function batteryPositionsFor(
+	client: PoolClient,
+	gliderAssetId: number,
+): Promise<readonly string[]> {
+	const result = await client.query(
+		`SELECT p.name, trim(p.model) AS model
+       FROM asset_glider_details gd
+       JOIN platforms p ON p.id = gd.platform_id
+      WHERE gd.asset_id = $1`,
+		[gliderAssetId],
+	);
+	const row = result.rows[0];
+	const platform = batteryPlatform(row?.name, row?.model);
+	if (platform === "seaglider") return SEAGLIDER_BATTERY_POSITIONS;
+	return platform === "sgx" ? SGX_BATTERY_POSITIONS : SLOCUM_BATTERY_POSITIONS;
+}
+
 const OPTIONAL_POSITIONS: Record<string, readonly string[]> = {
 	ct_sensor: SENSOR_POSITIONS,
 	do_sensor: SENSOR_POSITIONS,
@@ -900,6 +975,8 @@ async function assertValidPosition(
 	client: PoolClient,
 	childAssetId: number,
 	position: string | null,
+	// The mission's glider -- a battery's valid positions depend on its platform.
+	gliderAssetId: number,
 	// "add" must choose a position where one is required; "replace" inherits
 	// the old row's, and older rows may have none or a free-text one (left
 	// alone); "set" is an explicit move, so it is always checked.
@@ -914,7 +991,10 @@ async function assertValidPosition(
 	const assetType: string | undefined = type.rows[0]?.name;
 	if (!assetType) return;
 
-	const required = ASSET_POSITIONS[assetType];
+	const required =
+		assetType === "battery"
+			? await batteryPositionsFor(client, gliderAssetId)
+			: ASSET_POSITIONS[assetType];
 	const optional = OPTIONAL_POSITIONS[assetType];
 	const allowed = required ?? optional;
 	if (!allowed) return;
@@ -1054,7 +1134,13 @@ export async function applyMissionBuildChangesTx(
 				change.newAsset,
 			);
 			await assertValidParent(client, childAssetId, parentAssetId);
-			await assertValidPosition(client, childAssetId, position, "replace");
+			await assertValidPosition(
+				client,
+				childAssetId,
+				position,
+				gliderAssetId,
+				"replace",
+			);
 			await assertNotInOtherActiveBuild(client, mission, childAssetId);
 			try {
 				// In place: the item keeps its position and whatever is mounted
@@ -1129,6 +1215,7 @@ export async function applyMissionBuildChangesTx(
 				client,
 				childAssetId,
 				change.position ?? null,
+				gliderAssetId,
 				"add",
 			);
 			await assertNotInOtherActiveBuild(client, mission, childAssetId);
@@ -1161,7 +1248,13 @@ export async function applyMissionBuildChangesTx(
 				);
 			}
 			const position = change.position?.trim() || null;
-			await assertValidPosition(client, item.rows[0].asset_id, position, "set");
+			await assertValidPosition(
+				client,
+				item.rows[0].asset_id,
+				position,
+				gliderAssetId,
+				"set",
+			);
 			await client.query(
 				`UPDATE mission_build_items
          SET "position" = $1, changed_by = $2, updated_at = now()

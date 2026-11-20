@@ -488,7 +488,9 @@ export default function AddServicingEventDialog({
 											<Typography variant="body2" sx={{ fontSize: 13 }}>
 												{formatAssetType(c.assetType)}
 												{c.serialNumber ? ` · SN ${c.serialNumber}` : ""}
-												{c.position ? ` (${c.position})` : ""}
+												{c.position
+													? ` (${c.positionLabel ?? c.position})`
+													: ""}
 											</Typography>
 											{excluded && (
 												<Typography

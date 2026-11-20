@@ -148,13 +148,13 @@ const ATTACHED_SLOTS: AttachedSlot[] = [
 		optional: true,
 	},
 	// Batteries are shown as the sketch has them: internal, drawn over the
-	// hull. Positions reuse the portal's battery positions: fore = primary
-	// (the big forward pack), aft = secondary.
+	// hull. Positions are the physical slots from the nose: the small
+	// secondary pack sits in the fore slot, the big primary pack aft of it.
 	{
 		key: "battery_primary",
 		label: "Primary battery",
 		assetType: "battery",
-		positions: ["fore"],
+		positions: ["aft"],
 		art: "battery_primary",
 		parent: "body",
 		dx: 356,
@@ -165,7 +165,7 @@ const ATTACHED_SLOTS: AttachedSlot[] = [
 		key: "battery_secondary",
 		label: "Secondary battery",
 		assetType: "battery",
-		positions: ["aft"],
+		positions: ["fore"],
 		art: "battery_secondary",
 		parent: "body",
 		dx: 553,

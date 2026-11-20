@@ -2,9 +2,10 @@
 
 import { applyMissionBuildChanges, searchAssets } from "@/lib/api-client";
 import {
-	ASSET_POSITIONS,
 	OPTIONAL_POSITIONS,
 	positionLabel,
+	positionOptionLabel,
+	requiredPositions,
 } from "@/lib/asset-positions";
 import { formatAssetType } from "@/lib/format";
 import EditIcon from "@mui/icons-material/Edit";
@@ -298,6 +299,8 @@ export default function GliderBuildEditor({
 	missionLabel,
 	variant = "build",
 	triggerLabel,
+	platform,
+	platformModel,
 }: {
 	gliderId: number;
 	components: GliderBuildComponent[];
@@ -309,7 +312,15 @@ export default function GliderBuildEditor({
 	// science sensors. Same dialog, disjoint asset-type scope.
 	variant?: "build" | "science";
 	triggerLabel?: string;
+	// The glider's platform ("slocum"/"seaglider") and model ("G3", "SGX"):
+	// a battery's position names depend on them (see requiredPositions).
+	platform?: string | null;
+	platformModel?: string | null;
 }) {
+	const requiredFor = (assetType: string) =>
+		requiredPositions(assetType, platform, platformModel);
+	const optionLabel = (assetType: string, position: string) =>
+		positionOptionLabel(assetType, position, platform, platformModel);
 	const isScience = variant === "science";
 	const addableTypes = isScience ? SCIENCE_SENSOR_TYPES : BUILD_ASSET_TYPES;
 	const dialogTitle = isScience ? "Edit science payload" : "Edit build";
@@ -406,7 +417,7 @@ export default function GliderBuildEditor({
 		const summaryLines: string[] = [];
 		for (const c of scopedComponents) {
 			const row = rowFor(c.itemId);
-			const label = `${formatAssetType(c.assetType)}${c.position ? ` (${c.position})` : ""}`;
+			const label = `${formatAssetType(c.assetType)}${c.position ? ` (${c.positionLabel ?? c.position})` : ""}`;
 			if (row.action === "replace") {
 				if (row.picker.mode === "existing" && !row.picker.selectedId) {
 					setError(
@@ -469,9 +480,10 @@ export default function GliderBuildEditor({
 			}
 		}
 		for (const add of additions) {
-			if (ASSET_POSITIONS[add.assetType] && !add.position) {
+			const required = requiredFor(add.assetType);
+			if (required && !add.position) {
 				setError(
-					`Pick a position (${ASSET_POSITIONS[add.assetType].map(positionLabel).join(", ")}) for the new ${formatAssetType(add.assetType)}.`,
+					`Pick a position (${required.map((p) => optionLabel(add.assetType, p)).join(", ")}) for the new ${formatAssetType(add.assetType)}.`,
 				);
 				return;
 			}
@@ -590,7 +602,9 @@ export default function GliderBuildEditor({
 											<Box>
 												<Typography variant="body2" sx={{ fontWeight: 500 }}>
 													{formatAssetType(c.assetType)}
-													{c.position ? ` (${c.position})` : ""}
+													{c.position
+														? ` (${c.positionLabel ?? c.position})`
+														: ""}
 												</Typography>
 												<Typography
 													variant="caption"
@@ -662,7 +676,9 @@ export default function GliderBuildEditor({
 													}}
 												>
 													Replace with — {formatAssetType(c.assetType)}
-													{c.position ? `, ${c.position} position` : ""}
+													{c.position
+														? `, ${c.positionLabel ?? c.position} position`
+														: ""}
 												</Typography>
 												<AssetPicker
 													assetType={c.assetType}
@@ -763,7 +779,7 @@ export default function GliderBuildEditor({
 										</MenuItem>
 									))}
 								</Select>
-								{ASSET_POSITIONS[add.assetType] ? (
+								{requiredFor(add.assetType) ? (
 									<TextField
 										select
 										required
@@ -775,9 +791,9 @@ export default function GliderBuildEditor({
 										}
 										sx={{ minWidth: 120 }}
 									>
-										{ASSET_POSITIONS[add.assetType].map((p) => (
+										{requiredFor(add.assetType)?.map((p) => (
 											<MenuItem key={p} value={p}>
-												{positionLabel(p)}
+												{optionLabel(add.assetType, p)}
 											</MenuItem>
 										))}
 									</TextField>

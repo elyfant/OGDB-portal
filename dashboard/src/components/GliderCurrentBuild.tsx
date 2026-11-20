@@ -153,7 +153,7 @@ export default function GliderCurrentBuild({
 															component="span"
 															sx={{ color: "text.secondary" }}
 														>
-															({c.position})
+															({c.positionLabel ?? c.position})
 														</Box>
 													)}
 													{mountedIn && (

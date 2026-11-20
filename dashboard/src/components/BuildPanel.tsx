@@ -80,6 +80,7 @@ export default function BuildPanel({
 		assetTypeGroup: "sensor",
 		serialNumber: s.serialNumber,
 		position: s.position,
+		positionLabel: null,
 		depth: 1,
 		model: s.model,
 		modelUri: s.modelUri,

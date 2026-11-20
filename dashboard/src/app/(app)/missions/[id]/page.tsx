@@ -489,6 +489,8 @@ export default async function MissionDetailPage({
 								statusOptions={statusOptions}
 								missionId={mission.id}
 								missionLabel={name}
+								platform={glider?.platform ?? null}
+								platformModel={glider?.platformModel ?? null}
 							/>
 							<GliderBuildEditor
 								gliderId={mission.gliderAssetId}
@@ -496,6 +498,8 @@ export default async function MissionDetailPage({
 								statusOptions={statusOptions}
 								missionId={mission.id}
 								missionLabel={name}
+								platform={glider?.platform ?? null}
+								platformModel={glider?.platformModel ?? null}
 							/>
 						</Box>
 					)}
