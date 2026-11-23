@@ -1,5 +1,5 @@
-import ClickableTableRow from "@/components/ClickableTableRow";
 import { formatDate } from "@/lib/format";
+import MuiLink from "@mui/material/Link";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -8,6 +8,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { GliderDeployment } from "@ogdb/types";
+import NextLink from "next/link";
 
 export default function GliderDeploymentHistory({
 	deployments,
@@ -36,9 +37,15 @@ export default function GliderDeploymentHistory({
 				</TableHead>
 				<TableBody>
 					{deployments.map((d) => (
-						<ClickableTableRow key={d.id} href={`/missions/${d.id}`}>
+						<TableRow key={d.id} hover>
 							<TableCell>
-								{d.stdMissionName ?? d.missionNumber ?? "—"}
+								<MuiLink
+									component={NextLink}
+									href={`/missions/${d.id}`}
+									underline="hover"
+								>
+									{d.stdMissionName ?? d.missionNumber ?? "—"}
+								</MuiLink>
 							</TableCell>
 							<TableCell sx={{ textTransform: "capitalize" }}>
 								{d.status ?? "—"}
@@ -50,7 +57,7 @@ export default function GliderDeploymentHistory({
 							<TableCell align="right">
 								{d.distanceKm !== null ? d.distanceKm.toFixed(1) : "—"}
 							</TableCell>
-						</ClickableTableRow>
+						</TableRow>
 					))}
 				</TableBody>
 			</Table>

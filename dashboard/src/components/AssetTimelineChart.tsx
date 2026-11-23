@@ -14,7 +14,7 @@ import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 import { useMemo, useState } from "react";
 
 // Year-label column, then the dashed spine, then a gap before card
@@ -204,6 +204,25 @@ function CardExtras({
 // Deliberately faint until the card is hovered/focused, so a column of
 // cards doesn't read as a column of buttons. Absolutely positioned in the
 // card's top-right corner; the card's padding keeps text clear of it.
+// The event's title. When the event has a page (a mission, a component),
+// the title itself is the link -- underlined on hover -- so clicking
+// elsewhere on the card does nothing (or just expands its notes).
+function EventLabel({ event }: { event: TimelineEvent }) {
+	if (!event.href) return <>{event.label}</>;
+	return (
+		<MuiLink
+			component={NextLink}
+			href={event.href}
+			underline="hover"
+			color="inherit"
+			onClick={(e: React.MouseEvent) => e.stopPropagation()}
+			sx={{ cursor: "pointer", "&:hover": { color: "primary.main" } }}
+		>
+			{event.label}
+		</MuiLink>
+	);
+}
+
 function EditButton({ onClick }: { onClick: () => void }) {
 	return (
 		<Tooltip title="Edit event">
@@ -243,7 +262,6 @@ export default function AssetTimelineChart({
 	canEditEvent?: (event: TimelineEvent) => boolean;
 	onEditEvent?: (event: TimelineEvent) => void;
 }) {
-	const router = useRouter();
 	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 	const { rows, years, height } = useMemo(
 		() => layout(events, expandedIds),
@@ -305,13 +323,11 @@ export default function AssetTimelineChart({
 				const dateLabel = timelineDateLabel(event, formatDate);
 				const expanded = expandedIds.has(event.id);
 				const hasNotes = Boolean(event.notes?.trim());
-				const clickable = Boolean(event.href) || hasNotes;
+				// The card body only expands notes; navigation is the
+				// title's own link (EventLabel), never the whole box.
+				const clickable = hasNotes;
 
 				function handleClick() {
-					if (event.href) {
-						router.push(event.href as string);
-						return;
-					}
 					if (hasNotes) toggleExpanded(event.id);
 				}
 
@@ -372,7 +388,7 @@ export default function AssetTimelineChart({
 										}}
 									>
 										<Typography variant="body2" sx={{ fontWeight: 700 }}>
-											{event.label}
+											<EventLabel event={event} />
 										</Typography>
 										<Typography
 											variant="caption"
@@ -437,7 +453,7 @@ export default function AssetTimelineChart({
 								{dateLabel}
 							</Typography>
 							<Typography variant="body2" sx={{ fontWeight: 700 }}>
-								{event.label}
+								<EventLabel event={event} />
 							</Typography>
 							{event.detail && (
 								<Typography variant="caption" color="text.secondary">

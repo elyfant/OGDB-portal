@@ -40,7 +40,7 @@ import type {
 	ServicingEvent,
 	ServicingEventTypeOption,
 } from "@ogdb/types";
-import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 import { useMemo, useRef } from "react";
 
 function buildTimelineEvents(
@@ -154,7 +154,6 @@ export default function GliderTimelineTab({
 	);
 
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);
-	const router = useRouter();
 
 	// Timeline id -> the raw ServicingEvent, so an "All events" row that
 	// came from asset_service_events can open the same edit dialog the
@@ -233,15 +232,12 @@ export default function GliderTimelineTab({
 										const editable = canEdit
 											? servicingByTimelineId.get(e.id)
 											: undefined;
-										// Editable service event -> open the dialog;
-										// mission / calibration -> navigate to where it's
-										// edited (its own page). Missions stay
-										// non-editable here by design.
+										// Editable service event -> open the dialog.
+										// Missions / components navigate only through the
+										// title link in the Description cell, not the row.
 										const onRowClick = editable
 											? () => controlsRef.current?.openForEdit(editable)
-											: e.href
-												? () => router.push(e.href as string)
-												: undefined;
+											: undefined;
 										return (
 											<TableRow
 												key={e.id}
@@ -261,7 +257,17 @@ export default function GliderTimelineTab({
 													/>
 												</TableCell>
 												<TableCell>
-													{e.label}
+													{e.href ? (
+														<MuiLink
+															component={NextLink}
+															href={e.href}
+															underline="hover"
+														>
+															{e.label}
+														</MuiLink>
+													) : (
+														e.label
+													)}
 													{e.detail && (
 														<Typography
 															component="span"

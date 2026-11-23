@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-client";
 import { formatAssetType } from "@/lib/format";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -56,6 +57,13 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
 };
 
 const PRE_MISSION_SERVICING = "pre_mission_servicing";
+
+// Suggested titles for a Lab service event. The title box stays a free-text
+// field (freeSolo), so anything else can still be typed in.
+const LAB_SERVICE_TITLE_OPTIONS = [
+	"Pre mission service",
+	"Post mission service",
+];
 
 // destroyed also stamps the asset's retirement date (gateway side); the
 // dialog just warns. missing is a normal span whose end date means
@@ -510,15 +518,26 @@ export default function AddServicingEventDialog({
 
 					{!isLifecycleAction && (
 						<Box sx={{ display: "flex", gap: 2 }}>
-							<TextField
+							<Autocomplete
+								freeSolo
 								size="small"
-								label="Event title"
-								placeholder="e.g. Pre-mission refurb"
-								value={state.title}
-								onChange={(e) =>
-									setState((s) => ({ ...s, title: e.target.value }))
+								options={
+									state.eventType === "servicing"
+										? LAB_SERVICE_TITLE_OPTIONS
+										: []
+								}
+								inputValue={state.title}
+								onInputChange={(_e, value) =>
+									setState((s) => ({ ...s, title: value }))
 								}
 								sx={{ flex: 1 }}
+								renderInput={(params) => (
+									<TextField
+										{...params}
+										label="Event title"
+										placeholder="e.g. Pre-mission refurb"
+									/>
+								)}
 							/>
 							<TextField
 								select
