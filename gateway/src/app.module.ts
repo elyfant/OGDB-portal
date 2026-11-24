@@ -17,6 +17,7 @@ import { IridiumModule } from "./iridium/iridium.module";
 import { LookupsModule } from "./lookups/lookups.module";
 import { MissionsModule } from "./missions/missions.module";
 import { ProcessingPackagesModule } from "./processing-packages/processing-packages.module";
+import { RefurbishmentsModule } from "./refurbishments/refurbishments.module";
 import { RmasModule } from "./rmas/rmas.module";
 import { UsersModule } from "./users/users.module";
 
@@ -32,6 +33,7 @@ import { UsersModule } from "./users/users.module";
 		DocumentsModule,
 		LookupsModule,
 		MissionsModule,
+		RefurbishmentsModule,
 		DatasetsModule,
 		BundlesModule,
 		CruisesModule,

@@ -32,12 +32,23 @@ import type {
 	MissionsSummary,
 	OgdbUser,
 	ProcessingPackage,
+	RefurbBatteries,
+	RefurbDeviceTests,
+	RefurbFinalPrep,
+	RefurbInspection,
+	RefurbIntake,
+	RefurbSensors,
+	RefurbSoftware,
+	RefurbTestLinks,
+	RefurbVacuum,
+	Refurbishment,
 	Rma,
 	RmaAsset,
 	RmaCatalogueRow,
 	RmaEvent,
 	ServicingEvent,
 	ServicingEventTypeOption,
+	TankRun,
 } from "@ogdb/types";
 import { redirect } from "next/navigation";
 import { getSessionToken } from "./auth";
@@ -305,6 +316,141 @@ export async function getMissionFiles(id: number): Promise<MissionFile[]> {
 	const res = await apiFetch(`/missions/${id}/files`);
 	if (!res.ok) {
 		throw new Error(`Failed to fetch files for mission ${id}: ${res.status}`);
+	}
+	return res.json();
+}
+
+// The mission's refurbishment logsheet header, or null if none has been
+// started. The gateway answers an empty 200 body for "none".
+export async function getRefurbishment(
+	missionId: number,
+): Promise<Refurbishment | null> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch refurbishment for mission ${missionId}: ${res.status}`,
+		);
+	}
+	const text = await res.text();
+	return text ? (JSON.parse(text) as Refurbishment) : null;
+}
+
+export async function getRefurbBatteries(
+	missionId: number,
+): Promise<RefurbBatteries> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/batteries`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch batteries for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbSensors(
+	missionId: number,
+): Promise<RefurbSensors> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/sensors`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch sensors for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbTestLinks(
+	missionId: number,
+): Promise<RefurbTestLinks> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/test-links`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch test links for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbIntake(
+	missionId: number,
+): Promise<RefurbIntake> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/intake`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch intake for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbSoftware(
+	missionId: number,
+): Promise<RefurbSoftware> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/software`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch software track for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbFinalPrep(
+	missionId: number,
+): Promise<RefurbFinalPrep> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/final-prep`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch final prep for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbInspection(
+	missionId: number,
+): Promise<RefurbInspection> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/inspection`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch inspections for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbVacuum(
+	missionId: number,
+): Promise<RefurbVacuum> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/vacuum`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch close and vacuum for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getRefurbDeviceTests(
+	missionId: number,
+): Promise<RefurbDeviceTests> {
+	const res = await apiFetch(
+		`/missions/${missionId}/refurbishment/device-tests`,
+	);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch device tests for mission ${missionId}: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+export async function getTankRuns(missionId: number): Promise<TankRun[]> {
+	const res = await apiFetch(`/missions/${missionId}/refurbishment/tank-runs`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch tank runs for mission ${missionId}: ${res.status}`,
+		);
 	}
 	return res.json();
 }

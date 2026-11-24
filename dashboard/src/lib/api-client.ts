@@ -30,8 +30,19 @@ import type {
 	RecordRmaEventInput,
 	RecordSensorCalibrationInput,
 	RecordServicingEventInput,
+	RefurbBatteries,
+	RefurbDeviceTests,
+	RefurbFinalPrep,
+	RefurbInspection,
+	RefurbIntake,
+	RefurbSensors,
+	RefurbSoftware,
+	RefurbTestLinks,
+	RefurbVacuum,
+	Refurbishment,
 	Rma,
 	RmaAsset,
+	TankRun,
 	UpdateAssetInput,
 	UpdateExternalReferencesInput,
 	UpdateGliderInput,
@@ -114,6 +125,351 @@ export async function createWorkshop(
 	}
 	return res.json();
 }
+
+// Starts the refurbishment logsheet on a workshop or scheduled mission.
+export async function startRefurbishment(
+	missionId: number,
+): Promise<Refurbishment> {
+	const res = await fetch(`/api/missions/${missionId}/refurbishment`, {
+		method: "POST",
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to start refurbishment: ${res.status}`,
+		);
+	}
+	return res.json();
+}
+
+async function putRefurbBatteries(
+	missionId: number,
+	path: string,
+	values: Record<string, unknown>,
+): Promise<RefurbBatteries> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment/batteries${path}`,
+		{
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ values }),
+		},
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Battery request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+export const saveBatteryPack = (
+	missionId: number,
+	position: string,
+	values: Record<string, unknown>,
+) => putRefurbBatteries(missionId, `/packs/${position}`, values);
+
+export const saveBatteryChecks = (
+	missionId: number,
+	values: Record<string, unknown>,
+) => putRefurbBatteries(missionId, "/checks", values);
+
+// Saves the changed device results in one go. A fail needs a note.
+export async function saveDeviceTests(
+	missionId: number,
+	tests: { key: string; result: "pass" | "fail" | null; note: string | null }[],
+): Promise<RefurbDeviceTests> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment/device-tests`,
+		{
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ values: { tests } }),
+		},
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Device test request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Saves the Software track: the sim-dive and mission-file fields, plus the
+// cleanup ticks that changed.
+export async function saveRefurbSoftware(
+	missionId: number,
+	values: Record<string, unknown>,
+): Promise<RefurbSoftware> {
+	const res = await fetch(`/api/missions/${missionId}/refurbishment/software`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ values }),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Software track request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+async function sensorsCall(
+	missionId: number,
+	path: string,
+	method: "POST" | "PUT",
+	values: Record<string, unknown>,
+): Promise<RefurbSensors> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment/sensors${path}`,
+		{
+			method,
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ values }),
+		},
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Sensor request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Puts a sensor in this mission's build: replaces `oldAssetId`, or adds one
+// when it is null. The logsheet and the build change together.
+export const swapRefurbSensor = (
+	missionId: number,
+	oldAssetId: number | null,
+	newAssetId: number,
+) => sensorsCall(missionId, "/swap", "POST", { oldAssetId, newAssetId });
+
+export const saveSensorChecks = (
+	missionId: number,
+	checks: {
+		assetId: number;
+		reviewed: boolean;
+		coefficientsOk: boolean;
+		zeroFrequencyOk: boolean;
+		needsCalibration: boolean;
+		notes: string | null;
+	}[],
+) => sensorsCall(missionId, "/checks", "PUT", { checks });
+
+async function testLinksCall(
+	missionId: number,
+	path: string,
+	init: RequestInit,
+): Promise<RefurbTestLinks> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment/test-links${path}`,
+		init,
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Selftests and field tests live in their own software; the logsheet links to
+// them. `kind` is the URL form: "selftest" or "field-test".
+export type TestKindPath = "selftest" | "field-test";
+
+export const addTestLink = (
+	missionId: number,
+	kind: TestKindPath,
+	url: string,
+	label: string | null,
+) =>
+	testLinksCall(missionId, `/${kind}/links`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ values: { url, label } }),
+	});
+
+export const removeTestLink = (missionId: number, linkId: number) =>
+	testLinksCall(missionId, `/links/${linkId}`, { method: "DELETE" });
+
+export const setTestConfirmed = (
+	missionId: number,
+	kind: TestKindPath,
+	confirmed: boolean,
+) =>
+	testLinksCall(missionId, `/${kind}/confirmed`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ values: { confirmed } }),
+	});
+
+// One call to a logsheet section that also takes tag screenshots (intake and
+// final prep). `section` is its path under /refurbishment.
+async function sectionCall<T>(
+	missionId: number,
+	section: "intake" | "final-prep",
+	path: string,
+	init: RequestInit,
+): Promise<T> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment/${section}${path}`,
+		init,
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+const finalPrepCall = (missionId: number, path: string, init: RequestInit) =>
+	sectionCall<RefurbFinalPrep>(missionId, "final-prep", path, init);
+
+const intakeCall = (missionId: number, path: string, init: RequestInit) =>
+	sectionCall<RefurbIntake>(missionId, "intake", path, init);
+
+// Saves the whole Intake section.
+export const saveRefurbIntake = (
+	missionId: number,
+	values: Record<string, unknown>,
+) =>
+	intakeCall(missionId, "", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ values }),
+	});
+
+// Uploads the old Argos tag's test screenshots (images or PDF).
+export function uploadOldTagScreenshots(missionId: number, files: File[]) {
+	const body = new FormData();
+	for (const f of files) body.append("files", f);
+	return intakeCall(missionId, "/screenshots", { method: "POST", body });
+}
+
+export const deleteOldTagScreenshot = (missionId: number, documentId: number) =>
+	intakeCall(missionId, `/screenshots/${documentId}`, { method: "DELETE" });
+
+// Saves the whole Final prep section. Choosing a different Argos tag also
+// changes the mission's build.
+export const saveRefurbFinalPrep = (
+	missionId: number,
+	values: Record<string, unknown>,
+) =>
+	finalPrepCall(missionId, "", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ values }),
+	});
+
+// Uploads Argos tag test screenshots (images or PDF).
+export function uploadTagScreenshots(missionId: number, files: File[]) {
+	const body = new FormData();
+	for (const f of files) body.append("files", f);
+	return finalPrepCall(missionId, "/screenshots", { method: "POST", body });
+}
+
+export const deleteTagScreenshot = (missionId: number, documentId: number) =>
+	finalPrepCall(missionId, `/screenshots/${documentId}`, { method: "DELETE" });
+
+// Saves the changed inspection lines in one go. Needs work and repaired
+// must carry a note.
+export async function saveRefurbInspection(
+	missionId: number,
+	items: {
+		key: string;
+		status: "ok" | "issue" | "repaired" | "done" | null;
+		note: string | null;
+	}[],
+): Promise<RefurbInspection> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment/inspection`,
+		{
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ values: { items } }),
+		},
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Inspection request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Saves the whole Close and vacuum section.
+export async function saveRefurbVacuum(
+	missionId: number,
+	values: Record<string, unknown>,
+): Promise<RefurbVacuum> {
+	const res = await fetch(`/api/missions/${missionId}/refurbishment/vacuum`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ values }),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Close and vacuum request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+async function tankRunCall<T>(
+	missionId: number,
+	path: string,
+	method: "POST" | "PATCH" | "DELETE",
+	body?: unknown,
+): Promise<T> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment/tank-runs${path}`,
+		{
+			method,
+			headers: body ? { "Content-Type": "application/json" } : undefined,
+			body: body ? JSON.stringify(body) : undefined,
+		},
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Tank run request failed: ${res.status}`);
+	}
+	return (res.status === 204 ? undefined : await res.json()) as T;
+}
+
+export const addTankRun = (missionId: number) =>
+	tankRunCall<TankRun>(missionId, "", "POST");
+
+export const saveTankRun = (
+	missionId: number,
+	runId: number,
+	values: Record<string, unknown>,
+) => tankRunCall<TankRun>(missionId, `/${runId}`, "PATCH", { values });
+
+export const signOffTankRun = (missionId: number, runId: number) =>
+	tankRunCall<TankRun>(missionId, `/${runId}/sign-off`, "POST");
+
+export const deleteTankRun = (missionId: number, runId: number) =>
+	tankRunCall<void>(missionId, `/${runId}`, "DELETE");
 
 export async function applyDatasetStages(
 	missionId: number,

@@ -13,11 +13,11 @@ design. Nothing here is built yet.
 | 3 | Ballasting is a repeatable **tank run** (Run 1, 2, …). The tech marks one run as final. |
 | 4 | Final trim values are saved **on the refurbishment record** (history, not overwritten on the glider), on tech sign-off. Earlier runs stay as record. |
 | 5 | The 3-server gliderpage procedure is **one checkbox per server + link to the SOP**, not the commands. |
-| 6 | **Field test** is an optional, repeatable section outside the main sequence. |
+| 6 | **Field test** is optional and never blocks clearing. |
 | 7 | **Cleared to deploy** sits at the top of the form; any team member can set it, but it is **blocked** until all required sections are complete. |
 | 8 | Required for clearing: all sections except the field test; **sim dives and selftest are required**. Field test is optional. |
-| 9 | A field test does **not** create an OGDB mission. It only stores a reference to its basestation mission. |
-| 10 | Selftest log is parseable, so move metrics are parsed, not hand-keyed. |
+| 9 | A field test does **not** create an OGDB mission, and the logsheet does not re-implement it (see 10). |
+| 10 | **Selftest and field test already have their own software, so the logsheet does not re-implement them.** It records that the test was done (who, when) and keeps a list of links to every run in that software. A glider usually goes through several selftests, so all are linked. |
 
 ## Field classes
 
@@ -152,13 +152,17 @@ as separate typed entries rather than a note in a checklist label.
 `$MASS`, volmax (calculated), roll/pitch/VBD centre values, and the ballast
 weight added or removed. The glider page can show the latest signed-off values.
 
-### H. Selftest
+### H. Selftest (required)
+
+Not re-implemented here: the selftest is analysed in the existing software
+(Basestation3 and the pilots' tools).
 
 | Field | Class | Notes |
 |---|---|---|
-| Selftest number | REC | Links to the basestation record. |
-| Result (PASSED / FAILED / ABORTED), warnings | REC | |
-| Pitch, roll, VBD move metrics (distance, time, current, AD/s, errors) | AUTO (preferred) | Parse from the selftest log. Expected thresholds are fixed per revision and shown with automatic pass/fail. Fall back to manual entry only if parsing is not possible. |
+| Links to each selftest run | REC | A list. Any number, each with an optional name ("Selftest 3, outdoors"). Only http(s) addresses; one address once. |
+| Selftest done, result good | REC | One confirmation, with who and when (the first person to confirm stays on the record). |
+
+Cleared to deploy needs at least one link **and** the confirmation.
 
 ### I. Software track (can run in parallel with hardware)
 
@@ -182,16 +186,15 @@ Then: confirm backup in `gliderbak`; sim-dive run (REC: cmdfile used, dives comp
 | Packing checklist (tag + clamps, comms cable, wand or shorting cable per revision, wings, rudder, cradle, spare kit, release mechanism, PC) | REC |
 | "Update refurb notes / archive logsheet", "Update NorwegianMissions.xls", all "update … on Teams" | DROP |
 
-### K. Field test (optional, repeatable)
+### K. Field test (optional)
+
+Same shape as the selftest and likewise not re-implemented: it is a basestation
+mission, so the logsheet only links to it.
 
 | Field | Class | Notes |
 |---|---|---|
-| Date | REC | |
-| Who | AUTO + REC | Logged-in user plus others present (several people may attend). |
-| Vessel | REC | Free text or pick list if you keep one. |
-| Description | REC | |
-| Basestation mission | REC | Reference to the basestation mission (name or id). No OGDB mission is created. |
-| Photos, files | DB | `documents`. |
+| Links to each field test | REC | A list, as for the selftest. |
+| Field test done | REC | One confirmation, with who and when. Never blocks clearing. |
 
 ## How this maps onto the database (proposed, not built)
 
@@ -208,11 +211,47 @@ Design choice still open: a generic key/value entry table is quick to build and 
 1. Trim values live on the refurbishment record.
 2. A field test creates no OGDB mission.
 3. Cleared to deploy is blocked until required sections are complete.
-4. The selftest log is parseable.
+4. Selftest and field test are confirmed and linked, not re-implemented (replaces the earlier plan to parse the selftest log and to log field tests as a form).
 5. Field test optional; sim dives and selftest required.
 
 ## Still open
 
 1. Where the form starts (glider page, mission tab, or list page).
 2. Whether the header's "SN" is the glider's `serialNumber` field and how `SG563` is stored.
-3. Exact format of the selftest log, to write the parser.
+
+## Layout and final structure (2026-11-24)
+
+The logsheet tab is eleven numbered, collapsible section cards under a sticky
+progress bar (one segment per section; the field test is dashed because it is
+optional). Each card shows a number badge, title, the parts inside it, and its
+state (done / in progress / not started). By default only the first required
+section that is not done is open.
+
+| # | Section | Parts |
+|---|---|---|
+| 1 | Intake | Previous mission · Old Argos tag |
+| 2 | Inspections | External · Open glider and internal |
+| 3 | Sensors | Calibration and swaps |
+| 4 | Batteries | Batteries · Fuel gauges and GPS cell |
+| 5 | Device tests | |
+| 6 | Close and vacuum | |
+| 7 | Tank test and ballast | |
+| 8 | Selftest | Links to each run |
+| 9 | Software track (parallel) | Flash card · Cleanup · Sim dives · Mission files |
+| 10 | Field test (optional) | Links |
+| 11 | Final prep | Before packing · Argos tag · Packing |
+
+Added after the first draft because they were in the paper sheet but missing:
+
+* **Sensors** (old section 4). The fitted sensors come from the mission build.
+  Putting a different one in changes the build in the same transaction.
+  Calibration is read from its own records; the section records which sensor
+  replaced which, "checked", coefficients entered (for replaced sensors), the CT
+  sail zero frequency, and "needs calibration".
+* **Flash card** (old section 6), in the Software track: files copied to
+  `/naco/data/delayed/`, then the card formatted. The database refuses
+  "formatted" without "copied", because formatting destroys the data.
+
+A section is **complete** only when nothing is left to do in it *and* someone
+has recorded something there, so an untouched section never reads as done and
+always blocks clearing.

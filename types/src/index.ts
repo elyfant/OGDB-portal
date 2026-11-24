@@ -1479,3 +1479,447 @@ export interface FullResolutionProfile {
 	values: Record<string, (number | null)[]>;
 	units: Record<string, string>;
 }
+
+// Where each section of the logsheet stands. `complete` means nothing is left
+// to do AND someone has recorded something there.
+export type RefurbSectionKey =
+	| "intake"
+	| "inspections"
+	| "sensors"
+	| "batteries"
+	| "device_tests"
+	| "vacuum"
+	| "tank_test"
+	| "selftest"
+	| "software"
+	| "field_test"
+	| "final_prep";
+
+export interface RefurbSectionState {
+	key: RefurbSectionKey;
+	// The field test is the only section that is not required.
+	required: boolean;
+	started: boolean;
+	complete: boolean;
+	// What is still to do in this section, in words.
+	blockers: string[];
+}
+
+// Header of a Seaglider pre-mission refurbishment logsheet
+// (refurbishments table). One per mission, normally the glider's workshop
+// mission. See docs/design/seaglider-refurb-logsheet.md.
+export interface Refurbishment {
+	id: number;
+	missionId: number;
+	formVersion: number;
+	// Identity comes from the mission's glider, never typed on the form.
+	gliderAssetId: number;
+	gliderName: string;
+	serialNumber: string | null;
+	startedAt: string;
+	startedByName: string | null;
+	// Cleared to deploy: set together or not at all.
+	clearedAt: string | null;
+	clearedByName: string | null;
+	// Why "cleared to deploy" is not available yet. Empty when it can be set.
+	clearBlockers: string[];
+	// Every section's state, in logsheet order: drives the progress bar.
+	sections: RefurbSectionState[];
+}
+
+// One pitch-gain position in a tank run: the pitch battery position (cm)
+// and the pitch angle read from the compass (deg). Order = point number.
+export interface TankRunPitchPoint {
+	pitchCm: number;
+	pitchDeg: number;
+}
+
+// CT reading in the tank for one fitted sensor, compared by the tech with
+// the reference sensor.
+export interface TankRunCtReading {
+	sensorLabel: string;
+	tempC: number | null;
+	salinityPsu: number | null;
+}
+
+// Everything a tech types into one tank run. All nullable: a run is filled
+// in over hours by several people, and "complete" is only checked at
+// sign-off. Units follow the field names; density is kg/m3, not g/cc.
+export interface TankRunValues {
+	runDate: string | null; // YYYY-MM-DD
+	isFinal: boolean;
+	argosMounted: boolean | null;
+	weightAirKg: number | null;
+	// Initial readings
+	pitchAd: number | null;
+	pitchCm: number | null;
+	rollAd: number | null;
+	rollDeg: number | null;
+	vbdAd: number | null;
+	vbdCc: number | null;
+	internalRh: number | null;
+	internalTempC: number | null;
+	internalPressurePsia: number | null;
+	// Roll and pitch checks
+	rollAngleDeg: number | null;
+	rollOk: boolean | null;
+	rollAdjustment: string | null;
+	pitchAngleDeg: number | null;
+	pitchOk: boolean | null;
+	pitchAdjustment: string | null;
+	// Tank water
+	tankTempC: number | null;
+	tankSalinityPsu: number | null;
+	tankDensityKgm3: number | null;
+	ctOk: boolean | null;
+	// Ballast
+	targetMaxDensityKgm3: number | null;
+	desiredTankWeightG: number | null;
+	measuredTankWeightG: number | null;
+	ballastChanges: string | null;
+	// Final trim values (saved on sign-off of the final run)
+	trimMassKg: number | null;
+	trimCVbdAd: number | null;
+	trimCPitchAd: number | null;
+	trimCRollAd: number | null;
+	notes: string | null;
+	pitchPoints: TankRunPitchPoint[];
+	ctReadings: TankRunCtReading[];
+}
+
+export interface TankRun extends TankRunValues {
+	id: number;
+	refurbishmentId: number;
+	runNumber: number;
+	createdAt: string;
+	createdByName: string | null;
+	updatedAt: string;
+	updatedByName: string | null;
+	signedOffAt: string | null;
+	signedOffByName: string | null;
+}
+
+// A battery the tech can pick as the replacement in a refurbishment: a
+// battery asset whose model is for this glider's platform.
+export interface RefurbBatteryCandidate {
+	id: number;
+	serialNumber: string | null;
+	model: string | null;
+	dateOfManufacture: string | null;
+	// Ah and V, from the battery model.
+	capacityAh: number | null;
+	nominalVoltage: number | null;
+}
+
+// What the tech enters for one battery slot. Weights in g, voltages in V.
+export interface RefurbBatteryPackValues {
+	installedAssetId: number | null;
+	installedOn: string | null; // YYYY-MM-DD
+	installedWeightG: number | null;
+	installedVoltageV: number | null;
+	removedWeightG: number | null;
+	removedVoltageV: number | null;
+	notes: string | null;
+}
+
+// One battery slot of the refurbishment. `buildAssetId` is what the mission's
+// build holds in that slot right now; `removedAssetId` is what was there when
+// the tech first saved the slot (kept, so a later save still knows the old pack).
+export interface RefurbBatteryPack extends RefurbBatteryPackValues {
+	position: string; // fore | middle | aft
+	buildAssetId: number | null;
+	removedAssetId: number | null;
+	// Calculated once when saved, never against today's date. Fractions 0–1.
+	derating: number | null;
+	remaining: number | null;
+	// Ah to enter as $AH0_<V>V in pdos.
+	fuelGaugeAh: number | null;
+	saved: boolean;
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+export interface RefurbBatteryChecks {
+	fuelGaugesReset: boolean;
+	ah0Updated: boolean;
+	gpsCellReplaced: boolean | null;
+	gpsCellManufactured: string | null; // YYYY-MM-DD
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+export interface RefurbBatteries {
+	packs: RefurbBatteryPack[];
+	candidates: RefurbBatteryCandidate[];
+	// Every battery named by a pack (installed, removed or in the build), so
+	// the UI can show serial and model without a second lookup.
+	assets: RefurbBatteryCandidate[];
+	checks: RefurbBatteryChecks;
+}
+
+// One device in the refurbishment's Device tests. The list of expected
+// devices is built from the glider (the built-in four) and the mission's
+// build (each fitted science sensor), never typed in.
+export interface RefurbDeviceTest {
+	// "altimeter" | "compass" | "gps" | "pressure_sensor" | "sensor-<assetId>"
+	key: string;
+	label: string;
+	// Serial and model, for a science sensor.
+	detail: string | null;
+	kind: "builtin" | "sensor";
+	// Reminder from the procedure, e.g. when the device is calibrated.
+	hint: string | null;
+	result: "pass" | "fail" | null;
+	note: string | null;
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+export interface RefurbDeviceTests {
+	devices: RefurbDeviceTest[];
+}
+
+// Sensors: the science sensors fitted for this mission (read from the build, so
+// the list cannot disagree with it), what each replaced, and the checks from
+// the old sheet. The calibration itself is not stored here: it has its own
+// records, and the logsheet reads the latest.
+export interface RefurbSensor {
+	assetId: number;
+	assetType: string;
+	typeLabel: string;
+	serialNumber: string | null;
+	model: string | null;
+	position: string | null;
+	// Latest calibration on record for the sensor (from its own cal table).
+	calibrationDate: string | null;
+	// Set when the sensor was put in during this refurbishment: what it replaced
+	// ("CT sensor 191"), or null if the slot was empty.
+	replaced: boolean;
+	replacedLabel: string | null;
+	// CT sail only: the zero-conductivity frequency must be checked.
+	requiresZeroFrequency: boolean;
+	// Someone has looked at this sensor (its calibration date and condition).
+	reviewed: boolean;
+	coefficientsOk: boolean;
+	zeroFrequencyOk: boolean;
+	needsCalibration: boolean;
+	notes: string | null;
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+export interface RefurbSensorCandidate {
+	id: number;
+	assetType: string;
+	label: string;
+}
+
+export interface RefurbSensors {
+	sensors: RefurbSensor[];
+	// Sensors that could be put in: not decommissioned, not already in this build.
+	candidates: RefurbSensorCandidate[];
+}
+
+// Selftests and field tests have their own software, so the logsheet does not
+// re-implement them. It records that the test was done (and by whom) and keeps
+// links to it there. There are usually several selftests, so links are a list.
+// A selftest is required before clearing; a field test never is.
+export type RefurbTestKind = "selftest" | "field_test";
+
+export interface RefurbTestLink {
+	id: number;
+	kind: RefurbTestKind;
+	url: string;
+	// Optional name to tell links apart, e.g. "Selftest 3, outdoors".
+	label: string | null;
+	addedAt: string;
+	addedByName: string | null;
+}
+
+export interface RefurbTestGroup {
+	// Confirmed as done: who first confirmed it, and when.
+	confirmed: boolean;
+	confirmedAt: string | null;
+	confirmedByName: string | null;
+	links: RefurbTestLink[];
+}
+
+export interface RefurbTestLinks {
+	selftest: RefurbTestGroup;
+	fieldTest: RefurbTestGroup;
+}
+
+// Intake: what went wrong on the previous mission (read from the mission and
+// the fault log, never typed) and retiring the old Argos tag.
+export interface RefurbIntakeFault {
+	id: number;
+	// "ct_sensor 9545", the glider's name, and so on.
+	assetLabel: string;
+	reportedDate: string;
+	severity: string;
+	status: string;
+	description: string;
+}
+
+export interface RefurbIntakePreviousMission {
+	id: number;
+	missionNumber: number | null;
+	name: string;
+	retrievalDate: string | null;
+	// The mission's own "why it ended" (OceanOPS vocabulary); null if not set.
+	endingCause: string | null;
+}
+
+export interface RefurbIntakeValues {
+	issuesReviewed: boolean;
+	issuesNotes: string | null;
+	// The tag that flew on the previous mission (an `argos_tag` asset).
+	oldTagAssetId: number | null;
+	tagRemoved: boolean;
+	tagActivated: boolean;
+	tagTestOk: boolean;
+	// null = not decided, false = replace it.
+	tagBatteryOk: boolean | null;
+	tagStopped: boolean;
+}
+
+export interface RefurbIntake extends RefurbIntakeValues {
+	previousMission: RefurbIntakePreviousMission | null;
+	// Unresolved faults on the glider and on what is in this mission's build.
+	openFaults: RefurbIntakeFault[];
+	tagCandidates: { id: number; serialNumber: string | null }[];
+	screenshots: RefurbTagScreenshot[];
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+// Software track: confirming the basestation and the three gliderpage
+// servers are clean (before the sim dives, and again after), running the sim
+// dives, and putting the mission files in place. The commands are in the
+// SOP; the logsheet only records who confirmed what, and when.
+export type SoftwareCleanupStage = "after_previous_mission" | "after_simdives";
+export type SoftwareCleanupTarget =
+	| "backup"
+	| "basestation"
+	| "gliders"
+	| "glider"
+	| "gp";
+
+export interface RefurbSoftwareCleanup {
+	stage: SoftwareCleanupStage;
+	target: SoftwareCleanupTarget;
+	done: boolean;
+	// Who first confirmed it, and when. Null while not done.
+	doneAt: string | null;
+	doneByName: string | null;
+}
+
+export interface RefurbSoftwareValues {
+	// The old mission's files copied off the glider's flash card into
+	// /naco/data/delayed/, then the card formatted. Formatting needs the copy
+	// first (the database refuses it otherwise): it destroys what is on the card.
+	flashcardCopied: boolean;
+	flashcardFormatted: boolean;
+	simdiveCmdfileUploaded: boolean;
+	simdiveScienceUploaded: boolean;
+	// Number of simulated dives completed (about 3 is normal).
+	simdiveDives: number | null;
+	// Dive plot, science sensors, GaaG, GPS and pop-up window all look right,
+	// and show up properly in the gliderpage.
+	simdiveDataOk: boolean;
+	simdiveGliderOff: boolean;
+	simdiveNotes: string | null;
+	filesScience: boolean;
+	filesCmdfile: boolean;
+	filesTargets: boolean;
+	filesCalibConstants: boolean;
+	filesPagersUrlsLogout: boolean;
+	filesOther: string | null;
+}
+
+export interface RefurbSoftware extends RefurbSoftwareValues {
+	// Every stage × target, in checklist order.
+	cleanups: RefurbSoftwareCleanup[];
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+// What the tech enters in Final prep. The packing flags are the logsheet's
+// own fixed checklist.
+export interface RefurbFinalPrepValues {
+	pressureFinalPsia: number | null;
+	travelModeSet: boolean;
+	gliderOff: boolean;
+	// The Argos tag going out on this mission (an `argos_tag` asset).
+	argosAssetId: number | null;
+	pttId: string | null;
+	tagTimeSynced: boolean;
+	tagConfigConfirmed: boolean;
+	tagTestOk: boolean;
+	// V (3.3–3.7 expected) and the number of transmissions so far (fewer than
+	// 30 000 to 40 000).
+	tagBatteryV: number | null;
+	tagTransmissions: number | null;
+	tagAutoStart: boolean;
+	packTagClamps: boolean;
+	packCommsCable: boolean;
+	packShortingOrWand: boolean;
+	packWings: boolean;
+	packRudder: boolean;
+	packCradle: boolean;
+	packSpareKit: boolean;
+	packReleaseMechanism: boolean;
+	packPc: boolean;
+	notes: string | null;
+}
+
+export interface RefurbTagScreenshot {
+	id: number;
+	fileName: string;
+	uploadedAt: string;
+}
+
+export interface RefurbFinalPrep extends RefurbFinalPrepValues {
+	tagCandidates: { id: number; serialNumber: string | null }[];
+	// Test-transmission screenshots, attached to the mission as documents.
+	screenshots: RefurbTagScreenshot[];
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+// One line of the inspection checklists. `check` items are looked at and
+// marked OK, needs work or repaired; `step` items are just done. The list of
+// items is the logsheet's own and is fixed (it lives in the gateway).
+export interface RefurbInspectionItem {
+	key: string;
+	phase: "external" | "internal";
+	kind: "check" | "step";
+	label: string;
+	hint: string | null;
+	status: "ok" | "issue" | "repaired" | "done" | null;
+	note: string | null;
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
+
+export interface RefurbInspection {
+	items: RefurbInspectionItem[];
+}
+
+// Close and vacuum (refurb_vacuum): one record per refurbishment. Pressures
+// in psia (about 14 before pulling, about 9 ± 0.2 after).
+export interface RefurbVacuum {
+	cablesChecked: boolean;
+	oringsServiced: boolean;
+	gliderClosed: boolean;
+	vacuumPulled: boolean;
+	pressureBeforePsia: number | null;
+	pressurePulledPsia: number | null;
+	// After leaving it to settle (about 5 min).
+	pressureSettledPsia: number | null;
+	humidityRh: number | null;
+	anodeContinuityOk: boolean | null;
+	notes: string | null;
+	updatedAt: string | null;
+	updatedByName: string | null;
+}
