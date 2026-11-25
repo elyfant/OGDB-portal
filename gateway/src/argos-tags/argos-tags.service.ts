@@ -1,6 +1,5 @@
 import {
 	BadRequestException,
-	ConflictException,
 	Inject,
 	Injectable,
 	NotFoundException,
@@ -16,12 +15,7 @@ import { PG_POOL } from "../db/db.constants";
 
 type Db = Pool | PoolClient;
 
-// Tag types offered when typing one, alongside whatever is already in use.
-const DEFAULT_TAG_TYPES = ["SPOT6"];
-
 const MAX_TAGWARE = 50;
-const MAX_MODEL = 50;
-const MAX_NAME = 100;
 
 const personName = (alias: string) =>
 	`NULLIF(TRIM(${alias}.first_name || ' ' || ${alias}.last_name), '')`;
@@ -49,16 +43,6 @@ function wholeNumber(v: unknown, label: string): number | null {
 export class ArgosTagsService {
 	constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-	// Tag types already on record, plus the defaults, to suggest when typing.
-	async knownTypes(db: Db = this.pool): Promise<string[]> {
-		const r = await db.query(
-			"SELECT DISTINCT model FROM asset_argos_tag_details WHERE model IS NOT NULL ORDER BY model",
-		);
-		return [
-			...new Set([...DEFAULT_TAG_TYPES, ...r.rows.map((x) => x.model)]),
-		].sort();
-	}
-
 	async config(assetId: number, db: Db = this.pool): Promise<ArgosTagConfig> {
 		const r = await db.query(
 			`SELECT a.id AS "assetId", a.serial_number AS "serialNumber",
@@ -74,108 +58,6 @@ export class ArgosTagsService {
 			throw new NotFoundException(`Asset ${assetId} is not an Argos tag.`);
 		}
 		return r.rows[0];
-	}
-
-	// Which fields of a tag's configuration are still empty, by name. All four
-	// are needed before the tag can be used on a mission.
-	missingConfig(c: ArgosTagConfig | null): string[] {
-		if (!c) return ["Argos tag"];
-		const out: string[] = [];
-		if (!c.model) out.push("tag type");
-		if (!c.argosDec) out.push("Argos Dec");
-		if (!c.argosHex) out.push("Argos Hex");
-		if (!c.tagName) out.push("tag name");
-		return out;
-	}
-
-	// Saves a tag's configuration (all four fields; an empty one clears it).
-	// Runs inside the caller's transaction. The audit trigger reads the user
-	// from ogdb.changed_by, so set it for this transaction.
-	async saveConfig(
-		client: PoolClient,
-		assetId: number,
-		input: Record<string, unknown>,
-		userId: number,
-	): Promise<void> {
-		for (const k of Object.keys(input)) {
-			if (!["model", "argosDec", "argosHex", "tagName"].includes(k)) {
-				throw new BadRequestException(
-					`Unknown field "${k}" in the tag details.`,
-				);
-			}
-		}
-		const text = (v: unknown, max: number, label: string): string | null => {
-			if (blank(v)) return null;
-			if (typeof v !== "string")
-				throw new BadRequestException(`${label}: expected text.`);
-			const t = v.trim();
-			if (t.length > max)
-				throw new BadRequestException(`${label}: at most ${max} characters.`);
-			return t === "" ? null : t;
-		};
-		const model = text(input.model, MAX_MODEL, "Tag type");
-		const tagName = text(input.tagName, MAX_NAME, "Tag name");
-
-		const dec = text(input.argosDec, 20, "Argos Dec");
-		if (dec !== null && !/^[0-9]{6,8}$/.test(dec)) {
-			throw new BadRequestException("Argos Dec must be 6 to 8 digits.");
-		}
-		// Typed by hand, often from a label: spaces are noise, case is not meaningful.
-		const hexRaw = text(input.argosHex, 20, "Argos Hex");
-		const hex =
-			hexRaw === null ? null : hexRaw.replace(/\s+/g, "").toUpperCase();
-		if (hex !== null && !/^[0-9A-F]{6,7}$/.test(hex)) {
-			throw new BadRequestException(
-				"Argos Hex must be 6 or 7 hex digits (0-9, A-F).",
-			);
-		}
-
-		await this.config(assetId, client); // 404 unless it really is an Argos tag
-
-		// An Argos ID names exactly one tag. Check for a clash BEFORE writing, so the
-		// message can name the other tag: once the database has refused an insert the
-		// transaction is aborted and nothing more can be asked of it.
-		for (const [column, value, label] of [
-			["argos_dec", dec, "Argos Dec"],
-			["argos_hex", hex, "Argos Hex"],
-		] as const) {
-			if (value === null) continue;
-			const clash = await client.query(
-				`SELECT a.serial_number FROM asset_argos_tag_details d
-           JOIN assets a ON a.id = d.asset_id
-          WHERE d.${column} = $1 AND d.asset_id <> $2`,
-				[value, assetId],
-			);
-			if (clash.rows.length > 0) {
-				const other = clash.rows[0].serial_number;
-				throw new ConflictException(
-					`That ${label} is already used by another tag${other ? ` (${other})` : ""}. An Argos ID names exactly one tag.`,
-				);
-			}
-		}
-
-		await client.query("SELECT set_config('ogdb.changed_by', $1, true)", [
-			String(userId),
-		]);
-		try {
-			await client.query(
-				`INSERT INTO asset_argos_tag_details (asset_id, model, argos_dec, argos_hex, tag_name)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (asset_id) DO UPDATE SET
-           model = EXCLUDED.model, argos_dec = EXCLUDED.argos_dec,
-           argos_hex = EXCLUDED.argos_hex, tag_name = EXCLUDED.tag_name`,
-				[assetId, model, dec, hex, tagName],
-			);
-		} catch (err) {
-			// Only reachable if someone else saved the same ID between the check above
-			// and this write. The transaction is aborted, so no lookup is possible.
-			if ((err as { code?: string }).code === "23505") {
-				throw new ConflictException(
-					"That Argos ID was just entered on another tag. An Argos ID names exactly one tag.",
-				);
-			}
-			throw err;
-		}
 	}
 
 	// The readings recorded under one measurement id, or an empty test.
@@ -348,7 +230,7 @@ export class ArgosTagsService {
 
 	// A tag's configuration and its measurement history, for the asset page.
 	async detail(assetId: number): Promise<ArgosTagDetail> {
-		const [config, rows, knownTypes] = await Promise.all([
+		const [config, rows] = await Promise.all([
 			this.config(assetId),
 			this.pool.query(
 				`SELECT m.id, to_char(m.measured_date, 'YYYY-MM-DD') AS "measuredDate",
@@ -363,12 +245,10 @@ export class ArgosTagsService {
           ORDER BY m.measured_date DESC, m.id DESC`,
 				[assetId],
 			),
-			this.knownTypes(),
 		]);
 		return {
 			config,
 			measurements: rows.rows as ArgosTagMeasurement[],
-			knownTypes,
 		};
 	}
 }

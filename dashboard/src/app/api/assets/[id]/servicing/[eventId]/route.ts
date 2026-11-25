@@ -30,3 +30,25 @@ export async function PATCH(
 		headers: { "Content-Type": "application/json" },
 	});
 }
+
+export async function DELETE(
+	_request: Request,
+	{ params }: { params: Promise<{ id: string; eventId: string }> },
+) {
+	const token = await getSessionToken();
+	if (!token) {
+		return NextResponse.json({ message: "Not signed in." }, { status: 401 });
+	}
+
+	const { id, eventId } = await params;
+	const res = await fetch(`${API_URL}/assets/${id}/servicing/${eventId}`, {
+		method: "DELETE",
+		headers: { Authorization: `Bearer ${token}` },
+	});
+
+	const data = await res.text();
+	return new NextResponse(data, {
+		status: res.status,
+		headers: { "Content-Type": "application/json" },
+	});
+}

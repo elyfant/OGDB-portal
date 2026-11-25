@@ -1,5 +1,6 @@
 "use client";
 
+import EditRowButton from "@/components/EditRowButton";
 import { formatDate } from "@/lib/format";
 import { KIND_META } from "@/lib/timeline";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
@@ -17,9 +18,10 @@ import type { ServicingEvent } from "@ogdb/types";
 // Every asset_service_events row this feature owns -- servicing, factory
 // repair, transit, on loan, field test, missing, destroyed. Shared by the
 // glider Timeline tab's Servicing accordion and the asset detail page's,
-// so a row click opens the same edit flow regardless of which page you're
-// on. The caller owns the ServicingEventControls instance/ref; this
-// component just reports which row was clicked.
+// so the spanner at the end of a row opens the same edit flow regardless of
+// which page you're on. The row itself is not clickable. The caller owns the
+// ServicingEventControls instance/ref; this component just reports which
+// row's spanner was pressed.
 export default function ServicingHistoryTable({
 	events,
 	canEdit,
@@ -44,18 +46,14 @@ export default function ServicingHistoryTable({
 						<TableCell>Start</TableCell>
 						<TableCell>End</TableCell>
 						<TableCell>Document</TableCell>
+						{canEdit && <TableCell sx={{ width: 48 }} />}
 					</TableRow>
 				</TableHead>
 				<TableBody>
 					{events.map((e) => {
 						const meta = KIND_META[e.eventType];
 						return (
-							<TableRow
-								key={e.id}
-								hover
-								onClick={canEdit ? () => onEditEvent(e) : undefined}
-								sx={canEdit ? { cursor: "pointer" } : undefined}
-							>
+							<TableRow key={e.id}>
 								<TableCell>
 									<Chip
 										size="small"
@@ -98,6 +96,11 @@ export default function ServicingHistoryTable({
 										"—"
 									)}
 								</TableCell>
+								{canEdit && (
+									<TableCell align="right">
+										<EditRowButton onClick={() => onEditEvent(e)} />
+									</TableCell>
+								)}
 							</TableRow>
 						);
 					})}

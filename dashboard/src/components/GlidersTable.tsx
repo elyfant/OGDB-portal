@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDate } from "@/lib/format";
+import { hasLocation, locationName, locationText } from "@/lib/glider-location";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
@@ -22,7 +23,10 @@ import FilterBar from "./FilterBar";
 function statusTooltip(g: Glider): string {
 	if (!g.statusSince) return "";
 	const since = `since ${formatDate(g.statusSince)}`;
-	if (g.statusSource === "mission") return `Deployed ${since} · from a mission`;
+	// "mission" covers Deployed, Workshop and Ready to deploy, so name the
+	// state rather than assuming it's Deployed.
+	if (g.statusSource === "mission" && g.status)
+		return `${STATUS_LABEL[g.status]} ${since} · from a mission`;
 	if (g.statusSource === "service_event")
 		return `${since} · from a logged event`;
 	return since;
@@ -99,7 +103,14 @@ export default function GlidersTable({
 			{ key: "owner", label: "Owner", kind: "string", defaultVisible: true },
 			{
 				key: "status",
-				label: "Status",
+				label: "State",
+				headerInfo: (
+					<>
+						Derived from the glider's timeline, never typed. A{" "}
+						<em>Scheduled</em> tag means a mission is assigned; it does not
+						change the state.
+					</>
+				),
 				kind: "string",
 				defaultVisible: true,
 				renderCell: (g) => (
@@ -113,15 +124,51 @@ export default function GlidersTable({
 								/>
 							</Tooltip>
 						)}
+						{g.scheduledMissionId != null && (
+							<Tooltip
+								title={`Mission assigned${
+									g.scheduledDate
+										? ` · planned ${formatDate(g.scheduledDate)}`
+										: ""
+								}`}
+							>
+								<Chip
+									label="Scheduled"
+									size="small"
+									color="info"
+									variant="outlined"
+								/>
+							</Tooltip>
+						)}
 						{g.decommissionedDate && (
 							<Tooltip
-								title={`Retired ${formatDate(g.decommissionedDate)}${
+								title={`Decommissioned ${formatDate(g.decommissionedDate)}${
 									g.decommissionReason ? ` · ${g.decommissionReason}` : ""
 								}`}
 							>
-								<Chip label="Retired" size="small" variant="outlined" />
+								<Chip label="Decommissioned" size="small" variant="outlined" />
 							</Tooltip>
 						)}
+					</Box>
+				),
+			},
+			{
+				key: "location",
+				label: "Location",
+				headerInfo: (
+					<>
+						Where it is, and since when. Optional: <em>Not recorded</em> is
+						normal for a glider that has been recovered and not updated.
+					</>
+				),
+				kind: "string",
+				defaultVisible: true,
+				renderCell: (g) => (
+					<Box
+						component="span"
+						sx={{ color: hasLocation(g) ? "text.primary" : "text.disabled" }}
+					>
+						{locationText(g)}
 					</Box>
 				),
 			},
@@ -164,7 +211,7 @@ export default function GlidersTable({
 		);
 		return {
 			key: "status",
-			label: "Status",
+			label: "State",
 			type: "multiSelect",
 			getValue: (g) => g.status,
 			options: present
@@ -173,9 +220,44 @@ export default function GlidersTable({
 		};
 	}, [gliders]);
 
+	// By place name only (not the "since" date), with "Not recorded" as its
+	// own choice so unrecorded gliders can be found and chased up.
+	const locationFilter: FilterDef<Glider> = useMemo(
+		() => ({
+			key: "location",
+			label: "Location",
+			type: "multiSelect",
+			getValue: (g) => locationName(g),
+		}),
+		[],
+	);
+
+	const scheduledFilter: FilterDef<Glider> = useMemo(
+		() => ({
+			key: "scheduled",
+			label: "Scheduled",
+			type: "multiSelect",
+			getValue: (g) =>
+				g.scheduledMissionId != null ? "Scheduled" : "Not scheduled",
+		}),
+		[],
+	);
+
 	const filters = useMemo(
-		() => [platformFilter, manufacturerFilter, statusFilter],
-		[platformFilter, manufacturerFilter, statusFilter],
+		() => [
+			platformFilter,
+			manufacturerFilter,
+			statusFilter,
+			locationFilter,
+			scheduledFilter,
+		],
+		[
+			platformFilter,
+			manufacturerFilter,
+			statusFilter,
+			locationFilter,
+			scheduledFilter,
+		],
 	);
 
 	const visibleGliders = showDecommissioned
@@ -214,7 +296,7 @@ export default function GlidersTable({
 								onChange={(e) => setShowDecommissioned(e.target.checked)}
 							/>
 						}
-						label="Show retired"
+						label="Show decommissioned"
 					/>
 				</Box>
 			}

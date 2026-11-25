@@ -14,6 +14,9 @@ export const STATUS_COLOR: Record<
 	field_test: "info",
 	missing: "error",
 	destroyed: "error",
+	workshop: "warning",
+	ready_to_deploy: "info",
+	idle: "default",
 	decommissioned: "default",
 };
 
@@ -28,5 +31,8 @@ export const STATUS_LABEL: Record<AssetStatus, string> = {
 	field_test: "Field test",
 	missing: "Missing",
 	destroyed: "Destroyed",
+	workshop: "Workshop",
+	ready_to_deploy: "Ready to deploy",
+	idle: "Idle",
 	decommissioned: "Decommissioned",
 };

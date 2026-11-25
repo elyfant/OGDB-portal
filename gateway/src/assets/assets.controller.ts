@@ -2,6 +2,7 @@ import {
 	BadRequestException,
 	Body,
 	Controller,
+	Delete,
 	Get,
 	Param,
 	ParseIntPipe,
@@ -17,6 +18,8 @@ import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { CalibrationsService } from "../calibrations/calibrations.service";
+import { RecordAssetLocationDto } from "../locations/dto/record-asset-location.dto";
+import { LocationsService } from "../locations/locations.service";
 import { MissionsService } from "../missions/missions.service";
 import { RmasService } from "../rmas/rmas.service";
 import { RecordServicingEventDto } from "../servicing/dto/record-servicing-event.dto";
@@ -98,6 +101,7 @@ export class AssetsController {
 		private readonly servicing: ServicingService,
 		private readonly missions: MissionsService,
 		private readonly rmas: RmasService,
+		private readonly locations: LocationsService,
 	) {}
 
 	@Get()
@@ -168,6 +172,19 @@ export class AssetsController {
 		@CurrentUser() user: JwtPayload,
 	) {
 		return this.assets.setDecommission(id, dto, user.sub);
+	}
+
+	// Records where an asset is (appends to asset_location_history). Optional
+	// and never required -- see LocationsService.recordForAsset for what it
+	// refuses.
+	@Roles("editor", "admin")
+	@Post(":id/locations")
+	recordLocation(
+		@Param("id", ParseIntPipe) id: number,
+		@Body() dto: RecordAssetLocationDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.locations.recordForAsset(id, dto, user.sub);
 	}
 
 	@Get(":id/calibrations")
@@ -290,6 +307,17 @@ export class AssetsController {
 		@UploadedFile() attachment?: Express.Multer.File,
 	) {
 		return this.servicing.updateEvent(id, eventId, dto, user.sub, attachment);
+	}
+
+	// Deletes an event logged by mistake (see ServicingService.deleteEvent).
+	@Roles("editor", "admin")
+	@Delete(":id/servicing/:eventId")
+	deleteServicingEvent(
+		@Param("id", ParseIntPipe) id: number,
+		@Param("eventId", ParseIntPipe) eventId: number,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.servicing.deleteEvent(id, eventId, user.sub);
 	}
 
 	// Read-only preview: extracts coefficients/facility/date from an

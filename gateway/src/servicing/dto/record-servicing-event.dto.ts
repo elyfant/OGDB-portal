@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import {
+	IsBoolean,
 	IsDateString,
 	IsIn,
 	IsInt,
@@ -53,4 +54,21 @@ export class RecordServicingEventDto {
 	@IsString()
 	@MaxLength(5000)
 	details?: string;
+
+	// Logging a `destroyed` or `missing` event can close the glider's open
+	// mission in the same transaction (new events only): the mission to close,
+	// and -- for `destroyed` -- whether the event date also becomes its end
+	// (retrieval) date. A glider destroyed on recovery was retrieved that day;
+	// one lost at sea never was. See ServicingService.closeMissionTx.
+	@IsOptional()
+	@Transform(({ value }) =>
+		value === "" || value === undefined ? undefined : Number(value),
+	)
+	@IsInt()
+	closeMissionId?: number;
+
+	@IsOptional()
+	@Transform(({ value }) => value === true || value === "true")
+	@IsBoolean()
+	closeMissionSetEndDate?: boolean;
 }

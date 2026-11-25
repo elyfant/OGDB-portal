@@ -10,6 +10,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import type {
+	Location,
 	LookupOption,
 	ServicingEvent,
 	ServicingEventTypeOption,
@@ -24,7 +25,7 @@ export interface ServicingEventControlsHandle {
 // unit -- shared by the glider Timeline tab and the asset detail page.
 // Exposes openForEdit via a ref so a caller with its own table of
 // servicing events (the glider tab's "Servicing" accordion) can open the
-// same dialog on a row click, without this component needing to know that
+// same dialog from a row's spanner button, without this component needing to know that
 // accordion exists.
 const ServicingEventControls = forwardRef<
 	ServicingEventControlsHandle,
@@ -37,12 +38,28 @@ const ServicingEventControls = forwardRef<
 		// Gliders only -- unlocks the Decommission / Return to service
 		// options in the dialog. Omitted for other asset types.
 		lifecycle?: { decommissionedDate: string | null; name: string };
+		// Gliders only -- the active places, so closing an event here (it's
+		// back) can offer the skippable "Where is it now?" prompt.
+		locations?: Location[];
 	}
 >(function ServicingEventControls(
-	{ assetId, servicingEvents, eventTypes, contacts, canEdit, lifecycle },
+	{
+		assetId,
+		servicingEvents,
+		eventTypes,
+		contacts,
+		canEdit,
+		lifecycle,
+		locations,
+	},
 	ref,
 ) {
-	const openEvent = servicingEvents.find((e) => e.endDate === null) ?? null;
+	// Not a destroyed event: it has no end date by design and is never
+	// "closed", so it must not trigger the open-event notice.
+	const openEvent =
+		servicingEvents.find(
+			(e) => e.endDate === null && e.eventType !== "destroyed",
+		) ?? null;
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingEvent, setEditingEvent] = useState<ServicingEvent | null>(null);
 
@@ -56,6 +73,10 @@ const ServicingEventControls = forwardRef<
 	if (!canEdit) return null;
 
 	const retired = lifecycle?.decommissionedDate ?? null;
+	// A glider logs new events from the Log menu in its header; this keeps
+	// only the open-event notice and row editing. Other assets still get the
+	// plain "Add event" button.
+	const hasLogMenu = lifecycle != null;
 
 	return (
 		<>
@@ -72,7 +93,7 @@ const ServicingEventControls = forwardRef<
 					<Chip
 						size="small"
 						variant="outlined"
-						label={`Retired ${formatDate(retired)}`}
+						label={`Decommissioned ${formatDate(retired)}`}
 						sx={{ mr: "auto" }}
 					/>
 				)}
@@ -80,21 +101,24 @@ const ServicingEventControls = forwardRef<
 					<Alert severity="warning" sx={{ py: 0, fontSize: 12.5, flex: 1 }}>
 						Open event (
 						{openEvent.title ?? KIND_META[openEvent.eventType].label}, started{" "}
-						{formatDate(openEvent.startDate)}) — close it before adding another.
+						{formatDate(openEvent.startDate)}) — close it before adding another
+						{hasLogMenu ? " (Log menu → Close open event)." : "."}
 					</Alert>
 				)}
-				<Button
-					variant="contained"
-					size="small"
-					startIcon={openEvent ? <LockClockIcon /> : <AddCircleOutlineIcon />}
-					onClick={() => {
-						setEditingEvent(openEvent);
-						setDialogOpen(true);
-					}}
-					sx={{ whiteSpace: "nowrap" }}
-				>
-					{openEvent ? "Close open event" : "Add event"}
-				</Button>
+				{!hasLogMenu && (
+					<Button
+						variant="contained"
+						size="small"
+						startIcon={openEvent ? <LockClockIcon /> : <AddCircleOutlineIcon />}
+						onClick={() => {
+							setEditingEvent(openEvent);
+							setDialogOpen(true);
+						}}
+						sx={{ whiteSpace: "nowrap" }}
+					>
+						{openEvent ? "Close open event" : "Add event"}
+					</Button>
+				)}
 			</Box>
 
 			<AddServicingEventDialog
@@ -105,6 +129,7 @@ const ServicingEventControls = forwardRef<
 				contacts={contacts}
 				initialEvent={editingEvent}
 				lifecycle={lifecycle}
+				locations={locations}
 			/>
 		</>
 	);

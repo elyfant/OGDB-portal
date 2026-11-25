@@ -10,15 +10,18 @@ import type {
 	CreateAssetInput,
 	CreateCruiseInput,
 	CreateGliderInput,
+	CreateLocationInput,
 	CreateMissionInput,
 	CreateRmaInput,
 	CreatedMission,
 	Cruise,
 	DatasetProcessingDetail,
 	DecommissionInput,
+	DeleteServicingEventResult,
 	Glider,
 	GliderBuild,
 	LinkRmaAssetInput,
+	Location,
 	Mission,
 	MissionFilesSaveResult,
 	NewProcessingPackageInput,
@@ -26,6 +29,7 @@ import type {
 	ParsedCertificate,
 	ProcessingPackage,
 	ProcessingPackageVersion,
+	RecordAssetLocationInput,
 	RecordBatteryMeasurementInput,
 	RecordRmaEventInput,
 	RecordSensorCalibrationInput,
@@ -46,6 +50,7 @@ import type {
 	UpdateAssetInput,
 	UpdateExternalReferencesInput,
 	UpdateGliderInput,
+	UpdateLocationInput,
 	UpdateMissionInput,
 	UpdateRmaAssetReasonInput,
 	UpdateRmaInput,
@@ -663,6 +668,13 @@ function servicingFormData(
 		formData.append("performedByContactId", String(input.performedByContactId));
 	}
 	if (input.details) formData.append("details", input.details);
+	if (input.closeMissionId != null) {
+		formData.append("closeMissionId", String(input.closeMissionId));
+		formData.append(
+			"closeMissionSetEndDate",
+			String(input.closeMissionSetEndDate === true),
+		);
+	}
 	if (attachment) formData.append("attachment", attachment);
 	return formData;
 }
@@ -700,6 +712,23 @@ export async function updateServicingEvent(
 			data?.message ?? `Failed to update servicing event: ${res.status}`,
 		);
 	}
+}
+
+// Deletes an event logged by mistake (its attachments go with it).
+export async function deleteServicingEvent(
+	assetId: number,
+	eventId: number,
+): Promise<DeleteServicingEventResult> {
+	const res = await fetch(`/api/assets/${assetId}/servicing/${eventId}`, {
+		method: "DELETE",
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(
+			data?.message ?? `Failed to delete servicing event: ${res.status}`,
+		);
+	}
+	return res.json();
 }
 
 export async function createGlider(input: CreateGliderInput): Promise<Glider> {
@@ -898,6 +927,65 @@ export async function decommissionAsset(
 		throw new Error(
 			data?.message ?? `Failed to update decommission status: ${res.status}`,
 		);
+	}
+}
+
+// Active places, fetched on demand by client components that weren't handed
+// the list (see the mission dialog's recovery prompt).
+export async function getLocationsClient(): Promise<Location[]> {
+	const res = await fetch("/api/locations", { cache: "no-store" });
+	if (!res.ok) {
+		throw new Error(`Failed to load places: ${res.status}`);
+	}
+	return res.json();
+}
+
+// The shared list of places (Locations page).
+export async function createLocation(
+	input: CreateLocationInput,
+): Promise<Location> {
+	const res = await fetch("/api/locations", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to add place: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Rename and/or (de)activate. There is no delete -- history points at a place.
+export async function updateLocation(
+	id: number,
+	input: UpdateLocationInput,
+): Promise<Location> {
+	const res = await fetch(`/api/locations/${id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to update place: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Records where an asset is (an optional, dated, append-only fact).
+export async function recordAssetLocation(
+	assetId: number,
+	input: RecordAssetLocationInput,
+): Promise<void> {
+	const res = await fetch(`/api/assets/${assetId}/locations`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(input),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to save location: ${res.status}`);
 	}
 }
 

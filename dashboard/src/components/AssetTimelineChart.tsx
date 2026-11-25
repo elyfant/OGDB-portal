@@ -6,7 +6,7 @@ import {
 	type TimelineEvent,
 	timelineDateLabel,
 } from "@/lib/timeline";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Box from "@mui/material/Box";
@@ -245,7 +245,7 @@ function EditButton({ onClick }: { onClick: () => void }) {
 					"&:hover, &:focus-visible": { opacity: 1 },
 				}}
 			>
-				<EditOutlinedIcon sx={{ fontSize: 15 }} />
+				<BuildOutlinedIcon sx={{ fontSize: 15 }} />
 			</IconButton>
 		</Tooltip>
 	);

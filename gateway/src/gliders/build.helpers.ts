@@ -1091,18 +1091,59 @@ async function assertNotInOtherActiveBuild(
 	}
 }
 
+// Shown to the user when a build edit withdraws a clearance (it rides along
+// with the save's other warnings).
+export const CLEARANCE_WITHDRAWN_WARNING =
+	"Clearance withdrawn: the build changed after this glider was cleared to deploy, so the logsheet needs clearing again.";
+
+// A cleared logsheet certifies the build AS IT WAS WHEN SIGNED OFF, so
+// changing the build invalidates it (docs/design/glider-state-and-location.md
+// section 4). Withdraws the mission's clearance inside the caller's
+// transaction and logs it the same way unlocking does -- an `unlocked` row
+// in refurb_clearance_log (withdrawal IS an unlock, and that table only
+// allows cleared/unlocked) with an automatic reason. The glider's state then
+// drops from Ready to deploy back to Workshop by itself, because that state
+// reads refurbishments.cleared_at. Returns whether anything was withdrawn
+// (false for the usual case: no logsheet, or not cleared).
+export async function withdrawClearanceTx(
+	client: PoolClient,
+	missionId: number,
+	userId: number,
+): Promise<boolean> {
+	const withdrawn = await client.query(
+		`UPDATE refurbishments SET cleared_by = NULL, cleared_at = NULL
+      WHERE mission_id = $1 AND cleared_at IS NOT NULL
+      RETURNING id`,
+		[missionId],
+	);
+	if (withdrawn.rows.length === 0) return false;
+	await client.query(
+		`INSERT INTO refurb_clearance_log (refurbishment_id, action, by_user, reason)
+     VALUES ($1, 'unlocked', $2, $3)`,
+		[
+			withdrawn.rows[0].id,
+			userId,
+			"Build edited -- clearance withdrawn automatically",
+		],
+	);
+	return true;
+}
+
 // Applies a batch of BuildChange entries to ONE mission's build inside an
 // already-open transaction -- the caller owns BEGIN/COMMIT/ROLLBACK. A
 // mission's build has no dates, so nothing here can touch another mission
 // or the glider's history: that separation is the point of
 // mission_build_items.
+//
+// Returns true when the edit withdrew a cleared logsheet's clearance (see
+// withdrawClearanceTx); callers that talk to the user surface it.
 export async function applyMissionBuildChangesTx(
 	client: PoolClient,
 	missionId: number,
 	changes: BuildChange[],
 	notes: string | null | undefined,
 	userId: number,
-): Promise<void> {
+): Promise<boolean> {
 	const mission = await fetchMissionForBuild(client, missionId);
 	const gliderAssetId = mission.gliderAssetId as number;
 
@@ -1267,6 +1308,10 @@ export async function applyMissionBuildChangesTx(
 			);
 		}
 	}
+	// Only a real edit invalidates a clearance; an empty batch changes nothing.
+	return changes.length > 0
+		? withdrawClearanceTx(client, missionId, userId)
+		: false;
 }
 
 function mapDuplicateItem(err: unknown): Error {

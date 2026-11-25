@@ -63,7 +63,7 @@ export default function AssetServicingTimeline({
 	// When given, the Servicing accordion moves out from under the chart
 	// to sit under a "History" heading rendered here, with these (the
 	// page's other history accordions) following it. It lives in this
-	// component because its row clicks open the dialog via controlsRef.
+	// component because its rows' spanner buttons open the dialog via controlsRef.
 	historyChildren?: ReactNode;
 }) {
 	const controlsRef = useRef<ServicingEventControlsHandle>(null);
@@ -93,7 +93,7 @@ export default function AssetServicingTimeline({
 					<Chip
 						size="small"
 						variant="outlined"
-						label={`Retired ${formatDate(decommissionedDate)}`}
+						label={`Decommissioned ${formatDate(decommissionedDate)}`}
 						sx={{ mb: 2 }}
 					/>
 				</Tooltip>

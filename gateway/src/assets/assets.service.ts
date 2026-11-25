@@ -676,9 +676,14 @@ export class AssetsService {
 		dto: SetDecommissionDto,
 		userId: number,
 	): Promise<Asset> {
-		await this.findOne(id);
+		const asset = await this.findOne(id);
 		const date = dto.decommissionedDate ?? null;
 		const reason = date ? (dto.reason ?? null) : null;
+		await this.assertLifecycleChangeAllowed(
+			id,
+			asset.name ?? `Asset ${id}`,
+			date !== null,
+		);
 
 		let retainIds: number[] = [];
 		if (date && dto.childAssetIds !== undefined) {
@@ -714,6 +719,49 @@ export class AssetsService {
 			client.release();
 		}
 		return this.findOne(id);
+	}
+
+	// Lifecycle guards the derived state can't enforce on its own
+	// (docs/design/glider-state-and-location.md section 7):
+	//   * retiring: not while the glider is DEPLOYED (out on an open
+	//     mission). A missing glider may be retired -- that is exactly how a
+	//     lost one is recorded -- and a destroyed one already is.
+	//   * returning to service: not while a `destroyed` event stands, or the
+	//     glider would be "in service" yet still read Destroyed. A destroyed
+	//     event logged by mistake is corrected on the timeline (editing it can
+	//     change its type), then this goes through.
+	// Only gliders have a derived state / service events; for any other asset
+	// both queries come back empty and nothing is refused.
+	private async assertLifecycleChangeAllowed(
+		id: number,
+		label: string,
+		retiring: boolean,
+	): Promise<void> {
+		if (retiring) {
+			const state = await this.pool.query(
+				"SELECT status FROM derived_asset_status WHERE asset_id = $1",
+				[id],
+			);
+			if (state.rows[0]?.status === "deployed") {
+				throw new ConflictException(
+					`${label} is deployed on an open mission. Recover it (or close the mission) before decommissioning it.`,
+				);
+			}
+			return;
+		}
+		const destroyed = await this.pool.query(
+			`SELECT se.start_date AS "startDate"
+       FROM asset_service_events se
+       JOIN asset_service_event_types t ON t.id = se.event_type_id
+       WHERE se.asset_id = $1 AND t.name = 'destroyed'
+       ORDER BY se.start_date DESC LIMIT 1`,
+			[id],
+		);
+		if (destroyed.rows.length > 0) {
+			throw new ConflictException(
+				`${label} was destroyed on ${destroyed.rows[0].startDate}, so it can't be returned to service. If that event was logged by mistake, delete it on the timeline (or edit its type) first, then try again.`,
+			);
+		}
 	}
 
 	// Generic fields only -- gliders go through GlidersService.create

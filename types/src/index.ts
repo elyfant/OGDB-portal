@@ -9,6 +9,13 @@ export type AssetStatus =
 	| "field_test"
 	| "missing"
 	| "destroyed"
+	// Derived glider states, from the workshop build / cleared logsheet /
+	// "nothing else applies" -- see docs/design/glider-state-and-location.md.
+	// `idle` replaces `lab` as a glider's default: Lab is a LOCATION now.
+	// (`lab` stays for non-glider assets, which set status by hand.)
+	| "workshop"
+	| "ready_to_deploy"
+	| "idle"
 	// Non-glider assets still set this manually via asset_status_history.
 	// For gliders it is a derived value and never "decommissioned" -- fleet
 	// retirement moved to Glider.decommissionedDate (see below).
@@ -86,11 +93,61 @@ export interface Glider {
 	// retired glider still has a real operational status.
 	decommissionedDate: string | null;
 	decommissionReason: string | null;
+	// Where it is -- a separate axis from `status`, from the
+	// current_asset_location view. Optional by design: a recovered glider
+	// whose location nobody has recorded is "not_recorded", not an error.
+	//   at_sea       deployed (location is "At sea"; no place can be set)
+	//   unknown      missing
+	//   none         destroyed (location is null)
+	//   recorded     the latest asset_location_history row
+	//   not_recorded nothing recorded since the last retrieval
+	location: string | null;
+	locationId: number | null;
+	locationSince: string | null;
+	locationSource: GliderLocationSource | null;
+	// Scheduled is a flag about the mission plan, not a state: a scheduled
+	// glider can still be in the workshop. Null = no mission assigned.
+	scheduledMissionId: number | null;
+	scheduledDate: string | null;
 	// Raw FK ids alongside the resolved display strings above (platform,
 	// owner) — needed to pre-select the right dropdown option when
 	// editing, the same reason Mission exposes both observatoryId and observatory.
 	platformId: number | null;
 	agencyId: number | null;
+}
+
+export type GliderLocationSource =
+	| "at_sea"
+	| "unknown"
+	| "none"
+	| "recorded"
+	| "not_recorded";
+
+// A place from the shared `locations` list. Flat on purpose (no shelves).
+// `assetCount` = assets currently reading this place as their valid,
+// recorded location. Inactive places are hidden from pick lists but stay on
+// the history that points at them.
+export interface Location {
+	id: number;
+	name: string;
+	active: boolean;
+	assetCount: number;
+}
+
+export interface CreateLocationInput {
+	name: string;
+}
+
+export interface UpdateLocationInput {
+	name?: string;
+	active?: boolean;
+}
+
+export interface RecordAssetLocationInput {
+	locationId: number;
+	// YYYY-MM-DD; defaults to today, can't be in the future.
+	effectiveDate?: string | null;
+	note?: string | null;
 }
 
 export interface CreateGliderInput {
@@ -1021,6 +1078,13 @@ export interface RecordServicingEventInput {
 	endDate?: string;
 	performedByContactId?: number;
 	details?: string;
+	// New destroyed / missing events only: also close this open mission of the
+	// glider in the same save (-> "killed in action" / "missing in action").
+	// For destroyed, `closeMissionSetEndDate` also makes the event date the
+	// mission's end (retrieval) date -- right for a glider destroyed during
+	// recovery, wrong for one lost at sea.
+	closeMissionId?: number;
+	closeMissionSetEndDate?: boolean;
 }
 
 export interface GliderStatusHistoryItem {
@@ -1264,6 +1328,13 @@ export type BuildChange =
 export interface ApplyBuildChangesInput {
 	notes?: string | null;
 	changes: BuildChange[];
+}
+
+// What deleting a servicing event reports back. `returnedToService` is true
+// when it was a `destroyed` event whose decommission it had applied: that
+// decommission is removed with it.
+export interface DeleteServicingEventResult {
+	returnedToService: boolean;
 }
 
 export interface ApplyBuildChangesResult {
@@ -1812,7 +1883,6 @@ export interface ArgosTagDetail {
 	config: ArgosTagConfig;
 	// Newest first.
 	measurements: ArgosTagMeasurement[];
-	knownTypes: string[];
 }
 
 // Intake: what went wrong on the previous mission (read from the mission and
@@ -1852,12 +1922,9 @@ export interface RefurbIntake extends RefurbIntakeValues {
 	openFaults: RefurbIntakeFault[];
 	// Every tag that could be chosen, with its saved configuration.
 	tagCandidates: ArgosTagConfig[];
-	// The chosen tag's configuration (held on the tag asset) and the readings
-	// typed in for this test of it (held in the tag's measurement history).
-	tagConfig: ArgosTagConfig | null;
+	// The readings typed in for this test of the tag (held in the tag's
+	// measurement history). The tag's own details are managed on the asset.
 	tagTest: ArgosTagTest;
-	// Tag types already in use, to suggest when typing one.
-	knownTagTypes: string[];
 	updatedAt: string | null;
 	updatedByName: string | null;
 }
@@ -1939,13 +2006,11 @@ export interface RefurbFinalPrepValues {
 export interface RefurbFinalPrep extends RefurbFinalPrepValues {
 	// Every tag that could be chosen, with its saved configuration.
 	tagCandidates: ArgosTagConfig[];
-	// The chosen tag's configuration (held on the tag asset) and the readings
-	// typed in for this test of it (held in the tag's measurement history). The
-	// tag's limits from the procedure: battery 3.3 to 3.7 V, fewer than 40 000
-	// transmission attempts.
-	tagConfig: ArgosTagConfig | null;
+	// The readings typed in for this test of the tag (held in the tag's
+	// measurement history). The tag's own details are managed on the asset.
+	// The tag's limits from the procedure: battery 3.3 to 3.7 V, fewer than
+	// 40 000 transmission attempts.
 	tagTest: ArgosTagTest;
-	knownTagTypes: string[];
 	updatedAt: string | null;
 	updatedByName: string | null;
 }

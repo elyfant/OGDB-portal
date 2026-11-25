@@ -1,18 +1,15 @@
 "use client";
 
 import {
-	type ArgosConfigForm,
 	type ArgosTestForm,
 	TAG_BATTERY_V,
 	TX_LIMIT,
 	TX_WARN,
 	attempts,
-	configProblems,
 	testProblems,
 	volts,
 } from "@/lib/argos-tag";
 import Alert from "@mui/material/Alert";
-import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
@@ -24,32 +21,25 @@ const GRID = {
 	gap: 2,
 } as const;
 
-// The tag's details and the readings typed in from its test, replacing the old
-// screenshot of the Tag Agent. The details are kept on the tag itself, so they
-// only need entering once; the readings are added to the tag's test history.
-// The state lives in the section that uses this, so one Save covers it all.
+// The readings typed in from the tag's test, replacing the old screenshot of
+// the Tag Agent. They are added to the tag's test history. The tag's own
+// details (type, Argos IDs, name) are managed on the asset, not here. The
+// state lives in the section that uses this, so one Save covers it all.
 export default function ArgosTagFields({
-	config,
 	test,
-	onConfig,
 	onTest,
-	knownTypes,
 	disabled,
 	serial,
 	batteryLowAdvice,
 }: {
-	config: ArgosConfigForm;
 	test: ArgosTestForm;
-	onConfig: (patch: Partial<ArgosConfigForm>) => void;
 	onTest: (patch: Partial<ArgosTestForm>) => void;
-	knownTypes: string[];
 	disabled: boolean;
 	// The tag's serial number, for the headings.
 	serial: string | null;
 	// Shown with the warning when the battery voltage is outside its range.
 	batteryLowAdvice?: string;
 }) {
-	const cp = configProblems(config);
 	const tp = testProblems(test);
 	const v = volts(test);
 	const a = attempts(test);
@@ -58,61 +48,7 @@ export default function ArgosTagFields({
 	return (
 		<Box>
 			<Typography variant="body2" sx={{ fontWeight: 600, mt: 1 }}>
-				Tag details{serial ? ` — ${serial}` : ""}
-			</Typography>
-			<Typography
-				variant="caption"
-				color="text.secondary"
-				display="block"
-				sx={{ mb: 1 }}
-			>
-				Kept on the tag itself, so they only need entering once.
-			</Typography>
-			<Box sx={GRID}>
-				<Autocomplete
-					freeSolo
-					size="small"
-					options={knownTypes}
-					inputValue={config.model}
-					onInputChange={(_, value) => onConfig({ model: value })}
-					disabled={disabled}
-					renderInput={(params) => (
-						<TextField {...params} label="Tag type" placeholder="SPOT6" />
-					)}
-				/>
-				<TextField
-					size="small"
-					label="Argos Dec"
-					value={config.argosDec}
-					onChange={(e) => onConfig({ argosDec: e.target.value })}
-					disabled={disabled}
-					error={cp.argosDec !== null}
-					helperText={cp.argosDec ?? "6 to 8 digits."}
-					slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 8 } }}
-				/>
-				<TextField
-					size="small"
-					label="Argos Hex"
-					value={config.argosHex}
-					onChange={(e) => onConfig({ argosHex: e.target.value })}
-					disabled={disabled}
-					error={cp.argosHex !== null}
-					helperText={cp.argosHex ?? "6 or 7 hex digits."}
-					slotProps={{
-						htmlInput: { maxLength: 8, style: { textTransform: "uppercase" } },
-					}}
-				/>
-				<TextField
-					size="small"
-					label="Tag name"
-					value={config.tagName}
-					onChange={(e) => onConfig({ tagName: e.target.value })}
-					disabled={disabled}
-				/>
-			</Box>
-
-			<Typography variant="body2" sx={{ fontWeight: 600, mt: 2 }}>
-				Test readings
+				Test readings{serial ? ` — ${serial}` : ""}
 			</Typography>
 			<Typography
 				variant="caption"

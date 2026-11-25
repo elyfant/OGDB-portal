@@ -83,7 +83,7 @@ export class FinalPrepService {
 				? `f.${column}::float8 AS "${key}"`
 				: `f.${column} AS "${key}"`,
 		).join(", ");
-		const [row, tags, knownTagTypes] = await Promise.all([
+		const [row, tags] = await Promise.all([
 			this.pool.query(
 				`SELECT ${cols}, f.tag_measurement_id AS "tagMeasurementId",
                 f.updated_at AS "updatedAt",
@@ -104,7 +104,6 @@ export class FinalPrepService {
         WHERE t.name = 'argos_tag' AND a.decommissioned_date IS NULL
         ORDER BY a.serial_number, a.id`,
 			),
-			this.argos.knownTypes(),
 		]);
 
 		const saved = row.rows[0] ?? {
@@ -120,13 +119,10 @@ export class FinalPrepService {
 		return {
 			...rest,
 			tagCandidates: tags.rows,
-			// The tag's configuration lives on the tag asset; its test readings in
-			// the tag's measurement history. This logsheet just points at both.
-			tagConfig: rest.argosAssetId
-				? await this.argos.config(rest.argosAssetId)
-				: null,
+			// The tag's own details are kept on the tag asset by whoever manages
+			// the assets, not here. The test readings go in the tag's measurement
+			// history, and this logsheet points at that row.
 			tagTest: await this.argos.test(tagMeasurementId ?? null),
-			knownTagTypes,
 		};
 	}
 
@@ -138,11 +134,7 @@ export class FinalPrepService {
 		userId: number,
 	): Promise<RefurbFinalPrep> {
 		const { id, gliderAssetId } = await this.refurbishment(missionId);
-		const known = new Set<string>([
-			...FIELDS.map(([k]) => k),
-			"tagConfig",
-			"tagTest",
-		]);
+		const known = new Set<string>([...FIELDS.map(([k]) => k), "tagTest"]);
 		for (const k of Object.keys(input)) {
 			if (!known.has(k)) throw new BadRequestException(`Unknown field "${k}".`);
 		}
@@ -159,9 +151,8 @@ export class FinalPrepService {
 			}
 			return v as Record<string, unknown>;
 		};
-		const tagConfig = asObject(input.tagConfig, "tagConfig");
 		const tagTest = asObject(input.tagTest, "tagTest");
-		if ((tagConfig || tagTest) && argosAssetId === null) {
+		if (tagTest && argosAssetId === null) {
 			throw new BadRequestException("Choose the Argos tag first.");
 		}
 
@@ -215,12 +206,8 @@ export class FinalPrepService {
 				}
 			}
 
-			// The tag's configuration goes on the tag asset; the test readings into
-			// its measurement history. Both in this same transaction, so a refused
-			// value leaves the logsheet and the tag untouched.
-			if (argosAssetId !== null && tagConfig) {
-				await this.argos.saveConfig(client, argosAssetId, tagConfig, userId);
-			}
+			// The test readings go into the tag's measurement history, in this same
+			// transaction, so a refused value leaves the logsheet untouched.
 			const prior = await client.query(
 				"SELECT tag_measurement_id FROM refurb_final_prep WHERE refurbishment_id = $1",
 				[id],
@@ -275,8 +262,6 @@ export class FinalPrepService {
 		if (f.argosAssetId === null) {
 			missing.push("Argos tag");
 		} else {
-			const config = this.argos.missingConfig(f.tagConfig);
-			if (config.length > 0) missing.push(`tag details (${config.join(", ")})`);
 			const test = this.argos.missingTest(f.tagTest);
 			if (test.length > 0) missing.push(`tag test (${test.join(", ")})`);
 		}

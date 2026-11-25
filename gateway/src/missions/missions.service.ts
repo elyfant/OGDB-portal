@@ -27,12 +27,14 @@ import {
 	originalNameFromReference,
 } from "../documents/documents.service";
 import {
+	CLEARANCE_WITHDRAWN_WARNING,
 	applyMissionBuildChangesTx,
 	copyMissionBuildTx,
 	getBuildWarnings,
 	getMissionBuild,
 	nextMissionNumberTx,
 	seedMissionBuildTx,
+	withdrawClearanceTx,
 } from "../gliders/build.helpers";
 import type { ApplyMissionBuildChangesDto } from "./dto/apply-mission-build-changes.dto";
 import type { CopyMissionBuildDto } from "./dto/copy-mission-build.dto";
@@ -157,9 +159,10 @@ export class MissionsService {
 	): Promise<ApplyBuildChangesResult> {
 		await this.findOne(id);
 		const client = await this.pool.connect();
+		let clearanceWithdrawn = false;
 		try {
 			await client.query("BEGIN");
-			await applyMissionBuildChangesTx(
+			clearanceWithdrawn = await applyMissionBuildChangesTx(
 				client,
 				id,
 				dto.changes,
@@ -173,7 +176,12 @@ export class MissionsService {
 		} finally {
 			client.release();
 		}
-		return { warnings: await getBuildWarnings(this.pool, id) };
+		const warnings = await getBuildWarnings(this.pool, id);
+		return {
+			warnings: clearanceWithdrawn
+				? [CLEARANCE_WITHDRAWN_WARNING, ...warnings]
+				: warnings,
+		};
 	}
 
 	// Replaces this mission's build with a copy of another's -- how a
@@ -192,9 +200,12 @@ export class MissionsService {
 			);
 		}
 		const client = await this.pool.connect();
+		let clearanceWithdrawn = false;
 		try {
 			await client.query("BEGIN");
 			await copyMissionBuildTx(client, source.id, id, userId);
+			// Replacing a build is a build edit: it voids a clearance too.
+			clearanceWithdrawn = await withdrawClearanceTx(client, id, userId);
 			await client.query("COMMIT");
 		} catch (err) {
 			await client.query("ROLLBACK");
@@ -202,7 +213,12 @@ export class MissionsService {
 		} finally {
 			client.release();
 		}
-		return { warnings: await getBuildWarnings(this.pool, id) };
+		const warnings = await getBuildWarnings(this.pool, id);
+		return {
+			warnings: clearanceWithdrawn
+				? [CLEARANCE_WITHDRAWN_WARNING, ...warnings]
+				: warnings,
+		};
 	}
 
 	// Every mission a given asset was part of -- the reverse of getBuild

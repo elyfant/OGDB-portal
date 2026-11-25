@@ -1,5 +1,6 @@
 "use client";
 
+import EditRowButton from "@/components/EditRowButton";
 import { formatDate } from "@/lib/format";
 import { formatRmaStage } from "@/lib/rma-columns";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
@@ -62,7 +63,6 @@ export default function RmaEventsTimeline({
 						}}
 					/>
 					<Box
-						onClick={canEdit ? () => onEditEvent(e) : undefined}
 						sx={{
 							flex: 1,
 							minWidth: 0,
@@ -73,7 +73,6 @@ export default function RmaEventsTimeline({
 							borderRadius: 1.5,
 							px: 1.75,
 							py: 1,
-							cursor: canEdit ? "pointer" : "default",
 						}}
 					>
 						<Box
@@ -82,13 +81,21 @@ export default function RmaEventsTimeline({
 							<Typography variant="body2" sx={{ fontWeight: 700 }}>
 								{formatRmaStage(e.eventType)}
 							</Typography>
-							<Typography
-								variant="caption"
-								color="text.disabled"
-								sx={{ whiteSpace: "nowrap" }}
-							>
-								{formatDate(e.eventDate)}
-							</Typography>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+								<Typography
+									variant="caption"
+									color="text.disabled"
+									sx={{ whiteSpace: "nowrap" }}
+								>
+									{formatDate(e.eventDate)}
+								</Typography>
+								{canEdit && (
+									<EditRowButton
+										label="Edit event"
+										onClick={() => onEditEvent(e)}
+									/>
+								)}
+							</Box>
 						</Box>
 						{(e.facilityName || e.referenceNumber) && (
 							<Typography variant="caption" color="text.secondary">

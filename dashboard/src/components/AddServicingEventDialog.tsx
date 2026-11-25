@@ -1,7 +1,9 @@
 "use client";
 
+import LocationDialog from "@/components/LocationDialog";
 import {
 	decommissionAsset,
+	deleteServicingEvent,
 	getGliderBuildClient,
 	recordServicingEvent,
 	updateServicingEvent,
@@ -17,12 +19,14 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type {
 	GliderBuildComponent,
+	Location,
 	LookupOption,
 	ServicingEvent,
 	ServicingEventType,
@@ -35,8 +39,9 @@ import { useEffect, useState } from "react";
 // swaps the form over to the fleet-lifecycle fields and saves via
 // PATCH /assets/:id/decommission instead. See
 // docs/design/derived-glider-status.md.
-const DECOMMISSION = "__decommission__";
-const RETURN_TO_SERVICE = "__return_to_service__";
+// Exported so the glider Log menu can open the dialog straight onto one.
+export const DECOMMISSION = "__decommission__";
+export const RETURN_TO_SERVICE = "__return_to_service__";
 
 // Labels shown in this dialog's own Event type dropdown -- distinct from
 // KIND_META's labels (lib/timeline.ts), which drive the timeline chart's
@@ -111,6 +116,11 @@ export default function AddServicingEventDialog({
 	contacts,
 	initialEvent,
 	lifecycle,
+	presetEventType,
+	presetTitle,
+	dialogTitle,
+	locations,
+	openMission,
 }: {
 	assetId: number;
 	open: boolean;
@@ -120,9 +130,29 @@ export default function AddServicingEventDialog({
 	initialEvent: ServicingEvent | null;
 	// Gliders only -- unlocks the Decommission / Return to service options.
 	lifecycle?: { decommissionedDate: string | null; name: string };
+	// Opened from the glider Log menu: start on this event type (a real
+	// service-event name, or DECOMMISSION / RETURN_TO_SERVICE) and hide the
+	// type picker -- the menu item already said what this is. Ignored when
+	// editing an existing event.
+	presetEventType?: string;
+	// Suggested title for a new event, and a heading to match the menu item.
+	presetTitle?: string;
+	dialogTitle?: string;
+	// Gliders only -- the active places. When given, closing an event (it's
+	// back) or sending the glider to the factory offers a skippable
+	// "Where is it now?" prompt after saving.
+	locations?: Location[];
+	// Gliders only -- the glider's open mission, if it has one. Destroyed /
+	// missing events then offer to close it too (a mission's status is stored,
+	// so it would otherwise stay "active" under a destroyed glider).
+	openMission?: { id: number; label: string; status: string | null };
 }) {
 	const router = useRouter();
 	const isEdit = initialEvent != null;
+	const lockedType = presetEventType != null && !isEdit;
+	// Both default on each time the dialog opens; the user can untick either.
+	const [closeMission, setCloseMission] = useState(true);
+	const [setMissionEndDate, setSetMissionEndDate] = useState(true);
 
 	const [state, setState] = useState(() => emptyState("servicing"));
 	const [saving, setSaving] = useState(false);
@@ -152,16 +182,44 @@ export default function AddServicingEventDialog({
 	useEffect(() => {
 		if (!open) return;
 		setState(
-			initialEvent ? stateFromEvent(initialEvent) : emptyState("servicing"),
+			initialEvent
+				? stateFromEvent(initialEvent)
+				: {
+						...emptyState(presetEventType ?? "servicing"),
+						title: presetTitle ?? "",
+					},
 		);
 		setError(null);
-	}, [open, initialEvent?.id]);
+		setCloseMission(true);
+		setSetMissionEndDate(true);
+	}, [open, initialEvent?.id, presetEventType]);
+
+	// Deleting an event logged by mistake (edit mode only).
+	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+
+	// The skippable "Where is it now?" prompt shown after a save that makes
+	// the location worth asking about. Never required.
+	const [locationPrompt, setLocationPrompt] = useState<{
+		intro: string;
+		locationId: number | null;
+		date: string;
+	} | null>(null);
 
 	const isDecommission = state.eventType === DECOMMISSION;
 	const isReturn = state.eventType === RETURN_TO_SERVICE;
 	const isTerminal = state.eventType === TERMINAL_EVENT;
 	const isMissing = state.eventType === "missing";
 	const isLifecycleAction = isDecommission || isReturn;
+	// Offer to close the open mission when logging the glider's destruction or
+	// loss. A missing-in-action mission can still be closed out by a later
+	// destruction, but a glider can only GO missing from an active one.
+	const canCloseMission =
+		!isEdit &&
+		!!lifecycle &&
+		!!openMission &&
+		(isTerminal || (isMissing && openMission.status === "active"));
+	const closingMission = canCloseMission && closeMission;
 
 	useEffect(() => {
 		if (!isDecommission) return;
@@ -269,14 +327,14 @@ export default function AddServicingEventDialog({
 				const parts: string[] = [];
 				if (retiredWithGlider.length)
 					parts.push(
-						`${retiredWithGlider.length} component${retiredWithGlider.length === 1 ? "" : "s"} retired with it`,
+						`${retiredWithGlider.length} component${retiredWithGlider.length === 1 ? "" : "s"} decommissioned with it`,
 					);
 				if (freedUp) parts.push(`${freedUp} freed up for reuse`);
 				setBanner({
 					severity: "success",
 					message: parts.length
-						? `Glider retired from fleet — ${parts.join(", ")}.`
-						: "Glider retired from fleet.",
+						? `Glider decommissioned — ${parts.join(", ")}.`
+						: "Glider decommissioned.",
 				});
 			} catch (err) {
 				setBanner({
@@ -310,6 +368,10 @@ export default function AddServicingEventDialog({
 						? undefined
 						: state.performedByContactId,
 				details: state.details.trim() || undefined,
+				closeMissionId:
+					closingMission && openMission ? openMission.id : undefined,
+				closeMissionSetEndDate:
+					closingMission && isTerminal ? setMissionEndDate : undefined,
 			};
 
 			if (isEdit && initialEvent) {
@@ -326,10 +388,49 @@ export default function AddServicingEventDialog({
 					state.attachment ?? undefined,
 				);
 			}
+			// Gliders only: ask (skippably) where it is when that is now a real
+			// question -- an open event was just closed (it's back), or it was
+			// just sent to the factory. Anything else leaves location alone.
+			if (lifecycle && locations && state.eventType !== TERMINAL_EVENT) {
+				const localToday = new Date().toLocaleDateString("en-CA");
+				if (
+					isEdit &&
+					initialEvent &&
+					initialEvent.endDate === null &&
+					// Correcting a mistaken destroyed event isn't "it's back".
+					initialEvent.eventType !== TERMINAL_EVENT &&
+					input.endDate
+				) {
+					const was =
+						initialEvent.eventType === "missing"
+							? "It's been found."
+							: `Back from ${(EVENT_TYPE_LABEL[initialEvent.eventType] ?? "its event").toLowerCase()}.`;
+					setLocationPrompt({
+						intro: `${was} Where is ${lifecycle.name} now? Skip it if it doesn't matter yet.`,
+						locationId: null,
+						date: input.endDate < localToday ? input.endDate : localToday,
+					});
+				} else if (
+					!isEdit &&
+					input.eventType === "factory_repair" &&
+					!input.endDate
+				) {
+					setLocationPrompt({
+						intro: `Sent to the factory. Record where ${lifecycle.name} is? Skip it if you'd rather wait.`,
+						locationId:
+							locations.find((l) => /teledyne/i.test(l.name))?.id ?? null,
+						date: input.startDate < localToday ? input.startDate : localToday,
+					});
+				}
+			}
 			onClose();
 			setBanner({
 				severity: "success",
-				message: isEdit ? "Event updated." : "Event recorded.",
+				message: isEdit
+					? "Event updated."
+					: closingMission && openMission
+						? `Event recorded. ${openMission.label} marked ${isTerminal ? "killed in action" : "missing in action"}.`
+						: "Event recorded.",
 			});
 		} catch (err) {
 			setBanner({
@@ -338,6 +439,30 @@ export default function AddServicingEventDialog({
 			});
 		} finally {
 			setSaving(false);
+		}
+	}
+
+	async function handleDelete() {
+		if (!initialEvent) return;
+		setDeleting(true);
+		try {
+			const result = await deleteServicingEvent(assetId, initialEvent.id);
+			setConfirmDelete(false);
+			onClose();
+			setBanner({
+				severity: "success",
+				message: result.returnedToService
+					? `Event deleted. ${lifecycle?.name ?? "The glider"} is back in service.`
+					: "Event deleted.",
+			});
+		} catch (err) {
+			setConfirmDelete(false);
+			setBanner({
+				severity: "error",
+				message: err instanceof Error ? err.message : "Failed to delete event.",
+			});
+		} finally {
+			setDeleting(false);
 		}
 	}
 
@@ -364,7 +489,7 @@ export default function AddServicingEventDialog({
 		typeOptions.push(
 			retired
 				? { value: RETURN_TO_SERVICE, label: "Return to service" }
-				: { value: DECOMMISSION, label: "Retired" },
+				: { value: DECOMMISSION, label: "Decommission" },
 		);
 	}
 	typeOptions.sort((a, b) => a.label.localeCompare(b.label));
@@ -372,7 +497,9 @@ export default function AddServicingEventDialog({
 	return (
 		<>
 			<Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-				<DialogTitle>{isEdit ? "Edit event" : "Add event"}</DialogTitle>
+				<DialogTitle>
+					{isEdit ? "Edit event" : (dialogTitle ?? "Add event")}
+				</DialogTitle>
 				<DialogContent
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 2 }}
@@ -387,26 +514,30 @@ export default function AddServicingEventDialog({
 					{isEdit && isTerminal && (
 						<Alert severity="info" sx={{ fontSize: 12.5 }}>
 							Destroyed events don't have an end date and never need to be
-							closed — they don't block adding another event for this asset,
-							including one dated before this.
+							closed. Nothing can be logged after this date; an earlier event
+							can still be added if it has an end date on or before it. If this
+							was logged by mistake, delete it (button below) — or change its
+							type here. Either lets the glider be returned to service.
 						</Alert>
 					)}
 
-					<TextField
-						select
-						size="small"
-						label="Event type"
-						value={state.eventType}
-						onChange={(e) =>
-							setState((s) => ({ ...s, eventType: e.target.value }))
-						}
-					>
-						{typeOptions.map((o) => (
-							<MenuItem key={o.value} value={o.value}>
-								{o.label}
-							</MenuItem>
-						))}
-					</TextField>
+					{!lockedType && (
+						<TextField
+							select
+							size="small"
+							label="Event type"
+							value={state.eventType}
+							onChange={(e) =>
+								setState((s) => ({ ...s, eventType: e.target.value }))
+							}
+						>
+							{typeOptions.map((o) => (
+								<MenuItem key={o.value} value={o.value}>
+									{o.label}
+								</MenuItem>
+							))}
+						</TextField>
+					)}
 
 					{isReturn && (
 						<Alert severity="info" sx={{ fontSize: 12.5 }}>
@@ -417,10 +548,65 @@ export default function AddServicingEventDialog({
 
 					{isTerminal && !isEdit && (
 						<Alert severity="warning" sx={{ fontSize: 12.5 }}>
-							Logging this retires {lifecycle?.name ?? "the glider"} from the
-							fleet as of the date below, and closes any open event. It can't be
-							reopened — use “Return to service” if it was a mistake.
+							Logging this decommissions {lifecycle?.name ?? "the glider"} from
+							the fleet as of the date below, and closes any open event. It
+							can't be reopened — use “Return to service” if it was a mistake.
 						</Alert>
+					)}
+
+					{canCloseMission && openMission && (
+						<Box
+							sx={{
+								border: 1,
+								borderColor: "divider",
+								borderRadius: 1,
+								px: 1.5,
+								py: 0.5,
+							}}
+						>
+							<FormControlLabel
+								control={
+									<Checkbox
+										size="small"
+										checked={closeMission}
+										onChange={(e) => setCloseMission(e.target.checked)}
+									/>
+								}
+								label={`Also close ${openMission.label}`}
+							/>
+							<Typography
+								variant="caption"
+								color="text.secondary"
+								display="block"
+								sx={{ ml: 4, mt: -0.5, pb: 0.5 }}
+							>
+								{isTerminal
+									? "Its status becomes “killed in action”, so it stops showing as active."
+									: "Its status becomes “missing in action”; its end date stays empty."}
+							</Typography>
+							{isTerminal && closeMission && (
+								<>
+									<FormControlLabel
+										control={
+											<Checkbox
+												size="small"
+												checked={setMissionEndDate}
+												onChange={(e) => setSetMissionEndDate(e.target.checked)}
+											/>
+										}
+										label={`Set its end date to ${state.startDate || "the date below"}`}
+									/>
+									<Typography
+										variant="caption"
+										color="text.secondary"
+										display="block"
+										sx={{ ml: 4, mt: -0.5, pb: 0.5 }}
+									>
+										Untick if it was lost at sea and never recovered.
+									</Typography>
+								</>
+							)}
+						</Box>
 					)}
 
 					{isDecommission && (
@@ -447,9 +633,9 @@ export default function AddServicingEventDialog({
 								}}
 							>
 								<Typography variant="body2" color="text.secondary">
-									Components in its last flown build — checked ones retire with
-									the glider; unchecked ones stay in service, free for reuse
-									elsewhere:
+									Components in its last flown build — checked ones are
+									decommissioned with the glider; unchecked ones stay in
+									service, free for reuse elsewhere:
 								</Typography>
 								<Button
 									size="small"
@@ -463,7 +649,7 @@ export default function AddServicingEventDialog({
 								>
 									{excludedChildIds.size === 0
 										? "Free up all instead"
-										: "Retire all instead"}
+										: "Decommission all instead"}
 								</Button>
 							</Box>
 							<Box
@@ -571,7 +757,7 @@ export default function AddServicingEventDialog({
 								type="date"
 								label={
 									isDecommission
-										? "Retirement date"
+										? "Decommission date"
 										: isTerminal
 											? "Date destroyed"
 											: "Start date"
@@ -682,6 +868,16 @@ export default function AddServicingEventDialog({
 					)}
 				</DialogContent>
 				<DialogActions sx={{ px: 3, py: 1.5 }}>
+					{isEdit && initialEvent && (
+						<Button
+							color="error"
+							onClick={() => setConfirmDelete(true)}
+							disabled={saving || deleting}
+							sx={{ mr: "auto" }}
+						>
+							Delete event
+						</Button>
+					)}
 					<Button onClick={onClose} disabled={saving}>
 						Cancel
 					</Button>
@@ -696,12 +892,66 @@ export default function AddServicingEventDialog({
 						) : isReturn ? (
 							"Return to service"
 						) : isDecommission ? (
-							"Retire glider"
+							"Decommission glider"
 						) : isEdit ? (
 							"Save changes"
 						) : (
 							"Save event"
 						)}
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog
+				open={confirmDelete}
+				onClose={() => !deleting && setConfirmDelete(false)}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle>Delete this event?</DialogTitle>
+				<DialogContent>
+					<Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+						<Typography variant="body2">
+							<strong>
+								{initialEvent
+									? (EVENT_TYPE_LABEL[initialEvent.eventType] ??
+										initialEvent.eventType)
+									: ""}
+							</strong>
+							{initialEvent?.title ? ` — ${initialEvent.title}` : ""}
+							{initialEvent ? ` (${initialEvent.startDate.slice(0, 10)})` : ""}
+						</Typography>
+						<Typography variant="body2" color="text.secondary">
+							Use this for an event that should never have been logged. It is
+							removed from the timeline for good; the change log keeps a record
+							that it existed. To fix a wrong date or type, edit it instead.
+						</Typography>
+						{initialEvent?.eventType === TERMINAL_EVENT && (
+							<Alert severity="warning" sx={{ fontSize: 12.5 }}>
+								This event decommissioned {lifecycle?.name ?? "the glider"}.
+								Deleting it removes that decommission too, so it returns to the
+								fleet. Any event it closed stays closed, and so does a mission
+								it closed — reopen that on the mission page if needed.
+							</Alert>
+						)}
+						{initialEvent?.documentId && (
+							<Alert severity="warning" sx={{ fontSize: 12.5 }}>
+								Its attached file is deleted too.
+							</Alert>
+						)}
+					</Box>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setConfirmDelete(false)} disabled={deleting}>
+						Keep it
+					</Button>
+					<Button
+						color="error"
+						variant="contained"
+						onClick={handleDelete}
+						disabled={deleting}
+					>
+						{deleting ? "Deleting…" : "Delete event"}
 					</Button>
 				</DialogActions>
 			</Dialog>
@@ -724,6 +974,23 @@ export default function AddServicingEventDialog({
 					{banner?.message}
 				</Alert>
 			</Snackbar>
+
+			{lifecycle && locations && (
+				<LocationDialog
+					open={locationPrompt !== null}
+					onClose={() => {
+						setLocationPrompt(null);
+						router.refresh();
+					}}
+					assetId={assetId}
+					assetName={lifecycle.name}
+					locations={locations}
+					initialLocationId={locationPrompt?.locationId ?? null}
+					initialDate={locationPrompt?.date}
+					intro={locationPrompt?.intro}
+					skipLabel="Skip"
+				/>
+			)}
 		</>
 	);
 }

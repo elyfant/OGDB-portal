@@ -1,9 +1,11 @@
 import { formatDate } from "@/lib/format";
+import { hasLocation, locationText } from "@/lib/glider-location";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
-import type { AssetStatus } from "@ogdb/types";
+import type { AssetStatus, Glider } from "@ogdb/types";
+import Link from "next/link";
 
 function daysSince(date: string): number {
 	const ms = Date.now() - new Date(date).getTime();
@@ -11,46 +13,63 @@ function daysSince(date: string): number {
 }
 
 const SOURCE_LABEL: Record<string, string> = {
-	mission: "from an active mission",
+	// Covers Deployed, Workshop and Ready to deploy -- all driven by a mission.
+	mission: "from a mission",
 	service_event: "from a logged event",
-	default: "nothing logged — assumed in the lab",
+	default: "no open mission, build or event",
 };
 
-// "Lab" is the derived-status fallback whenever there's no open mission
-// and no open qualifying service event -- it's a guess, not a fact, so
-// the "nothing logged" wording is accurate for a glider that's just
-// sitting unused. It stops being accurate once the asset is retired
-// *with a reason on record* (decommissionedDate/-Reason): something
-// real IS logged, it's just not one of the events this derivation looks
-// at (missions/service events, not decommission). Saying "nothing
-// logged" one line above "Retired ... <reason>" reads as a flat
-// contradiction, so this bucket gets its own wording instead.
-const RETIRED_DEFAULT_LABEL = "no activity logged since retirement";
+// "Idle" is the derived-status fallback whenever there's no open mission,
+// no open build and no open qualifying service event -- the "nothing
+// open" wording is accurate for a glider that's just sitting unused. It
+// stops being accurate once the asset is decommissioned *with a reason on
+// record* (decommissionedDate/-Reason): something real IS logged, it's
+// just not one of the events this derivation looks at (missions/service
+// events, not decommission). Saying "nothing open" one line above
+// "Decommissioned ... <reason>" reads as a flat contradiction, so this
+// bucket gets its own wording instead.
+const DECOMMISSIONED_DEFAULT_LABEL = "no activity logged since decommission";
 
-function sourceLabel(source: string | null, isRetired: boolean): string {
-	if (source === "default" && isRetired) return RETIRED_DEFAULT_LABEL;
+function sourceLabel(source: string | null, isDecommissioned: boolean): string {
+	if (source === "default" && isDecommissioned)
+		return DECOMMISSIONED_DEFAULT_LABEL;
 	return SOURCE_LABEL[source ?? "default"];
 }
 
-// Operational status is derived from the glider's timeline; fleet
-// lifecycle (retired or not) is a separate axis shown alongside. See
-// docs/design/derived-glider-status.md.
+// A glider's state is derived from its timeline; location is a separate,
+// optional recorded fact; Scheduled is a flag about the mission plan; and
+// fleet lifecycle (decommissioned or not) is a fourth axis. See
+// docs/design/glider-state-and-location.md.
 export default function GliderStatusBox({
 	status,
 	statusSince,
 	statusSource,
 	decommissionedDate,
 	decommissionReason,
+	location,
+	locationSince,
+	locationSource,
+	scheduledMissionId,
+	scheduledDate,
 }: {
 	status: AssetStatus | null;
 	statusSince: string | null;
 	statusSource: "mission" | "service_event" | "default" | null;
 	decommissionedDate: string | null;
 	decommissionReason: string | null;
-}) {
+} & Pick<
+	Glider,
+	| "location"
+	| "locationSince"
+	| "locationSource"
+	| "scheduledMissionId"
+	| "scheduledDate"
+>) {
 	if (!status) {
 		return <Typography color="text.disabled">Status not set.</Typography>;
 	}
+
+	const locationFields = { location, locationSince, locationSource };
 
 	return (
 		<Box
@@ -61,8 +80,23 @@ export default function GliderStatusBox({
 				color={STATUS_COLOR[status]}
 				sx={{ fontSize: "1rem", py: 2.5, px: 1 }}
 			/>
+			{scheduledMissionId != null && (
+				<Chip
+					label="Scheduled"
+					color="info"
+					variant="outlined"
+					component={Link}
+					href={`/missions/${scheduledMissionId}`}
+					clickable
+					sx={{ py: 2.5, px: 1 }}
+				/>
+			)}
 			{decommissionedDate && (
-				<Chip label="Retired" variant="outlined" sx={{ py: 2.5, px: 1 }} />
+				<Chip
+					label="Decommissioned"
+					variant="outlined"
+					sx={{ py: 2.5, px: 1 }}
+				/>
 			)}
 			<Box>
 				<Typography variant="body2" color="text.secondary">
@@ -80,9 +114,24 @@ export default function GliderStatusBox({
 						{sourceLabel(statusSource, !!decommissionedDate)}
 					</Typography>
 				)}
+				<Typography
+					variant="body2"
+					color={
+						hasLocation(locationFields) ? "text.secondary" : "text.disabled"
+					}
+					sx={{ mt: 0.5 }}
+				>
+					Location: {locationText(locationFields)}
+				</Typography>
+				{scheduledMissionId != null && (
+					<Typography variant="caption" color="text.disabled" display="block">
+						Mission assigned
+						{scheduledDate ? ` · planned ${formatDate(scheduledDate)}` : ""}
+					</Typography>
+				)}
 				{decommissionedDate && (
 					<Typography variant="caption" color="text.disabled" display="block">
-						Retired {formatDate(decommissionedDate)}
+						Decommissioned {formatDate(decommissionedDate)}
 						{decommissionReason ? ` · ${decommissionReason}` : ""}
 					</Typography>
 				)}

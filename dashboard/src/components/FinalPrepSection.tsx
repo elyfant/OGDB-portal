@@ -2,13 +2,7 @@
 
 import ArgosTagFields from "@/components/ArgosTagFields";
 import { saveRefurbFinalPrep } from "@/lib/api-client";
-import {
-	configFormFrom,
-	configPayload,
-	emptyTestForm,
-	testFormFrom,
-	testPayload,
-} from "@/lib/argos-tag";
+import { emptyTestForm, testFormFrom, testPayload } from "@/lib/argos-tag";
 import { formatDate } from "@/lib/format";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -56,9 +50,7 @@ function initialForm(d: RefurbFinalPrep) {
 	return {
 		pressureFinalPsia: str(d.pressureFinalPsia),
 		argosAssetId: d.argosAssetId === null ? "" : String(d.argosAssetId),
-		// The tag's details (kept on the tag asset) and the readings from this
-		// test of it (added to the tag's history).
-		config: configFormFrom(d.tagConfig),
+		// The readings from this test of the tag (added to the tag's history).
 		test: testFormFrom(d.tagTest),
 		notes: str(d.notes),
 		travelModeSet: d.travelModeSet,
@@ -107,14 +99,12 @@ export default function FinalPrepSection({
 		pressure !== null && Math.abs(pressure - TARGET_PSIA) > TOLERANCE_PSIA;
 	const packed = PACKING.filter(([key]) => form[key]).length;
 
-	// Choosing a different tag brings up its own saved details; a tag other
-	// than the saved one has not been tested for this logsheet yet.
+	// A tag other than the saved one has not been tested for this logsheet yet.
 	function chooseTag(value: string) {
 		const tag = data.tagCandidates.find((t) => String(t.assetId) === value);
 		setForm((f) => ({
 			...f,
 			argosAssetId: value,
-			config: configFormFrom(tag ?? null),
 			test:
 				tag && tag.assetId === data.argosAssetId
 					? testFormFrom(data.tagTest)
@@ -146,10 +136,9 @@ export default function FinalPrepSection({
 				tagTimeSynced: form.tagTimeSynced,
 				tagConfigConfirmed: form.tagConfigConfirmed,
 				tagAutoStart: form.tagAutoStart,
-				// Only once a tag is chosen: the details and readings belong to it.
+				// Only once a tag is chosen: the readings belong to it.
 				...(form.argosAssetId !== ""
 					? {
-							tagConfig: configPayload(form.config),
 							tagTest: testPayload(form.test),
 						}
 					: {}),
@@ -259,15 +248,10 @@ export default function FinalPrepSection({
 
 					{form.argosAssetId !== "" && (
 						<ArgosTagFields
-							config={form.config}
 							test={form.test}
-							onConfig={(patch) =>
-								setForm((f) => ({ ...f, config: { ...f.config, ...patch } }))
-							}
 							onTest={(patch) =>
 								setForm((f) => ({ ...f, test: { ...f.test, ...patch } }))
 							}
-							knownTypes={data.knownTagTypes}
 							disabled={disabled}
 							serial={
 								data.tagCandidates.find(

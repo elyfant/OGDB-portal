@@ -1,8 +1,11 @@
 "use client";
 
+import LocationDialog from "@/components/LocationDialog";
+import LogGliderEventPrompt from "@/components/LogGliderEventPrompt";
 import {
 	createMission,
 	getGliderBuildClient,
+	getLocationsClient,
 	searchAssets,
 	updateMission,
 } from "@/lib/api-client";
@@ -32,6 +35,7 @@ import type {
 	Cruise,
 	Glider,
 	GliderBuildComponent,
+	Location,
 	LookupOption,
 	Mission,
 } from "@ogdb/types";
@@ -186,6 +190,21 @@ export default function MissionFormDialog({
 	const [banner, setBanner] = useState<{
 		severity: "success" | "error";
 		message: string;
+	} | null>(null);
+	// Skippable offer to log the matching event on the glider's timeline after
+	// a mission is saved as killed / missing in action.
+	const [gliderEventPrompt, setGliderEventPrompt] = useState<{
+		kind: "destroyed" | "missing";
+		gliderId: number;
+		name: string;
+		date: string;
+	} | null>(null);
+	// Skippable "Where is it now?" after a recovery date is first saved.
+	const [recoveryPrompt, setRecoveryPrompt] = useState<{
+		assetId: number;
+		name: string;
+		date: string;
+		locations: Location[];
 	} | null>(null);
 
 	const scheduledStatusId = useMemo(
@@ -360,6 +379,56 @@ export default function MissionFormDialog({
 							endingCauseId: form.endingCauseId || null,
 						})
 					: await createMission(payload);
+			// A recovery date was just entered for the first time: the glider is
+			// no longer at sea, so ask (skippably) where it is. The places are
+			// fetched here because this dialog is opened from three pages that
+			// don't carry the list; if that fails the prompt is simply skipped.
+			// An outcome the glider's own timeline should reflect too: the mission
+			// was just set to killed / missing in action (not already). Offer to
+			// log the matching event -- skippable, and it never touches the
+			// mission, so it can't loop with the glider-side "also close the
+			// mission" option. A destroyed glider has no location, so the
+			// "where is it now?" prompt below is skipped in that case.
+			const outcome =
+				statusName === "killed in action"
+					? "destroyed"
+					: statusName === "missing in action"
+						? "missing"
+						: null;
+			if (
+				outcome &&
+				mode === "edit" &&
+				mission &&
+				mission.status?.toLowerCase() !== statusName &&
+				form.gliderAssetId
+			) {
+				setGliderEventPrompt({
+					kind: outcome,
+					gliderId: form.gliderAssetId as number,
+					name: gliderName ?? "The glider",
+					date: form.retrievalDate || "",
+				});
+			}
+			if (
+				!outcome &&
+				mode === "edit" &&
+				mission &&
+				!mission.retrievalDate &&
+				form.retrievalDate &&
+				form.gliderAssetId
+			) {
+				try {
+					const places = await getLocationsClient();
+					setRecoveryPrompt({
+						assetId: form.gliderAssetId as number,
+						name: gliderName ?? "The glider",
+						date: form.retrievalDate,
+						locations: places,
+					});
+				} catch {
+					// Location is optional; never fail the save over it.
+				}
+			}
 			closeDialog();
 			setBanner({
 				severity: "success",
@@ -839,6 +908,32 @@ export default function MissionFormDialog({
 					{banner?.message}
 				</Alert>
 			</Snackbar>
+
+			<LocationDialog
+				open={recoveryPrompt !== null}
+				onClose={() => {
+					setRecoveryPrompt(null);
+					router.refresh();
+				}}
+				assetId={recoveryPrompt?.assetId ?? 0}
+				assetName={recoveryPrompt?.name ?? ""}
+				locations={recoveryPrompt?.locations ?? []}
+				initialDate={recoveryPrompt?.date}
+				intro={`${recoveryPrompt?.name ?? "The glider"} has been recovered. Where is it now? Skip it if it doesn't matter yet.`}
+				skipLabel="Skip"
+			/>
+
+			<LogGliderEventPrompt
+				open={gliderEventPrompt !== null}
+				onClose={() => {
+					setGliderEventPrompt(null);
+					router.refresh();
+				}}
+				gliderId={gliderEventPrompt?.gliderId ?? 0}
+				gliderName={gliderEventPrompt?.name ?? ""}
+				kind={gliderEventPrompt?.kind ?? "destroyed"}
+				defaultDate={gliderEventPrompt?.date || undefined}
+			/>
 		</>
 	);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import AssetTimelineSection from "@/components/AssetTimelineSection";
+import EditRowButton from "@/components/EditRowButton";
 import GliderDeploymentHistory from "@/components/GliderDeploymentHistory";
 import GliderEditHistory from "@/components/GliderEditHistory";
 import ServicingEventControls, {
@@ -36,6 +37,7 @@ import type {
 	GliderComponentDetail,
 	GliderDeployment,
 	GliderEditHistoryItem,
+	Location,
 	LookupOption,
 	ServicingEvent,
 	ServicingEventTypeOption,
@@ -125,6 +127,7 @@ export default function GliderTimelineTab({
 	contacts,
 	canEdit,
 	lifecycle,
+	locations,
 }: {
 	assetId: number;
 	deployments: GliderDeployment[];
@@ -140,6 +143,8 @@ export default function GliderTimelineTab({
 	// service" path in the Add event dialog. Other assets keep the manual
 	// status flow and don't pass this.
 	lifecycle: { decommissionedDate: string | null; name: string };
+	// Active places, for the "Where is it now?" prompt after closing an event.
+	locations: Location[];
 }) {
 	const allEvents = useMemo(
 		() =>
@@ -181,6 +186,7 @@ export default function GliderTimelineTab({
 				contacts={contacts}
 				canEdit={canEdit}
 				lifecycle={lifecycle}
+				locations={locations}
 			/>
 
 			<AssetTimelineSection
@@ -224,6 +230,7 @@ export default function GliderTimelineTab({
 										<TableCell>Description</TableCell>
 										<TableCell>Date</TableCell>
 										<TableCell>Document</TableCell>
+										{canEdit && <TableCell sx={{ width: 48 }} />}
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -232,19 +239,13 @@ export default function GliderTimelineTab({
 										const editable = canEdit
 											? servicingByTimelineId.get(e.id)
 											: undefined;
-										// Editable service event -> open the dialog.
-										// Missions / components navigate only through the
-										// title link in the Description cell, not the row.
-										const onRowClick = editable
-											? () => controlsRef.current?.openForEdit(editable)
-											: undefined;
+										// An editable service event is edited with the spanner at
+										// the end of its row. Missions / components navigate only
+										// through the title link in the Description cell. The row
+										// itself isn't clickable, so it never has to guess between
+										// "edit" and "go to".
 										return (
-											<TableRow
-												key={e.id}
-												hover={!!onRowClick}
-												onClick={onRowClick}
-												sx={onRowClick ? { cursor: "pointer" } : undefined}
-											>
+											<TableRow key={e.id}>
 												<TableCell>
 													<Chip
 														size="small"
@@ -307,6 +308,17 @@ export default function GliderTimelineTab({
 														"—"
 													)}
 												</TableCell>
+												{canEdit && (
+													<TableCell align="right">
+														{editable && (
+															<EditRowButton
+																onClick={() =>
+																	controlsRef.current?.openForEdit(editable)
+																}
+															/>
+														)}
+													</TableCell>
+												)}
 											</TableRow>
 										);
 									})}

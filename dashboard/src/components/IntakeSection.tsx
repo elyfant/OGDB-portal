@@ -2,13 +2,7 @@
 
 import ArgosTagFields from "@/components/ArgosTagFields";
 import { saveRefurbIntake } from "@/lib/api-client";
-import {
-	configFormFrom,
-	configPayload,
-	emptyTestForm,
-	testFormFrom,
-	testPayload,
-} from "@/lib/argos-tag";
+import { emptyTestForm, testFormFrom, testPayload } from "@/lib/argos-tag";
 import { formatDate } from "@/lib/format";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -44,9 +38,7 @@ function initialForm(d: RefurbIntake) {
 		oldTagAssetId: d.oldTagAssetId === null ? "" : String(d.oldTagAssetId),
 		tagRemoved: d.tagRemoved,
 		tagActivated: d.tagActivated,
-		// The tag's details (kept on the tag asset) and the readings from this
-		// test of it (added to the tag's history).
-		config: configFormFrom(d.tagConfig),
+		// The readings from this test of the tag (added to the tag's history).
 		test: testFormFrom(d.tagTest),
 		tagStopped: d.tagStopped,
 	};
@@ -76,14 +68,12 @@ export default function IntakeSection({
 		setForm((f) => ({ ...f, ...patch }));
 	const prev = data.previousMission;
 
-	// Choosing a different tag brings up its own saved details; a tag other
-	// than the saved one has not been tested for this logsheet yet.
+	// A tag other than the saved one has not been tested for this logsheet yet.
 	function chooseTag(value: string) {
 		const tag = data.tagCandidates.find((t) => String(t.assetId) === value);
 		setForm((f) => ({
 			...f,
 			oldTagAssetId: value,
-			config: configFormFrom(tag ?? null),
 			test:
 				tag && tag.assetId === data.oldTagAssetId
 					? testFormFrom(data.tagTest)
@@ -113,10 +103,9 @@ export default function IntakeSection({
 					form.oldTagAssetId === "" ? null : Number(form.oldTagAssetId),
 				tagRemoved: form.tagRemoved,
 				tagActivated: form.tagActivated,
-				// Only once a tag is chosen: the details and readings belong to it.
+				// Only once a tag is chosen: the readings belong to it.
 				...(form.oldTagAssetId !== ""
 					? {
-							tagConfig: configPayload(form.config),
 							tagTest: testPayload(form.test),
 						}
 					: {}),
@@ -270,15 +259,10 @@ export default function IntakeSection({
 
 					{form.oldTagAssetId !== "" && (
 						<ArgosTagFields
-							config={form.config}
 							test={form.test}
-							onConfig={(patch) =>
-								setForm((f) => ({ ...f, config: { ...f.config, ...patch } }))
-							}
 							onTest={(patch) =>
 								setForm((f) => ({ ...f, test: { ...f.test, ...patch } }))
 							}
-							knownTypes={data.knownTagTypes}
 							batteryLowAdvice="Replace the battery before this tag is used again."
 							disabled={disabled}
 							serial={

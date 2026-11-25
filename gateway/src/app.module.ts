@@ -15,6 +15,7 @@ import { DbModule } from "./db/db.module";
 import { DocumentsModule } from "./documents/documents.module";
 import { GlidersModule } from "./gliders/gliders.module";
 import { IridiumModule } from "./iridium/iridium.module";
+import { LocationsModule } from "./locations/locations.module";
 import { LookupsModule } from "./lookups/lookups.module";
 import { MissionsModule } from "./missions/missions.module";
 import { ProcessingPackagesModule } from "./processing-packages/processing-packages.module";
@@ -33,6 +34,7 @@ import { UsersModule } from "./users/users.module";
 		AssetStatusOptionsModule,
 		CalibrationsModule,
 		DocumentsModule,
+		LocationsModule,
 		LookupsModule,
 		MissionsModule,
 		RefurbishmentsModule,

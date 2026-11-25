@@ -2,11 +2,13 @@ import BuildPanel from "@/components/BuildPanel";
 import Field from "@/components/Field";
 import GliderDetailTabs from "@/components/GliderDetailTabs";
 import GliderFormDialog from "@/components/GliderFormDialog";
+import GliderLogMenu, { type WorkshopAction } from "@/components/GliderLogMenu";
 import GliderStatusBox from "@/components/GliderStatusBox";
 import GliderTimelineTab from "@/components/GliderTimelineTab";
 import { NvsValue } from "@/components/NvsLink";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
+import SetLocationDialog from "@/components/SetLocationDialog";
 import StartWorkshopButton from "@/components/StartWorkshopButton";
 import StatTile from "@/components/StatTile";
 import WearPanel from "@/components/WearPanel";
@@ -17,12 +19,14 @@ import {
 	getContacts,
 	getGlider,
 	getGliderBuild,
+	getLocations,
 	getPlatforms,
 	getServicingEventTypes,
 	getServicingEvents,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { formatCount, formatDate, formatMoney } from "@/lib/format";
+import { hasLocation, locationText } from "@/lib/glider-location";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import BuildIcon from "@mui/icons-material/Build";
 import RouteIcon from "@mui/icons-material/Route";
@@ -70,6 +74,7 @@ export default async function GliderDetailPage({
 		eventTypes,
 		contacts,
 		allWear,
+		locations,
 	] = await Promise.all([
 		getGliderBuild(Number(id)),
 		getPlatforms(),
@@ -80,11 +85,55 @@ export default async function GliderDetailPage({
 		getServicingEventTypes(),
 		getContacts(),
 		getAllAssetWear(),
+		getLocations(),
 	]);
 	const wearByAsset = Object.fromEntries(allWear.map((w) => [w.assetId, w]));
 	// Only present for a wear-tracked glider (Seagliders, not Slocums).
 	const gliderWear = wearByAsset[glider.id];
 	const canEdit = user?.role === "editor" || user?.role === "admin";
+	// A place can only be recorded while the location isn't fixed by the
+	// state (deployed = at sea, missing = unknown, destroyed = none).
+	const canSetLocation =
+		glider.locationSource === "recorded" ||
+		glider.locationSource === "not_recorded";
+
+	// What the Log menu's "Start workshop" can do -- the same rules as the
+	// Build section's own button: an existing workshop/scheduled build is
+	// edited rather than duplicated, and a glider still out on a mission has
+	// no last flown build to copy yet.
+	// The glider's open mission, if any: started, no retrieval date, still
+	// "active" (or already marked missing in action). A destroyed / missing
+	// event offers to close it.
+	const openDeployment = build.deployments.find(
+		(d) =>
+			d.retrievalDate == null &&
+			(d.status === "active" || d.status === "missing in action"),
+	);
+	const openMission = openDeployment
+		? {
+				id: openDeployment.id,
+				label:
+					openDeployment.stdMissionName ??
+					`mission #${openDeployment.missionNumber ?? openDeployment.id}`,
+				status: openDeployment.status,
+			}
+		: undefined;
+
+	const workshop: WorkshopAction = build.nextMission
+		? {
+				kind: "open",
+				missionId: build.nextMission.id,
+				label:
+					build.nextMission.status === "workshop"
+						? "Edit workshop build"
+						: `Edit build for ${missionLabel(build.nextMission)}`,
+			}
+		: build.buildMission?.status === "active"
+			? {
+					kind: "blocked",
+					reason: `Unavailable while ${glider.name} is active.`,
+				}
+			: { kind: "available" };
 
 	// Full calibration history per sensor, for the Current build's science
 	// rows to expand into -- sourced from currentBuildComponentDetails (the
@@ -138,15 +187,58 @@ export default async function GliderDetailPage({
 								size="small"
 							/>
 						)}
+						{glider.scheduledMissionId != null && (
+							<Chip
+								label="Scheduled"
+								size="small"
+								color="info"
+								variant="outlined"
+								component={Link}
+								href={`/missions/${glider.scheduledMissionId}`}
+								clickable
+							/>
+						)}
 						{glider.decommissionedDate && (
-							<Chip label="Retired" size="small" variant="outlined" />
+							<Chip label="Decommissioned" size="small" variant="outlined" />
 						)}
 					</Box>
 					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
 						Serial {glider.serialNumber ?? "—"} · WMO {glider.wmo ?? "—"} ·{" "}
 						{glider.owner ?? "Owner unknown"}
 					</Typography>
+					<Typography
+						variant="body2"
+						color={hasLocation(glider) ? "text.secondary" : "text.disabled"}
+					>
+						Location: {locationText(glider)}
+						{canEdit && canSetLocation && (
+							<SetLocationDialog
+								assetId={glider.id}
+								assetName={glider.name}
+								locations={locations}
+								currentLocationId={glider.locationId}
+								hasCurrent={glider.locationSource === "recorded"}
+							/>
+						)}
+					</Typography>
 				</Box>
+				{canEdit && (
+					<GliderLogMenu
+						gliderId={glider.id}
+						gliderName={glider.name}
+						status={glider.status}
+						statusSince={glider.statusSince}
+						decommissionedDate={glider.decommissionedDate}
+						locationSource={glider.locationSource}
+						locationId={glider.locationId}
+						servicingEvents={servicingEvents}
+						eventTypes={eventTypes}
+						contacts={contacts}
+						locations={locations}
+						workshop={workshop}
+						openMission={openMission}
+					/>
+				)}
 			</Paper>
 
 			<GliderDetailTabs
@@ -268,6 +360,11 @@ export default async function GliderDetailPage({
 								statusSource={glider.statusSource}
 								decommissionedDate={glider.decommissionedDate}
 								decommissionReason={glider.decommissionReason}
+								location={glider.location}
+								locationSince={glider.locationSince}
+								locationSource={glider.locationSource}
+								scheduledMissionId={glider.scheduledMissionId}
+								scheduledDate={glider.scheduledDate}
 							/>
 						</Paper>
 
@@ -391,6 +488,7 @@ export default async function GliderDetailPage({
 							decommissionedDate: glider.decommissionedDate,
 							name: glider.name,
 						}}
+						locations={locations}
 					/>
 				}
 			/>

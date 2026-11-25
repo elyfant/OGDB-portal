@@ -337,6 +337,7 @@ export const VALID_PARENT_TYPES: Record<string, string[]> = {
 // and the assets / detail tables match on row_id directly.
 export const AUDITED_ASSET_ID_TABLES: string[] = [
 	"asset_status_history",
+	"asset_location_history",
 	"asset_service_events",
 	"asset_faults",
 	"documents",

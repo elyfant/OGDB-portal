@@ -57,7 +57,7 @@ Cleared to deploy.
 | Previous mission issues | AUTO | Pulled from `asset_faults` and the previous mission's end cause. Tech can add notes (REC). |
 | Old Argos tag: serial | DB | `argos_tag` asset. |
 | Old Argos tag: tested (battery voltage and transmission test pass/fail) | REC | Readings go to the tag's measurement history; a battery outside 3.3 to 3.7 V is flagged, not blocked. |
-| Old Argos tag: details and test readings | DB | Typed in, kept on the tag asset and in its test history (see "Argos tag details and tests" below). Replaces the screenshot. |
+| Old Argos tag: test readings | DB | Typed in, kept in the tag's test history (see "Argos tag details and tests" below). Replaces the screenshot. |
 | Old Argos tag: set to stop mode | REC | Checkbox. |
 
 ### B. External inspection (before opening)
@@ -179,7 +179,7 @@ Then: confirm backup in `gliderbak`; sim-dive run (REC: cmdfile used, dives comp
 |---|---|
 | Internal pressure check (typed) | REC |
 | Travel mode set, glider off | REC (checkbox) |
-| **New** Argos tag: serial, details (type, Argos Dec, Argos Hex, name) | DB |
+| **New** Argos tag: serial | DB |
 | Tag: synced, config confirmed, auto-start; test readings typed in | REC + tag test history |
 | Tag battery voltage (3.3–3.7 V), transmission count (below 30–40 k) | REC, flagged if outside range |
 | Tag in auto-start mode | REC |
@@ -286,14 +286,16 @@ locked.
 
 The tag test screenshot is gone. The tech types what the screenshot showed, and
 the facts live on the TAG, not on the logsheet, the same way other assets keep
-theirs.
+theirs. The tag's own details (type, Argos Dec, Argos Hex, name) are the
+operator's job to add to the database and are out of scope for the logsheet: the
+logsheet never writes them and does not ask for them.
 
 **`asset_argos_tag_details`** (the `asset_<type>_details` pattern, with the
 detail-table audit trigger). Configuration that does not change:
 
 | Column | Rule |
 |---|---|
-| `model` | Tag type, plain text like the Slocum parts, e.g. `SPOT6`. Shown as the asset's model in the assets list. The form suggests types already in use. |
+| `model` | Tag type, plain text like the Slocum parts, e.g. `SPOT6`. Shown as the asset's model in the assets list. Entered by the operator on the asset, not on the logsheet. |
 | `argos_dec` | Argos decimal ID (the PTT ID): 6 to 8 digits. Unique. |
 | `argos_hex` | Argos hex ID: 6 or 7 hex digits, stored uppercase (spaces and case are tidied on entry). Unique. |
 | `tag_name` | Free text, up to 100 characters. |
@@ -308,22 +310,20 @@ than the attempts), battery voltage (0 to 10 V), transmission test (pass or fail
 The asset page lists a tag's test history.
 
 **On the logsheet.** The old tag (Intake) and the new tag (Final prep) each get
-the same two blocks: **Tag details** and **Test readings**. One Save writes the
-logsheet, the tag's details and its reading in a single transaction, so a refused
-value changes none of them. Saving the same reading again from the same logsheet
+the same **Test readings** block. One Save writes the logsheet and the tag's
+reading in a single transaction, so a refused value changes neither. Saving the same reading again from the same logsheet
 corrects that row (a typo is not a second test); a different tag gets its own
 row; saving unchanged values writes nothing and adds no audit noise.
 
 | | Intake (old tag) | Final prep (new tag) |
 |---|---|---|
-| Needs all four details | yes | yes |
 | Needs all five readings | yes | yes |
 | A failed transmission test blocks | no (it is the old tag) | **yes** |
 | Battery outside 3.3 to 3.7 V blocks | no | **yes** |
 | More than 40 000 Tx attempts blocks | no | **yes** |
 
-Removed from the logsheet because the tag now holds them: the screenshot upload
-(both sections), the typed PTT ID (now `argos_dec`), and the logsheet's own tag
+Removed from the logsheet: the screenshot upload
+(both sections), the typed PTT ID (now `argos_dec` on the asset), tag details entry, and the logsheet's own tag
 battery, transmission-count and "test OK" fields (now the reading).
 
 ## Parked

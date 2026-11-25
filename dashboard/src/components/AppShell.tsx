@@ -9,6 +9,7 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import MapIcon from "@mui/icons-material/Map";
+import PlaceIcon from "@mui/icons-material/Place";
 import RouteIcon from "@mui/icons-material/Route";
 import SatelliteAltIcon from "@mui/icons-material/SatelliteAlt";
 import SensorsIcon from "@mui/icons-material/Sensors";
@@ -49,6 +50,7 @@ const NAV_GROUPS = [
 			{ label: "Glider fleet", href: "/gliders", icon: ConnectingAirports },
 			{ label: "All assets", href: "/assets", icon: WidgetsIcon },
 			{ label: "Batteries", href: "/batteries", icon: BatteryFullIcon },
+			{ label: "Locations", href: "/locations", icon: PlaceIcon },
 		],
 	},
 	{

@@ -9,6 +9,7 @@ import {
 	getServicingEvents,
 } from "@/lib/api";
 import { formatAssetType, formatDate, statusColor } from "@/lib/format";
+import { locationText } from "@/lib/glider-location";
 import { formatRmaStage } from "@/lib/rma-columns";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
 import {
@@ -37,6 +38,8 @@ const PREP_MISSION_STATUSES = ["workshop", "scheduled"];
 // Glider statuses that put a glider on the workshop bench even when no
 // workshop/scheduled mission has been opened for it.
 const WORKSHOP_STATUSES: AssetStatus[] = [
+	"workshop",
+	"ready_to_deploy",
 	"in_house_repairs",
 	"factory_service",
 	"pre_mission_service",
@@ -189,16 +192,16 @@ export default async function HomePage() {
 		}),
 	);
 
-	// No location column exists in OGDB, so this is derived from what is
-	// known: a factory service / open RMA means the glider is off site,
-	// anything else means it is on the in-house bench.
+	// The glider's recorded location (the shared Locations list), except
+	// that a factory service / open RMA means it is off site whatever was
+	// last recorded. "Not recorded" is a normal answer, not an error.
 	function locationFor(g: Glider, openRma?: { rmaNumber: string | null }) {
 		if (g.status === "factory_service" || openRma) {
 			return openRma?.rmaNumber
 				? `At repairer (RMA ${openRma.rmaNumber})`
 				: "At repairer / manufacturer";
 		}
-		return "In-house workshop";
+		return locationText(g);
 	}
 
 	return (

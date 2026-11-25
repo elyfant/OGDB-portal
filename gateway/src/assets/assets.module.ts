@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { CalibrationsModule } from "../calibrations/calibrations.module";
 import { DocumentsModule } from "../documents/documents.module";
+import { LocationsModule } from "../locations/locations.module";
 import { MissionsModule } from "../missions/missions.module";
 import { RmasModule } from "../rmas/rmas.module";
 import { ServicingModule } from "../servicing/servicing.module";
@@ -11,6 +12,7 @@ import { CertificateParserService } from "./certificate-parser.service";
 @Module({
 	imports: [
 		DocumentsModule,
+		LocationsModule,
 		CalibrationsModule,
 		ServicingModule,
 		MissionsModule,

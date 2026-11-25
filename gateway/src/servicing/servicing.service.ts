@@ -146,6 +146,71 @@ export class ServicingService {
 		}
 	}
 
+	// A destroyed asset has no future: nothing can happen to it after the day
+	// it was destroyed. (docs/design/glider-state-and-location.md section 7.)
+	// Backfilling an earlier event is still fine -- that is the point of the
+	// comment on BLOCKING_EVENT_TYPES -- as long as it ends by then.
+	//   * logging the destruction itself: refused if one is already on record
+	//     (edit that one), or if events already run past that day;
+	//   * logging anything else: refused if it starts or ends after the
+	//     destruction, or is still open (an open event on a destroyed asset
+	//     is a contradiction). `excludeEventId` lets an edit skip its own row.
+	// Dates are compared as 'YYYY-MM-DD' strings (lexical = date order).
+	private async assertConsistentWithDestruction(
+		assetId: number,
+		dto: RecordServicingEventDto,
+		excludeEventId?: number,
+	): Promise<void> {
+		const start = dto.startDate.slice(0, 10);
+		const end = dto.endDate?.slice(0, 10);
+
+		const destroyed = await this.pool.query(
+			`SELECT se.start_date AS "startDate"
+       FROM asset_service_events se
+       JOIN asset_service_event_types t ON t.id = se.event_type_id
+       WHERE se.asset_id = $1 AND t.name = 'destroyed' AND se.id <> $2
+       ORDER BY se.start_date LIMIT 1`,
+			[assetId, excludeEventId ?? -1],
+		);
+		const destroyedOn: string | undefined = destroyed.rows[0]?.startDate;
+
+		if (TERMINAL_EVENT_TYPES.has(dto.eventType)) {
+			if (destroyedOn) {
+				throw new ConflictException(
+					`This asset was already destroyed on ${destroyedOn}. Edit that event instead of logging another.`,
+				);
+			}
+			const later = await this.pool.query(
+				`SELECT se.title, t.name AS "eventType", se.start_date AS "startDate"
+         FROM asset_service_events se
+         JOIN asset_service_event_types t ON t.id = se.event_type_id
+         WHERE se.asset_id = $1 AND se.id <> $2
+           AND (se.start_date > $3::date OR se.end_date > $3::date)
+         ORDER BY se.start_date LIMIT 1`,
+				[assetId, excludeEventId ?? -1, start],
+			);
+			if (later.rows.length > 0) {
+				const row = later.rows[0];
+				throw new ConflictException(
+					`Can't log destruction on ${start}: "${row.title ?? row.eventType}" (${row.startDate}) runs past that day. Move or remove it first.`,
+				);
+			}
+			return;
+		}
+
+		if (!destroyedOn) return;
+		if (start > destroyedOn || (end && end > destroyedOn)) {
+			throw new ConflictException(
+				`This asset was destroyed on ${destroyedOn}, so nothing can be logged after that date.`,
+			);
+		}
+		if (!end) {
+			throw new ConflictException(
+				`This asset was destroyed on ${destroyedOn}, so an event can't still be open. Give it an end date on or before then.`,
+			);
+		}
+	}
+
 	// start/end are IsDateString'd 'YYYY-MM-DD' -- lexical compare is date
 	// order. Backstopped by a CHECK constraint (see the
 	// asset_service_events_date_check migration); this is just the
@@ -204,6 +269,7 @@ export class ServicingService {
 
 		this.assertDateOrder(dto);
 		const eventTypeId = await this.resolveEventTypeId(dto.eventType);
+		await this.assertConsistentWithDestruction(assetId, dto);
 		const terminal = TERMINAL_EVENT_TYPES.has(dto.eventType);
 		// A terminal event (destroyed) is allowed even while another event
 		// is open -- it closes that one below. Everything else obeys the
@@ -258,6 +324,10 @@ export class ServicingService {
 				await this.attachFile(client, assetId, eventId, attachment, userId);
 			}
 
+			if (dto.closeMissionId != null) {
+				await this.closeMissionTx(client, assetId, dto, userId);
+			}
+
 			await client.query("COMMIT");
 		} catch (err) {
 			await client.query("ROLLBACK");
@@ -265,6 +335,79 @@ export class ServicingService {
 		} finally {
 			client.release();
 		}
+	}
+
+	// A mission's status is a STORED field (the glider's state is derived), so
+	// a glider destroyed or lost mid-mission would otherwise leave that mission
+	// "active" -- on the home page, blocking the workshop -- until someone
+	// remembered to close it. This closes it in the same transaction as the
+	// event, so the two can't disagree:
+	//   destroyed -> status `killed in action`, and (if asked) retrieval date
+	//                = the event date (destroyed during recovery);
+	//   missing   -> status `missing in action`; never touches the dates (it
+	//                wasn't retrieved).
+	// Only an OPEN mission of THIS glider qualifies: started, no retrieval
+	// date, not a workshop / scheduled one. Mirrors derived_asset_status.
+	private async closeMissionTx(
+		client: PoolClient,
+		assetId: number,
+		dto: RecordServicingEventDto,
+		userId: number,
+	): Promise<void> {
+		if (dto.eventType !== "destroyed" && dto.eventType !== "missing") {
+			throw new BadRequestException(
+				"Only a destroyed or missing event can close a mission.",
+			);
+		}
+		const found = await client.query(
+			`SELECT m.deployment_date::date AS "deploymentDate",
+              m.retrieval_date AS "retrievalDate", s.name AS status
+       FROM missions m
+       LEFT JOIN status s ON s.id = m.status_id
+       WHERE m.id = $1 AND m.glider_asset_id = $2
+       FOR UPDATE OF m`,
+			[dto.closeMissionId, assetId],
+		);
+		if (found.rows.length === 0) {
+			throw new BadRequestException(
+				"That mission doesn't belong to this glider.",
+			);
+		}
+		const m = found.rows[0];
+		if (
+			m.retrievalDate !== null ||
+			m.deploymentDate === null ||
+			["workshop", "scheduled"].includes(m.status ?? "")
+		) {
+			throw new ConflictException(
+				"That mission isn't open (it hasn't started, or already has a retrieval date).",
+			);
+		}
+
+		const destroyed = dto.eventType === "destroyed";
+		const setEnd = destroyed && dto.closeMissionSetEndDate === true;
+		const eventDate = dto.startDate.slice(0, 10);
+		if (setEnd && eventDate < m.deploymentDate) {
+			throw new BadRequestException(
+				`The event date is before the mission started (${m.deploymentDate}), so it can't be its end date.`,
+			);
+		}
+		const outcome = destroyed ? "killed in action" : "missing in action";
+		const statusRow = await client.query(
+			"SELECT id FROM status WHERE name = $1",
+			[outcome],
+		);
+		if (statusRow.rows.length === 0) {
+			throw new BadRequestException(`There is no "${outcome}" mission status.`);
+		}
+		await client.query(
+			`UPDATE missions
+         SET status_id = $2,
+             retrieval_date = CASE WHEN $3::boolean THEN $4::date ELSE retrieval_date END,
+             changed_by = $5, updated_at = now()
+       WHERE id = $1`,
+			[dto.closeMissionId, statusRow.rows[0].id, setEnd, eventDate, userId],
+		);
 	}
 
 	// Full-replace PATCH, same convention as AssetsService.updateCalibration
@@ -280,6 +423,7 @@ export class ServicingService {
 	): Promise<void> {
 		this.assertDateOrder(dto);
 		const eventTypeId = await this.resolveEventTypeId(dto.eventType);
+		await this.assertConsistentWithDestruction(assetId, dto, eventId);
 
 		// Only worth re-checking "no open event" when this edit would
 		// leave the row open -- an edit that's setting/keeping an end
@@ -330,5 +474,108 @@ export class ServicingService {
 		} finally {
 			client.release();
 		}
+	}
+	// Removes a servicing event outright -- for one logged by mistake (use
+	// updateEvent to correct one that is merely wrong). Hard delete, but not
+	// silent: the audit trigger records the deleted row, credited to the
+	// person deleting (changed_by is stamped first, because a DELETE audit row
+	// otherwise carries the row's LAST EDITOR).
+	//
+	//   * Only the event types this service manages. Calibration events
+	//     belong to the calibration flow; anything linked to a calibration row
+	//     is refused too, since deleting it would orphan that row.
+	//   * Its attachments go with it: the documents rows in the transaction,
+	//     the stored files after it commits (best effort -- a leftover file is
+	//     harmless, a half-deleted event is not).
+	//   * A `destroyed` event stamped the glider's decommission date/reason
+	//     ("destroyed", the event's date). Deleting it removes that stamp, so
+	//     the glider returns to service -- unless the decommission no longer
+	//     matches (edited since, or set separately), in which case it is left
+	//     alone and can be returned to service by hand. Events the destruction
+	//     auto-closed stay closed.
+	async deleteEvent(
+		assetId: number,
+		eventId: number,
+		userId: number,
+	): Promise<{ returnedToService: boolean }> {
+		const client = await this.pool.connect();
+		let fileReferences: string[] = [];
+		let returnedToService = false;
+		try {
+			await client.query("BEGIN");
+
+			const found = await client.query(
+				`SELECT se.start_date AS "startDate", t.name AS "eventType"
+         FROM asset_service_events se
+         JOIN asset_service_event_types t ON t.id = se.event_type_id
+         WHERE se.id = $1 AND se.asset_id = $2 AND t.name = ANY($3)
+         FOR UPDATE OF se`,
+				[eventId, assetId, SERVICING_EVENT_TYPES],
+			);
+			if (found.rows.length === 0) {
+				throw new NotFoundException(
+					`Servicing event ${eventId} not found for asset ${assetId}.`,
+				);
+			}
+			const { startDate, eventType } = found.rows[0];
+
+			const linked = await client.query(
+				`SELECT 1 FROM asset_ct_sensor_cal WHERE service_event_id = $1
+         UNION ALL SELECT 1 FROM asset_do_sensor_cal WHERE service_event_id = $1
+         UNION ALL SELECT 1 FROM asset_eco_sensor_cal WHERE service_event_id = $1
+         LIMIT 1`,
+				[eventId],
+			);
+			if (linked.rows.length > 0) {
+				throw new ConflictException(
+					"This event is linked to a calibration record, so it can't be deleted here.",
+				);
+			}
+
+			await client.query(
+				"UPDATE asset_service_events SET changed_by = $2 WHERE id = $1",
+				[eventId, userId],
+			);
+			await client.query(
+				"UPDATE documents SET changed_by = $2 WHERE service_event_id = $1",
+				[eventId, userId],
+			);
+			const docs = await client.query(
+				"DELETE FROM documents WHERE service_event_id = $1 RETURNING file_reference",
+				[eventId],
+			);
+			fileReferences = docs.rows.map((r) => r.file_reference);
+			await client.query("DELETE FROM asset_service_events WHERE id = $1", [
+				eventId,
+			]);
+
+			if (TERMINAL_EVENT_TYPES.has(eventType)) {
+				const cleared = await client.query(
+					`UPDATE assets
+             SET decommissioned_date = NULL, decommission_reason = NULL,
+                 updated_at = now(), changed_by = $3
+           WHERE id = $1 AND decommission_reason = $4
+             AND decommissioned_date = $2::date`,
+					[assetId, startDate, userId, eventType],
+				);
+				returnedToService = (cleared.rowCount ?? 0) > 0;
+			}
+
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+
+		for (const ref of fileReferences) {
+			try {
+				await this.documents.removeFile(ref);
+			} catch {
+				// The row is gone; an orphaned file on disk is harmless.
+			}
+		}
+		return { returnedToService };
 	}
 }

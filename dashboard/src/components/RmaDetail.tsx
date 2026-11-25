@@ -13,7 +13,7 @@ import { useRef, useState } from "react";
 
 // Owns the interactive state for an RMA's own page: which linked-asset
 // row (if any) is being edited, and a ref into RmaEventControls so the
-// events timeline's row clicks can open the same add/edit dialog the
+// events timeline's spanner buttons can open the same add/edit dialog the
 // "Add event" button uses -- same ref-handle pattern
 // GliderTimelineTab/AssetServicingTimeline already use for
 // ServicingEventControls.

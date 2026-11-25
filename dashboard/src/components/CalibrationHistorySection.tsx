@@ -1,6 +1,7 @@
 "use client";
 
 import CalibrationFormDialog from "@/components/CalibrationFormDialog";
+import EditRowButton from "@/components/EditRowButton";
 import { formatDate } from "@/lib/format";
 import { KIND_META } from "@/lib/timeline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -21,8 +22,8 @@ import type { CalibrationCatalogueRow } from "@ogdb/types";
 import { useState } from "react";
 
 // The Calibrations counterpart to AssetServicingTimeline's Servicing
-// accordion, same style: a row click opens the same edit dialog the
-// /calibrations catalogue uses (CalibrationFormDialog's edit mode is
+// accordion, same style: a row's spanner button opens the same edit dialog
+// the /calibrations catalogue uses (the row itself isn't clickable) (CalibrationFormDialog's edit mode is
 // already externally controlled via row/onClose, so no ref/imperative
 // handle is needed the way ServicingEventControls needed one).
 export default function CalibrationHistorySection({
@@ -56,16 +57,12 @@ export default function CalibrationHistorySection({
 									<TableCell>Facility</TableCell>
 									<TableCell>Date</TableCell>
 									<TableCell>Document</TableCell>
+									{canEdit && <TableCell sx={{ width: 48 }} />}
 								</TableRow>
 							</TableHead>
 							<TableBody>
 								{calibrations.map((row) => (
-									<TableRow
-										key={row.id}
-										hover
-										onClick={canEdit ? () => setEditingRow(row) : undefined}
-										sx={canEdit ? { cursor: "pointer" } : undefined}
-									>
+									<TableRow key={row.id}>
 										<TableCell>
 											<Chip
 												size="small"
@@ -100,6 +97,14 @@ export default function CalibrationHistorySection({
 												"—"
 											)}
 										</TableCell>
+										{canEdit && (
+											<TableCell align="right">
+												<EditRowButton
+													label="Edit calibration"
+													onClick={() => setEditingRow(row)}
+												/>
+											</TableCell>
+										)}
 									</TableRow>
 								))}
 							</TableBody>

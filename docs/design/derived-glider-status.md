@@ -5,6 +5,15 @@ types + UI (phases 2 and 3 below) implemented and typechecking. Not yet
 committed or deployed. Remaining: the per-glider §7 backfill, an
 authenticated browser smoke-test, and the prod migration + deploy.
 
+> **Partly superseded (2026-11-25):** see `glider-state-and-location.md`.
+> That doc keeps the derived-status and lifecycle-date ideas below but
+> changes three things: the default state `lab` becomes `idle` (Lab is now a
+> *location*), new states `workshop` and `ready_to_deploy` are derived from
+> the workshop build and the cleared logsheet, and location becomes a
+> separate, optional, recorded fact. "Retired" is renamed "Decommissioned"
+> in the UI. §2 (precedence) and §3 (taxonomy) below are the original design
+> and are amended by that doc.
+
 **This is a proposal, not a built system.** It replaces the manually-set
 status dropdown on the Glider fleet catalogue with a value *derived* from the
 glider's timeline (missions + service events), and splits "decommissioned"

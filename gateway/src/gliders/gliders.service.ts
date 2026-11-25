@@ -40,8 +40,9 @@ const SELECT_FLEET = `
     -- (open mission / open service event / destroyed marker), not a
     -- hand-set asset_status_history row -- see
     -- OGDB/alembic/.../xxxx_derived_asset_status_view and
-    -- docs/design/derived-glider-status.md. das always has a row per
-    -- glider (defaults to 'lab'); aso resolves the name back to an id
+    -- docs/design/derived-glider-status.md and
+    -- docs/design/glider-state-and-location.md. das always has a row per
+    -- glider (defaults to 'idle'); aso resolves the name back to an id
     -- for the few callers that still key off it.
     aso.id AS "statusId",
     das.status AS status,
@@ -50,9 +51,19 @@ const SELECT_FLEET = `
     das.status_source AS "statusSource",
     -- Fleet lifecycle -- a separate axis from operational status. NULL =
     -- active fleet. A retired glider still has a real operational status
-    -- (GNÅ is Lab + retired, SG562 is Missing + retired).
+    -- (GNÅ is Idle + retired, SG562 is Missing + retired).
     a.decommissioned_date AS "decommissionedDate",
     a.decommission_reason AS "decommissionReason",
+    -- Where it is: a separate, optional axis. The staleness rule (a
+    -- location recorded before the last retrieval doesn't count) lives in
+    -- the current_asset_location view, not here.
+    cal.location_name AS location,
+    cal.location_id AS "locationId",
+    cal.location_since AS "locationSince",
+    cal.location_source AS "locationSource",
+    -- Scheduled = a mission is assigned. A flag, not a state.
+    das.scheduled_mission_id AS "scheduledMissionId",
+    das.scheduled_date AS "scheduledDate",
     agd.platform_id AS "platformId",
     a.agency_id AS "agencyId"
   FROM assets a
@@ -65,6 +76,7 @@ const SELECT_FLEET = `
   LEFT JOIN manufacturers_with_nvs pmfr ON pmfr.id = p.manufacturer_id
   LEFT JOIN derived_asset_status das ON das.asset_id = a.id
   LEFT JOIN asset_status_options aso ON aso.name = das.status
+  LEFT JOIN current_asset_location cal ON cal.asset_id = a.id
   WHERE a.asset_type_id = $1
 `;
 

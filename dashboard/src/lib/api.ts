@@ -23,6 +23,7 @@ import type {
 	IridiumMissionDetail,
 	IridiumMonthlyCost,
 	IridiumSummary,
+	Location,
 	LookupOption,
 	Mission,
 	MissionBuild,
@@ -163,6 +164,20 @@ export async function getAgencies(): Promise<LookupOption[]> {
 	const res = await apiFetch("/lookups/agencies");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch agencies: ${res.status}`);
+	}
+	return res.json();
+}
+
+// The shared list of places. Active only by default (pick lists); the
+// Locations page passes true to see deactivated ones too.
+export async function getLocations(
+	includeInactive = false,
+): Promise<Location[]> {
+	const res = await apiFetch(
+		`/locations${includeInactive ? "?includeInactive=true" : ""}`,
+	);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch locations: ${res.status}`);
 	}
 	return res.json();
 }
