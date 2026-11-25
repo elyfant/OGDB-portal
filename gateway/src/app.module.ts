@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
+import { ArgosTagsModule } from "./argos-tags/argos-tags.module";
 import { AssetStatusOptionsModule } from "./asset-status-options/asset-status-options.module";
 import { AssetsModule } from "./assets/assets.module";
 import { AuthModule } from "./auth/auth.module";
@@ -27,6 +28,7 @@ import { UsersModule } from "./users/users.module";
 		DbModule,
 		AuthModule,
 		GlidersModule,
+		ArgosTagsModule,
 		AssetsModule,
 		AssetStatusOptionsModule,
 		CalibrationsModule,

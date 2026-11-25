@@ -1,5 +1,7 @@
 "use client";
 
+import ClearanceControls from "@/components/ClearanceControls";
+import { formatDateTime } from "@/lib/format";
 import CheckIcon from "@mui/icons-material/Check";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
@@ -13,7 +15,11 @@ import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import type { RefurbSectionKey, RefurbSectionState } from "@ogdb/types";
+import type {
+	RefurbClearanceEvent,
+	RefurbSectionKey,
+	RefurbSectionState,
+} from "@ogdb/types";
 import { type ReactNode, useState } from "react";
 
 export interface LogsheetSectionDef {
@@ -53,8 +59,18 @@ const anchor = (n: number) => `refurb-section-${n}`;
 // something half typed is not lost by closing it.
 export default function RefurbLogsheet({
 	sections,
+	clearance,
 }: {
 	sections: LogsheetSectionDef[];
+	// Clearing for deployment locks the logsheet; the controls live in the bar
+	// at the top, where the progress is.
+	clearance: {
+		missionId: number;
+		clearedAt: string | null;
+		clearedByName: string | null;
+		history: RefurbClearanceEvent[];
+		canEdit: boolean;
+	};
 }) {
 	const required = sections.filter((s) => s.state.required);
 	const done = required.filter((s) => s.state.complete).length;
@@ -95,6 +111,7 @@ export default function RefurbLogsheet({
 					p: 2,
 					mb: 2,
 					bgcolor: "background.paper",
+					borderColor: clearance.clearedAt ? "success.main" : "divider",
 				}}
 			>
 				<Stack
@@ -216,6 +233,17 @@ export default function RefurbLogsheet({
 						</Typography>
 					</Stack>
 				</Stack>
+
+				<Box sx={{ mt: 1.5 }}>
+					<ClearanceControls
+						missionId={clearance.missionId}
+						ready={remaining === 0}
+						clearedAt={clearance.clearedAt}
+						clearedByName={clearance.clearedByName}
+						history={clearance.history}
+						canEdit={clearance.canEdit}
+					/>
+				</Box>
 			</Paper>
 
 			<Stack spacing={1}>
@@ -284,6 +312,16 @@ export default function RefurbLogsheet({
 											sx={{ display: "block" }}
 										>
 											{s.subtitle}
+										</Typography>
+										<Typography
+											variant="caption"
+											color="text.disabled"
+											noWrap
+											sx={{ display: "block" }}
+										>
+											{s.state.lastEditedAt
+												? `Edited${s.state.lastEditedByName ? ` by ${s.state.lastEditedByName}` : ""} · ${formatDateTime(s.state.lastEditedAt)}`
+												: "Not edited yet"}
 										</Typography>
 									</Box>
 									{s.badge && (

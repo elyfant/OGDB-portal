@@ -56,8 +56,8 @@ Cleared to deploy.
 |---|---|---|
 | Previous mission issues | AUTO | Pulled from `asset_faults` and the previous mission's end cause. Tech can add notes (REC). |
 | Old Argos tag: serial | DB | `argos_tag` asset. |
-| Old Argos tag: tested, battery OK for another mission | REC | Pass/fail. |
-| Old Argos tag: screenshot | DB | Upload to `documents`, attached to this refurb. Replaces the network path. |
+| Old Argos tag: tested (battery voltage and transmission test pass/fail) | REC | Readings go to the tag's measurement history; a battery outside 3.3 to 3.7 V is flagged, not blocked. |
+| Old Argos tag: details and test readings | DB | Typed in, kept on the tag asset and in its test history (see "Argos tag details and tests" below). Replaces the screenshot. |
 | Old Argos tag: set to stop mode | REC | Checkbox. |
 
 ### B. External inspection (before opening)
@@ -179,8 +179,8 @@ Then: confirm backup in `gliderbak`; sim-dive run (REC: cmdfile used, dives comp
 |---|---|
 | Internal pressure check (typed) | REC |
 | Travel mode set, glider off | REC (checkbox) |
-| **New** Argos tag: serial, PTT ID | DB |
-| Tag: synced, config confirmed, test transmission, screenshot | REC + `documents` |
+| **New** Argos tag: serial, details (type, Argos Dec, Argos Hex, name) | DB |
+| Tag: synced, config confirmed, auto-start; test readings typed in | REC + tag test history |
 | Tag battery voltage (3.3–3.7 V), transmission count (below 30–40 k) | REC, flagged if outside range |
 | Tag in auto-start mode | REC |
 | Packing checklist (tag + clamps, comms cable, wand or shorting cable per revision, wings, rudder, cradle, spare kit, release mechanism, PC) | REC |
@@ -255,3 +255,80 @@ Added after the first draft because they were in the paper sheet but missing:
 A section is **complete** only when nothing is left to do in it *and* someone
 has recorded something there, so an untouched section never reads as done and
 always blocks clearing.
+
+## Ownership, clearing and locking (2026-11-25)
+
+**Who last edited a section.** Ownership is per SECTION, not per field. Every
+section card shows "Edited by <name> · <date and time>" (or "Not edited yet").
+It is recorded in `refurb_section_edits` only when a save succeeds: a refused or
+failed save, and any read, leaves it alone. The selftest and the field test are
+separate sections, as on the page. Some sections also show finer detail inside
+(device tests, inspection lines, cleanup ticks, tank runs each say who saved
+them); that is unchanged.
+
+**Clear for deployment.** A button in the bar at the top of the Refurb logsheet
+tab. It is available only when every required section is done (the gateway
+checks this, not only the page). Clearing records the person who cleared it (the
+operator, taken from the logged-in user) and **locks the logsheet**: every
+write to it is refused by the gateway, and the page shows every section
+read-only. Reads are unaffected.
+
+**Unlock.** Available to editors and admins. It withdraws the clearance (the
+glider has to be cleared again afterwards) and needs a reason of at least three
+characters. Clearing and unlocking are kept in `refurb_clearance_log` and shown
+under "History" in the bar.
+
+Not covered by the lock: the mission's build, edited through the build editor on
+the Overview tab, can still be changed after clearing. Only the logsheet is
+locked.
+
+## Argos tag details and tests (2026-11-25)
+
+The tag test screenshot is gone. The tech types what the screenshot showed, and
+the facts live on the TAG, not on the logsheet, the same way other assets keep
+theirs.
+
+**`asset_argos_tag_details`** (the `asset_<type>_details` pattern, with the
+detail-table audit trigger). Configuration that does not change:
+
+| Column | Rule |
+|---|---|
+| `model` | Tag type, plain text like the Slocum parts, e.g. `SPOT6`. Shown as the asset's model in the assets list. The form suggests types already in use. |
+| `argos_dec` | Argos decimal ID (the PTT ID): 6 to 8 digits. Unique. |
+| `argos_hex` | Argos hex ID: 6 or 7 hex digits, stored uppercase (spaces and case are tidied on entry). Unique. |
+| `tag_name` | Free text, up to 100 characters. |
+
+An Argos ID names exactly one tag, so entering the same Dec or Hex on a second
+tag is refused, and the message names the tag that already has it.
+
+**`asset_argos_tag_measurements`** (the `asset_battery_measurements` pattern:
+append-only history, current = latest by date, audited). One row per test:
+tagware version (e.g. `1.0b-7311`), Argos Tx attempts, Tx fail count (never more
+than the attempts), battery voltage (0 to 10 V), transmission test (pass or fail).
+The asset page lists a tag's test history.
+
+**On the logsheet.** The old tag (Intake) and the new tag (Final prep) each get
+the same two blocks: **Tag details** and **Test readings**. One Save writes the
+logsheet, the tag's details and its reading in a single transaction, so a refused
+value changes none of them. Saving the same reading again from the same logsheet
+corrects that row (a typo is not a second test); a different tag gets its own
+row; saving unchanged values writes nothing and adds no audit noise.
+
+| | Intake (old tag) | Final prep (new tag) |
+|---|---|---|
+| Needs all four details | yes | yes |
+| Needs all five readings | yes | yes |
+| A failed transmission test blocks | no (it is the old tag) | **yes** |
+| Battery outside 3.3 to 3.7 V blocks | no | **yes** |
+| More than 40 000 Tx attempts blocks | no | **yes** |
+
+Removed from the logsheet because the tag now holds them: the screenshot upload
+(both sections), the typed PTT ID (now `argos_dec`), and the logsheet's own tag
+battery, transmission-count and "test OK" fields (now the reading).
+
+## Parked
+
+* **More Argos tag detail** beyond the four fields above is for the glider team
+  to decide.
+* **Inspections** stay as they are: they are not also written as a service event
+  on the glider's history.

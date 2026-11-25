@@ -6,7 +6,7 @@
 
 // asset_types.name -> detail table name. Types with no distinguishing
 // attributes beyond the generic assets columns have no entry here
-// (argos_tag, nose_cone, ...pending rename to slocum_recovery_nose).
+// (nose_cone, ...pending rename to slocum_recovery_nose).
 export const DETAIL_TABLES: Record<string, string> = {
 	glider: "asset_glider_details",
 	slocum_aft_section: "asset_slocum_aft_section_details",
@@ -18,6 +18,8 @@ export const DETAIL_TABLES: Record<string, string> = {
 	slocum_energy_bay: "asset_slocum_energy_bay_details",
 	slocum_thruster: "asset_slocum_thruster_details",
 	battery: "asset_battery_details",
+	// Tag type, Argos Dec / Hex and name (xxxx_argos_tag_details).
+	argos_tag: "asset_argos_tag_details",
 	// Generic one-off ground equipment (xxxx_equipment_asset_type) --
 	// name + model; never a glider component.
 	equipment: "asset_equipment_details",
@@ -121,6 +123,8 @@ export const FLAT_MODEL_TABLES: Record<string, string> = {
 	slocum_energy_bay: "asset_slocum_energy_bay_details",
 	slocum_thruster: "asset_slocum_thruster_details",
 	equipment: "asset_equipment_details",
+	// Its tag type ("SPOT6") is the plain `model` column.
+	argos_tag: "asset_argos_tag_details",
 };
 
 // asset_types.name -> [cal table, its date column]. mr_sensor's table is
@@ -337,6 +341,7 @@ export const AUDITED_ASSET_ID_TABLES: string[] = [
 	"asset_faults",
 	"documents",
 	"asset_battery_measurements",
+	"asset_argos_tag_measurements",
 	"firmware_history",
 	"rma_assets",
 	"asset_sensor_parameters",

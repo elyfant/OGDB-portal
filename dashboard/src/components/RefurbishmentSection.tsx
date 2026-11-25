@@ -1,10 +1,9 @@
 import Field from "@/components/Field";
 import StartRefurbishmentButton from "@/components/StartRefurbishmentButton";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
+import LockIcon from "@mui/icons-material/Lock";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Checkbox from "@mui/material/Checkbox";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import type { Refurbishment } from "@ogdb/types";
@@ -34,7 +33,6 @@ export default function RefurbishmentSection({
 	}
 
 	const cleared = refurbishment.clearedAt !== null;
-	const blocked = refurbishment.clearBlockers.length > 0;
 
 	return (
 		<Paper variant="outlined" sx={{ p: 3 }}>
@@ -58,24 +56,22 @@ export default function RefurbishmentSection({
 				/>
 			</Box>
 
-			<FormControlLabel
-				control={<Checkbox checked={cleared} disabled />}
-				label="This glider has been cleared to deploy"
-			/>
-			{cleared && (
-				<Typography variant="caption" color="text.secondary" display="block">
-					{formatDate(refurbishment.clearedAt)}
+			{cleared ? (
+				<Alert severity="success" icon={<LockIcon fontSize="inherit" />}>
+					Cleared for deployment
 					{refurbishment.clearedByName
 						? ` by ${refurbishment.clearedByName}`
-						: ""}
-				</Typography>
-			)}
-			{!cleared && blocked && (
-				<Alert severity="info" sx={{ mt: 1 }}>
-					Cannot be cleared yet. {(() => {
+						: ""}{" "}
+					on {formatDateTime(refurbishment.clearedAt)}. The logsheet is locked.
+				</Alert>
+			) : (
+				<Alert severity="info">
+					{(() => {
 						const required = refurbishment.sections.filter((s) => s.required);
 						const open = required.filter((s) => !s.complete).length;
-						return `${open} of ${required.length} required sections still to do. Open the Refurb logsheet tab to see what is left in each.`;
+						return open === 0
+							? "Every required section is done. Open the Refurb logsheet tab to clear the glider for deployment."
+							: `Not cleared yet: ${open} of ${required.length} required sections still to do. Open the Refurb logsheet tab to see what is left in each.`;
 					})()}
 				</Alert>
 			)}

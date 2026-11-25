@@ -10,8 +10,10 @@ import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { SaveValuesDto } from "./dto/save-values.dto";
+import { RefurbWrites } from "./refurb-writes";
 import { SoftwareService } from "./software.service";
 
+@RefurbWrites("software")
 @Controller("missions/:missionId/refurbishment/software")
 export class SoftwareController {
 	constructor(private readonly software: SoftwareService) {}

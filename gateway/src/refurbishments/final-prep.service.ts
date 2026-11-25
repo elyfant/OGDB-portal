@@ -7,13 +7,10 @@ import {
 } from "@nestjs/common";
 import type { BuildChange, RefurbFinalPrep } from "@ogdb/types";
 import type { Pool } from "pg";
+import { ArgosTagsService } from "../argos-tags/argos-tags.service";
 import { PG_POOL } from "../db/db.constants";
 import { applyMissionBuildChangesTx } from "../gliders/build.helpers";
 import { type Kind, coerce } from "./field-coerce";
-import {
-	NEW_TAG_SCREENSHOT_TYPE,
-	TagScreenshotsService,
-} from "./tag-screenshots.service";
 
 // The tag's own limits from the procedure.
 const TAG_BATTERY_V: [number, number] = [3.3, 3.7];
@@ -25,12 +22,8 @@ const FIELDS: ReadonlyArray<readonly [string, string, Kind]> = [
 	["travelModeSet", "travel_mode_set", "bool"],
 	["gliderOff", "glider_off", "bool"],
 	["argosAssetId", "argos_asset_id", "int"],
-	["pttId", "ptt_id", "text"],
 	["tagTimeSynced", "tag_time_synced", "bool"],
 	["tagConfigConfirmed", "tag_config_confirmed", "bool"],
-	["tagTestOk", "tag_test_ok", "bool"],
-	["tagBatteryV", "tag_battery_v", "num"],
-	["tagTransmissions", "tag_transmissions", "int"],
 	["tagAutoStart", "tag_auto_start", "bool"],
 	["packTagClamps", "pack_tag_clamps", "bool"],
 	["packCommsCable", "pack_comms_cable", "bool"],
@@ -63,7 +56,7 @@ const personName = (alias: string) =>
 export class FinalPrepService {
 	constructor(
 		@Inject(PG_POOL) private readonly pool: Pool,
-		private readonly screenshots: TagScreenshotsService,
+		private readonly argos: ArgosTagsService,
 	) {}
 
 	private async refurbishment(
@@ -90,9 +83,10 @@ export class FinalPrepService {
 				? `f.${column}::float8 AS "${key}"`
 				: `f.${column} AS "${key}"`,
 		).join(", ");
-		const [row, tags, shots] = await Promise.all([
+		const [row, tags, knownTagTypes] = await Promise.all([
 			this.pool.query(
-				`SELECT ${cols}, f.updated_at AS "updatedAt",
+				`SELECT ${cols}, f.tag_measurement_id AS "tagMeasurementId",
+                f.updated_at AS "updatedAt",
                 ${personName("uc")} AS "updatedByName"
            FROM refurb_final_prep f
            LEFT JOIN users uu ON uu.id = f.updated_by
@@ -101,12 +95,16 @@ export class FinalPrepService {
 				[id],
 			),
 			this.pool.query(
-				`SELECT a.id, a.serial_number AS "serialNumber"
-           FROM assets a JOIN asset_types t ON t.id = a.asset_type_id
-          WHERE t.name = 'argos_tag' AND a.decommissioned_date IS NULL
-          ORDER BY a.serial_number, a.id`,
+				`SELECT a.id AS "assetId", a.serial_number AS "serialNumber",
+              d.model, d.argos_dec AS "argosDec", d.argos_hex AS "argosHex",
+              d.tag_name AS "tagName"
+         FROM assets a
+         JOIN asset_types t ON t.id = a.asset_type_id
+         LEFT JOIN asset_argos_tag_details d ON d.asset_id = a.id
+        WHERE t.name = 'argos_tag' AND a.decommissioned_date IS NULL
+        ORDER BY a.serial_number, a.id`,
 			),
-			this.screenshots.list(missionId, NEW_TAG_SCREENSHOT_TYPE),
+			this.argos.knownTypes(),
 		]);
 
 		const saved = row.rows[0] ?? {
@@ -116,10 +114,19 @@ export class FinalPrepService {
 				FIELDS.map(([key, , kind]) => [key, kind === "bool" ? false : null]),
 			),
 		};
+		const { tagMeasurementId, ...rest } = saved as typeof saved & {
+			tagMeasurementId?: number | null;
+		};
 		return {
-			...saved,
+			...rest,
 			tagCandidates: tags.rows,
-			screenshots: shots,
+			// The tag's configuration lives on the tag asset; its test readings in
+			// the tag's measurement history. This logsheet just points at both.
+			tagConfig: rest.argosAssetId
+				? await this.argos.config(rest.argosAssetId)
+				: null,
+			tagTest: await this.argos.test(tagMeasurementId ?? null),
+			knownTagTypes,
 		};
 	}
 
@@ -131,7 +138,11 @@ export class FinalPrepService {
 		userId: number,
 	): Promise<RefurbFinalPrep> {
 		const { id, gliderAssetId } = await this.refurbishment(missionId);
-		const known = new Set(FIELDS.map(([k]) => k));
+		const known = new Set<string>([
+			...FIELDS.map(([k]) => k),
+			"tagConfig",
+			"tagTest",
+		]);
 		for (const k of Object.keys(input)) {
 			if (!known.has(k)) throw new BadRequestException(`Unknown field "${k}".`);
 		}
@@ -141,6 +152,18 @@ export class FinalPrepService {
 		});
 		const byKey = Object.fromEntries(FIELDS.map(([k], i) => [k, values[i]]));
 		const argosAssetId = byKey.argosAssetId as number | null;
+		const asObject = (v: unknown, name: string) => {
+			if (v === undefined || v === null) return null;
+			if (typeof v !== "object" || Array.isArray(v)) {
+				throw new BadRequestException(`${name}: expected an object.`);
+			}
+			return v as Record<string, unknown>;
+		};
+		const tagConfig = asObject(input.tagConfig, "tagConfig");
+		const tagTest = asObject(input.tagTest, "tagTest");
+		if ((tagConfig || tagTest) && argosAssetId === null) {
+			throw new BadRequestException("Choose the Argos tag first.");
+		}
 
 		const client = await this.pool.connect();
 		try {
@@ -192,7 +215,29 @@ export class FinalPrepService {
 				}
 			}
 
-			const columns = FIELDS.map(([, c]) => c);
+			// The tag's configuration goes on the tag asset; the test readings into
+			// its measurement history. Both in this same transaction, so a refused
+			// value leaves the logsheet and the tag untouched.
+			if (argosAssetId !== null && tagConfig) {
+				await this.argos.saveConfig(client, argosAssetId, tagConfig, userId);
+			}
+			const prior = await client.query(
+				"SELECT tag_measurement_id FROM refurb_final_prep WHERE refurbishment_id = $1",
+				[id],
+			);
+			let measurementId: number | null =
+				prior.rows[0]?.tag_measurement_id ?? null;
+			if (argosAssetId !== null && tagTest) {
+				measurementId = await this.argos.saveTest(
+					client,
+					argosAssetId,
+					tagTest,
+					userId,
+					measurementId,
+				);
+			}
+
+			const columns = [...FIELDS.map(([, c]) => c), "tag_measurement_id"];
 			const params = columns.map((_, i) => `$${i + 2}`);
 			await client.query(
 				`INSERT INTO refurb_final_prep (refurbishment_id, ${columns.join(", ")}, updated_by)
@@ -200,7 +245,7 @@ export class FinalPrepService {
          ON CONFLICT (refurbishment_id) DO UPDATE SET
            ${columns.map((c) => `${c} = EXCLUDED.${c}`).join(", ")},
            updated_by = EXCLUDED.updated_by, updated_at = now()`,
-				[id, ...values, userId],
+				[id, ...values, measurementId, userId],
 			);
 			await client.query("COMMIT");
 		} catch (err) {
@@ -209,41 +254,13 @@ export class FinalPrepService {
 			const e = err as { code?: string };
 			if (e.code === "23514" || e.code === "22003") {
 				throw new BadRequestException(
-					"A value is out of range. Pressure is in psia (about 9 when pulled), tag battery in volts (3.3 to 3.7) and transmissions a whole number.",
+					"A value is out of range. Pressure is in psia (about 9 when pulled).",
 				);
 			}
 			throw err;
 		} finally {
 			client.release();
 		}
-		return this.get(missionId);
-	}
-
-	async addScreenshots(
-		missionId: number,
-		files: Express.Multer.File[],
-		userId: number,
-	): Promise<RefurbFinalPrep> {
-		await this.refurbishment(missionId);
-		await this.screenshots.add(
-			missionId,
-			NEW_TAG_SCREENSHOT_TYPE,
-			files,
-			userId,
-		);
-		return this.get(missionId);
-	}
-
-	async removeScreenshot(
-		missionId: number,
-		documentId: number,
-	): Promise<RefurbFinalPrep> {
-		await this.refurbishment(missionId);
-		await this.screenshots.remove(
-			missionId,
-			NEW_TAG_SCREENSHOT_TYPE,
-			documentId,
-		);
 		return this.get(missionId);
 	}
 
@@ -255,14 +272,16 @@ export class FinalPrepService {
 		if (f.pressureFinalPsia === null) missing.push("final pressure");
 		if (!f.travelModeSet) missing.push("travel mode");
 		if (!f.gliderOff) missing.push("glider off");
-		if (f.argosAssetId === null) missing.push("Argos tag");
-		if (!f.pttId) missing.push("PTT ID");
+		if (f.argosAssetId === null) {
+			missing.push("Argos tag");
+		} else {
+			const config = this.argos.missingConfig(f.tagConfig);
+			if (config.length > 0) missing.push(`tag details (${config.join(", ")})`);
+			const test = this.argos.missingTest(f.tagTest);
+			if (test.length > 0) missing.push(`tag test (${test.join(", ")})`);
+		}
 		if (!f.tagTimeSynced) missing.push("tag time sync");
 		if (!f.tagConfigConfirmed) missing.push("tag config");
-		if (!f.tagTestOk) missing.push("tag test transmission");
-		if (f.screenshots.length === 0) missing.push("tag test screenshot");
-		if (f.tagBatteryV === null) missing.push("tag battery voltage");
-		if (f.tagTransmissions === null) missing.push("tag transmission count");
 		if (!f.tagAutoStart) missing.push("tag auto-start");
 		const unpacked = PACKING.filter(
 			([key]) => !(f as unknown as Record<string, unknown>)[key],
@@ -271,20 +290,24 @@ export class FinalPrepService {
 		if (missing.length > 0) {
 			out.push(`Final prep: missing ${missing.join(", ")}.`);
 		}
-		if (
-			f.tagBatteryV !== null &&
-			(f.tagBatteryV < TAG_BATTERY_V[0] || f.tagBatteryV > TAG_BATTERY_V[1])
-		) {
-			out.push(
-				`Final prep: tag battery ${f.tagBatteryV} V is outside ${TAG_BATTERY_V[0]}–${TAG_BATTERY_V[1]} V.`,
-			);
+
+		// The tag's own limits from the procedure, checked on what was typed in.
+		const t = f.tagTest;
+		if (t.transmissionTestPassed === false) {
+			out.push("Final prep: the tag's transmission test failed.");
 		}
 		if (
-			f.tagTransmissions !== null &&
-			f.tagTransmissions > TAG_TRANSMISSIONS_LIMIT
+			t.batteryVoltage !== null &&
+			(t.batteryVoltage < TAG_BATTERY_V[0] ||
+				t.batteryVoltage > TAG_BATTERY_V[1])
 		) {
 			out.push(
-				`Final prep: tag has sent ${f.tagTransmissions} transmissions (limit ${TAG_TRANSMISSIONS_LIMIT}).`,
+				`Final prep: tag battery ${t.batteryVoltage} V is outside ${TAG_BATTERY_V[0]}–${TAG_BATTERY_V[1]} V.`,
+			);
+		}
+		if (t.txAttempts !== null && t.txAttempts > TAG_TRANSMISSIONS_LIMIT) {
+			out.push(
+				`Final prep: tag has attempted ${t.txAttempts} transmissions (limit ${TAG_TRANSMISSIONS_LIMIT}).`,
 			);
 		}
 		return out;

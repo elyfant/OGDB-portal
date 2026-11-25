@@ -11,7 +11,9 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { SaveValuesDto } from "./dto/save-values.dto";
 import { InspectionService } from "./inspection.service";
+import { RefurbWrites } from "./refurb-writes";
 
+@RefurbWrites("inspections")
 @Controller("missions/:missionId/refurbishment/inspection")
 export class InspectionController {
 	constructor(private readonly inspection: InspectionService) {}

@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { DocumentsModule } from "../documents/documents.module";
+import { ArgosTagsModule } from "../argos-tags/argos-tags.module";
 import { BatteriesController } from "./batteries.controller";
 import { BatteriesService } from "./batteries.service";
 import { DeviceTestsController } from "./device-tests.controller";
@@ -16,7 +16,6 @@ import { SensorsController } from "./sensors.controller";
 import { SensorsService } from "./sensors.service";
 import { SoftwareController } from "./software.controller";
 import { SoftwareService } from "./software.service";
-import { TagScreenshotsService } from "./tag-screenshots.service";
 import { TankRunsController } from "./tank-runs.controller";
 import { TankRunsService } from "./tank-runs.service";
 import { TestLinksController } from "./test-links.controller";
@@ -25,7 +24,7 @@ import { VacuumController } from "./vacuum.controller";
 import { VacuumService } from "./vacuum.service";
 
 @Module({
-	imports: [DocumentsModule],
+	imports: [ArgosTagsModule],
 	controllers: [
 		RefurbishmentsController,
 		TankRunsController,
@@ -48,7 +47,6 @@ import { VacuumService } from "./vacuum.service";
 		InspectionService,
 		FinalPrepService,
 		SoftwareService,
-		TagScreenshotsService,
 		IntakeService,
 		TestLinksService,
 		SensorsService,

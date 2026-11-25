@@ -126,6 +126,40 @@ export async function createWorkshop(
 	return res.json();
 }
 
+async function clearanceCall(
+	missionId: number,
+	path: "/clear" | "/unlock",
+	body?: Record<string, unknown>,
+): Promise<Refurbishment> {
+	const res = await fetch(
+		`/api/missions/${missionId}/refurbishment${path}`,
+		body
+			? {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ values: body }),
+				}
+			: { method: "POST" },
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		const msg = Array.isArray(data?.message)
+			? data.message.join(" ")
+			: data?.message;
+		throw new Error(msg ?? `Request failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Clears the glider for deployment and locks the logsheet. Only works when
+// every required section is done.
+export const clearRefurbishment = (missionId: number) =>
+	clearanceCall(missionId, "/clear");
+
+// Unlocks a cleared logsheet. Withdraws the clearance; needs a reason.
+export const unlockRefurbishment = (missionId: number, reason: string) =>
+	clearanceCall(missionId, "/unlock", { reason });
+
 // Starts the refurbishment logsheet on a workshop or scheduled mission.
 export async function startRefurbishment(
 	missionId: number,
@@ -313,8 +347,8 @@ export const setTestConfirmed = (
 		body: JSON.stringify({ values: { confirmed } }),
 	});
 
-// One call to a logsheet section that also takes tag screenshots (intake and
-// final prep). `section` is its path under /refurbishment.
+// One call to a logsheet section that carries an Argos tag (intake and final
+// prep). `section` is its path under /refurbishment.
 async function sectionCall<T>(
 	missionId: number,
 	section: "intake" | "final-prep",
@@ -352,16 +386,6 @@ export const saveRefurbIntake = (
 		body: JSON.stringify({ values }),
 	});
 
-// Uploads the old Argos tag's test screenshots (images or PDF).
-export function uploadOldTagScreenshots(missionId: number, files: File[]) {
-	const body = new FormData();
-	for (const f of files) body.append("files", f);
-	return intakeCall(missionId, "/screenshots", { method: "POST", body });
-}
-
-export const deleteOldTagScreenshot = (missionId: number, documentId: number) =>
-	intakeCall(missionId, `/screenshots/${documentId}`, { method: "DELETE" });
-
 // Saves the whole Final prep section. Choosing a different Argos tag also
 // changes the mission's build.
 export const saveRefurbFinalPrep = (
@@ -373,16 +397,6 @@ export const saveRefurbFinalPrep = (
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ values }),
 	});
-
-// Uploads Argos tag test screenshots (images or PDF).
-export function uploadTagScreenshots(missionId: number, files: File[]) {
-	const body = new FormData();
-	for (const f of files) body.append("files", f);
-	return finalPrepCall(missionId, "/screenshots", { method: "POST", body });
-}
-
-export const deleteTagScreenshot = (missionId: number, documentId: number) =>
-	finalPrepCall(missionId, `/screenshots/${documentId}`, { method: "DELETE" });
 
 // Saves the changed inspection lines in one go. Needs work and repaired
 // must carry a note.

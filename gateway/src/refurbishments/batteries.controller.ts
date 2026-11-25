@@ -11,7 +11,9 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { BatteriesService } from "./batteries.service";
 import { SaveValuesDto } from "./dto/save-values.dto";
+import { RefurbWrites } from "./refurb-writes";
 
+@RefurbWrites("batteries")
 @Controller("missions/:missionId/refurbishment/batteries")
 export class BatteriesController {
 	constructor(private readonly batteries: BatteriesService) {}

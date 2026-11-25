@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+	ArgosTagDetail,
 	Asset,
 	AssetChange,
 	AssetDetails,
@@ -343,6 +344,15 @@ export async function getRefurbBatteries(
 		throw new Error(
 			`Failed to fetch batteries for mission ${missionId}: ${res.status}`,
 		);
+	}
+	return res.json();
+}
+
+// An Argos tag's configuration and test history (asset page).
+export async function getArgosTag(assetId: number): Promise<ArgosTagDetail> {
+	const res = await apiFetch(`/assets/${assetId}/argos`);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch Argos tag ${assetId}: ${res.status}`);
 	}
 	return res.json();
 }

@@ -1,3 +1,4 @@
+import ArgosTagTestsSection from "@/components/ArgosTagTestsSection";
 import AssetChangeLog from "@/components/AssetChangeLog";
 import AssetDetailsSection from "@/components/AssetDetailsSection";
 import AssetFormDialog from "@/components/AssetFormDialog";
@@ -8,6 +9,7 @@ import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import WearPanel from "@/components/WearPanel";
 import {
+	getArgosTag,
 	getAsset,
 	getAssetCalibrations,
 	getAssetChanges,
@@ -98,6 +100,7 @@ export default async function AssetDetailPage({
 		changes,
 		wear,
 		user,
+		argos,
 	] = await Promise.all([
 		getAssetCalibrations(asset.id),
 		getServicingEvents(asset.id),
@@ -112,6 +115,8 @@ export default async function AssetDetailPage({
 		getAssetChanges(asset.id),
 		getAssetWear(asset.id),
 		getCurrentUser(),
+		// Argos tags keep their test readings in their own history.
+		asset.assetType === "argos_tag" ? getArgosTag(asset.id) : null,
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
@@ -220,6 +225,7 @@ export default async function AssetDetailPage({
 			)}
 
 			<AssetDetailsSection details={details} />
+			{argos && <ArgosTagTestsSection measurements={argos.measurements} />}
 
 			<Typography variant="h6" sx={{ mb: 1.5 }}>
 				Timeline

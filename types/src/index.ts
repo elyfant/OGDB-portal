@@ -1503,6 +1503,20 @@ export interface RefurbSectionState {
 	complete: boolean;
 	// What is still to do in this section, in words.
 	blockers: string[];
+	// Who last SAVED something in this section, and when. Per section, not per
+	// field, and only a successful save updates it. Null until first saved.
+	lastEditedAt: string | null;
+	lastEditedByName: string | null;
+}
+
+// One entry in a logsheet's clearance history. Clearing locks the logsheet;
+// unlocking withdraws the clearance and must give a reason.
+export interface RefurbClearanceEvent {
+	id: number;
+	action: "cleared" | "unlocked";
+	at: string;
+	byName: string | null;
+	reason: string | null;
 }
 
 // Header of a Seaglider pre-mission refurbishment logsheet
@@ -1525,6 +1539,9 @@ export interface Refurbishment {
 	clearBlockers: string[];
 	// Every section's state, in logsheet order: drives the progress bar.
 	sections: RefurbSectionState[];
+	// Cleared for deployment = locked: nothing in the logsheet can change.
+	// Newest first.
+	clearanceHistory: RefurbClearanceEvent[];
 }
 
 // One pitch-gain position in a tank run: the pitch battery position (cm)
@@ -1749,6 +1766,55 @@ export interface RefurbTestLinks {
 	fieldTest: RefurbTestGroup;
 }
 
+// An Argos tag's configuration: fixed facts that identify it, held on the tag
+// asset itself (asset_argos_tag_details), so they are entered once and reused
+// by every mission it flies on.
+export interface ArgosTagConfig {
+	assetId: number;
+	serialNumber: string | null;
+	// Tag type, e.g. "SPOT6".
+	model: string | null;
+	// Argos decimal ID (the PTT ID): 6 to 8 digits. One tag per ID.
+	argosDec: string | null;
+	// Argos hex ID: 6 or 7 hex digits, uppercase. One tag per ID.
+	argosHex: string | null;
+	tagName: string | null;
+}
+
+// What is typed in for one test of a tag, replacing the old Tag Agent
+// screenshot. Held in the tag's measurement history
+// (asset_argos_tag_measurements), so every test of every tag stays on record.
+export interface ArgosTagTestValues {
+	// e.g. "1.0b-7311".
+	tagwareVersion: string | null;
+	txAttempts: number | null;
+	// Of those attempts, how many failed (never more than the attempts).
+	txFailCount: number | null;
+	batteryVoltage: number | null;
+	transmissionTestPassed: boolean | null;
+}
+
+export interface ArgosTagTest extends ArgosTagTestValues {
+	// The measurement row this logsheet recorded; null until first saved.
+	measurementId: number | null;
+	measuredDate: string | null;
+}
+
+// One row of a tag's measurement history, for the asset page.
+export interface ArgosTagMeasurement extends ArgosTagTestValues {
+	id: number;
+	measuredDate: string;
+	notes: string | null;
+	changedByName: string | null;
+}
+
+export interface ArgosTagDetail {
+	config: ArgosTagConfig;
+	// Newest first.
+	measurements: ArgosTagMeasurement[];
+	knownTypes: string[];
+}
+
 // Intake: what went wrong on the previous mission (read from the mission and
 // the fault log, never typed) and retiring the old Argos tag.
 export interface RefurbIntakeFault {
@@ -1777,9 +1843,6 @@ export interface RefurbIntakeValues {
 	oldTagAssetId: number | null;
 	tagRemoved: boolean;
 	tagActivated: boolean;
-	tagTestOk: boolean;
-	// null = not decided, false = replace it.
-	tagBatteryOk: boolean | null;
 	tagStopped: boolean;
 }
 
@@ -1787,8 +1850,14 @@ export interface RefurbIntake extends RefurbIntakeValues {
 	previousMission: RefurbIntakePreviousMission | null;
 	// Unresolved faults on the glider and on what is in this mission's build.
 	openFaults: RefurbIntakeFault[];
-	tagCandidates: { id: number; serialNumber: string | null }[];
-	screenshots: RefurbTagScreenshot[];
+	// Every tag that could be chosen, with its saved configuration.
+	tagCandidates: ArgosTagConfig[];
+	// The chosen tag's configuration (held on the tag asset) and the readings
+	// typed in for this test of it (held in the tag's measurement history).
+	tagConfig: ArgosTagConfig | null;
+	tagTest: ArgosTagTest;
+	// Tag types already in use, to suggest when typing one.
+	knownTagTypes: string[];
 	updatedAt: string | null;
 	updatedByName: string | null;
 }
@@ -1852,14 +1921,8 @@ export interface RefurbFinalPrepValues {
 	gliderOff: boolean;
 	// The Argos tag going out on this mission (an `argos_tag` asset).
 	argosAssetId: number | null;
-	pttId: string | null;
 	tagTimeSynced: boolean;
 	tagConfigConfirmed: boolean;
-	tagTestOk: boolean;
-	// V (3.3–3.7 expected) and the number of transmissions so far (fewer than
-	// 30 000 to 40 000).
-	tagBatteryV: number | null;
-	tagTransmissions: number | null;
 	tagAutoStart: boolean;
 	packTagClamps: boolean;
 	packCommsCable: boolean;
@@ -1873,16 +1936,16 @@ export interface RefurbFinalPrepValues {
 	notes: string | null;
 }
 
-export interface RefurbTagScreenshot {
-	id: number;
-	fileName: string;
-	uploadedAt: string;
-}
-
 export interface RefurbFinalPrep extends RefurbFinalPrepValues {
-	tagCandidates: { id: number; serialNumber: string | null }[];
-	// Test-transmission screenshots, attached to the mission as documents.
-	screenshots: RefurbTagScreenshot[];
+	// Every tag that could be chosen, with its saved configuration.
+	tagCandidates: ArgosTagConfig[];
+	// The chosen tag's configuration (held on the tag asset) and the readings
+	// typed in for this test of it (held in the tag's measurement history). The
+	// tag's limits from the procedure: battery 3.3 to 3.7 V, fewer than 40 000
+	// transmission attempts.
+	tagConfig: ArgosTagConfig | null;
+	tagTest: ArgosTagTest;
+	knownTagTypes: string[];
 	updatedAt: string | null;
 	updatedByName: string | null;
 }

@@ -1,6 +1,5 @@
 import {
 	BadRequestException,
-	HttpException,
 	Inject,
 	Injectable,
 	NotFoundException,
@@ -11,12 +10,9 @@ import type {
 	RefurbIntakePreviousMission,
 } from "@ogdb/types";
 import type { Pool } from "pg";
+import { ArgosTagsService } from "../argos-tags/argos-tags.service";
 import { PG_POOL } from "../db/db.constants";
 import { type Kind, coerce } from "./field-coerce";
-import {
-	OLD_TAG_SCREENSHOT_TYPE,
-	TagScreenshotsService,
-} from "./tag-screenshots.service";
 
 // field -> column -> kind. The SELECT and the upsert are generated from it.
 const FIELDS: ReadonlyArray<readonly [string, string, Kind]> = [
@@ -25,18 +21,14 @@ const FIELDS: ReadonlyArray<readonly [string, string, Kind]> = [
 	["oldTagAssetId", "old_tag_asset_id", "int"],
 	["tagRemoved", "tag_removed", "bool"],
 	["tagActivated", "tag_activated", "bool"],
-	["tagTestOk", "tag_test_ok", "bool"],
-	["tagBatteryOk", "tag_battery_ok", "bool"],
 	["tagStopped", "tag_stopped", "bool"],
 ];
 
-// Booleans that are never "unknown": not ticked means false. (tagBatteryOk is
-// the exception: null means not decided yet.)
+// Booleans that are never "unknown": not ticked means false.
 const FLAGS = new Set([
 	"issuesReviewed",
 	"tagRemoved",
 	"tagActivated",
-	"tagTestOk",
 	"tagStopped",
 ]);
 
@@ -47,7 +39,7 @@ const personName = (alias: string) =>
 export class IntakeService {
 	constructor(
 		@Inject(PG_POOL) private readonly pool: Pool,
-		private readonly screenshots: TagScreenshotsService,
+		private readonly argos: ArgosTagsService,
 	) {}
 
 	private async refurbishment(
@@ -135,9 +127,10 @@ export class IntakeService {
 		const cols = FIELDS.map(([key, column]) => `n.${column} AS "${key}"`).join(
 			", ",
 		);
-		const [row, previous, faults, tags, shots] = await Promise.all([
+		const [row, previous, faults, tags, knownTagTypes] = await Promise.all([
 			this.pool.query(
-				`SELECT ${cols}, n.updated_at AS "updatedAt",
+				`SELECT ${cols}, n.old_tag_measurement_id AS "oldTagMeasurementId",
+                n.updated_at AS "updatedAt",
                 ${personName("uc")} AS "updatedByName"
            FROM refurb_intake n
            LEFT JOIN users uu ON uu.id = n.updated_by
@@ -148,12 +141,16 @@ export class IntakeService {
 			this.previousMission(missionId, gliderAssetId),
 			this.openFaults(missionId, gliderAssetId),
 			this.pool.query(
-				`SELECT a.id, a.serial_number AS "serialNumber"
-           FROM assets a JOIN asset_types t ON t.id = a.asset_type_id
-          WHERE t.name = 'argos_tag'
-          ORDER BY a.serial_number, a.id`,
+				`SELECT a.id AS "assetId", a.serial_number AS "serialNumber",
+              d.model, d.argos_dec AS "argosDec", d.argos_hex AS "argosHex",
+              d.tag_name AS "tagName"
+         FROM assets a
+         JOIN asset_types t ON t.id = a.asset_type_id
+         LEFT JOIN asset_argos_tag_details d ON d.asset_id = a.id
+        WHERE t.name = 'argos_tag'
+        ORDER BY a.serial_number, a.id`,
 			),
-			this.screenshots.list(missionId, OLD_TAG_SCREENSHOT_TYPE),
+			this.argos.knownTypes(),
 		]);
 
 		const saved = row.rows[0] ?? {
@@ -166,10 +163,19 @@ export class IntakeService {
 				]),
 			),
 		};
+		const { oldTagMeasurementId, ...rest } = saved as typeof saved & {
+			oldTagMeasurementId?: number | null;
+		};
+		// Until it is saved, suggest the tag the previous mission flew with.
+		const oldTagAssetId = rest.oldTagAssetId ?? previous?.tagAssetId ?? null;
 		return {
-			...saved,
-			// Until it is saved, suggest the tag the previous mission flew with.
-			oldTagAssetId: saved.oldTagAssetId ?? previous?.tagAssetId ?? null,
+			...rest,
+			oldTagAssetId,
+			// The tag's configuration lives on the tag asset; its test readings in
+			// the tag's measurement history. This logsheet just points at both.
+			tagConfig: oldTagAssetId ? await this.argos.config(oldTagAssetId) : null,
+			tagTest: await this.argos.test(oldTagMeasurementId ?? null),
+			knownTagTypes,
 			previousMission: previous
 				? {
 						id: previous.id,
@@ -181,7 +187,6 @@ export class IntakeService {
 				: null,
 			openFaults: faults,
 			tagCandidates: tags.rows,
-			screenshots: shots,
 		};
 	}
 
@@ -191,7 +196,11 @@ export class IntakeService {
 		userId: number,
 	): Promise<RefurbIntake> {
 		const { id } = await this.refurbishment(missionId);
-		const known = new Set(FIELDS.map(([k]) => k));
+		const known = new Set<string>([
+			...FIELDS.map(([k]) => k),
+			"tagConfig",
+			"tagTest",
+		]);
 		for (const k of Object.keys(input)) {
 			if (!known.has(k)) throw new BadRequestException(`Unknown field "${k}".`);
 		}
@@ -199,63 +208,78 @@ export class IntakeService {
 			const v = coerce(key, kind, input[key]);
 			return FLAGS.has(key) ? (v ?? false) : v;
 		});
-		const oldTagAssetId =
-			values[FIELDS.findIndex(([k]) => k === "oldTagAssetId")];
-
-		if (oldTagAssetId !== null) {
-			const ok = await this.pool.query(
-				`SELECT 1 FROM assets a JOIN asset_types t ON t.id = a.asset_type_id
-          WHERE a.id = $1 AND t.name = 'argos_tag'`,
-				[oldTagAssetId],
-			);
-			if (ok.rows.length === 0) {
-				throw new BadRequestException("That asset is not an Argos tag.");
+		const oldTagAssetId = values[
+			FIELDS.findIndex(([k]) => k === "oldTagAssetId")
+		] as number | null;
+		const asObject = (v: unknown, name: string) => {
+			if (v === undefined || v === null) return null;
+			if (typeof v !== "object" || Array.isArray(v)) {
+				throw new BadRequestException(`${name}: expected an object.`);
 			}
+			return v as Record<string, unknown>;
+		};
+		const tagConfig = asObject(input.tagConfig, "tagConfig");
+		const tagTest = asObject(input.tagTest, "tagTest");
+		if ((tagConfig || tagTest) && oldTagAssetId === null) {
+			throw new BadRequestException("Choose the old Argos tag first.");
 		}
 
-		const columns = FIELDS.map(([, c]) => c);
-		const params = columns.map((_, i) => `$${i + 2}`);
+		const client = await this.pool.connect();
 		try {
-			await this.pool.query(
+			await client.query("BEGIN");
+			await client.query(
+				"SELECT 1 FROM refurbishments WHERE id = $1 FOR UPDATE",
+				[id],
+			);
+			if (oldTagAssetId !== null) {
+				const ok = await client.query(
+					`SELECT 1 FROM assets a JOIN asset_types t ON t.id = a.asset_type_id
+            WHERE a.id = $1 AND t.name = 'argos_tag'`,
+					[oldTagAssetId],
+				);
+				if (ok.rows.length === 0) {
+					throw new BadRequestException("That asset is not an Argos tag.");
+				}
+			}
+			// The tag's configuration goes on the tag asset; the test readings into its
+			// measurement history. Both in this transaction, so a refused value leaves
+			// the logsheet and the tag untouched.
+			if (oldTagAssetId !== null && tagConfig) {
+				await this.argos.saveConfig(client, oldTagAssetId, tagConfig, userId);
+			}
+			const prior = await client.query(
+				"SELECT old_tag_measurement_id FROM refurb_intake WHERE refurbishment_id = $1",
+				[id],
+			);
+			let measurementId: number | null =
+				prior.rows[0]?.old_tag_measurement_id ?? null;
+			if (oldTagAssetId !== null && tagTest) {
+				measurementId = await this.argos.saveTest(
+					client,
+					oldTagAssetId,
+					tagTest,
+					userId,
+					measurementId,
+				);
+			}
+
+			const columns = [...FIELDS.map(([, c]) => c), "old_tag_measurement_id"];
+			const params = columns.map((_, i) => `$${i + 2}`);
+			await client.query(
 				`INSERT INTO refurb_intake (refurbishment_id, ${columns.join(", ")}, updated_by)
          VALUES ($1, ${params.join(", ")}, $${columns.length + 2})
          ON CONFLICT (refurbishment_id) DO UPDATE SET
            ${columns.map((c) => `${c} = EXCLUDED.${c}`).join(", ")},
            updated_by = EXCLUDED.updated_by, updated_at = now()`,
-				[id, ...values, userId],
+				[id, ...values, measurementId, userId],
 			);
+			await client.query("COMMIT");
 		} catch (err) {
-			if (err instanceof HttpException) throw err;
+			await client.query("ROLLBACK");
 			throw err;
+		} finally {
+			client.release();
 		}
-		return this.get(missionId);
-	}
-
-	async addScreenshots(
-		missionId: number,
-		files: Express.Multer.File[],
-		userId: number,
-	): Promise<RefurbIntake> {
-		await this.refurbishment(missionId);
-		await this.screenshots.add(
-			missionId,
-			OLD_TAG_SCREENSHOT_TYPE,
-			files,
-			userId,
-		);
-		return this.get(missionId);
-	}
-
-	async removeScreenshot(
-		missionId: number,
-		documentId: number,
-	): Promise<RefurbIntake> {
-		await this.refurbishment(missionId);
-		await this.screenshots.remove(
-			missionId,
-			OLD_TAG_SCREENSHOT_TYPE,
-			documentId,
-		);
 		return this.get(missionId);
 	}
 
@@ -264,12 +288,16 @@ export class IntakeService {
 		const n = await this.get(missionId);
 		const missing: string[] = [];
 		if (!n.issuesReviewed) missing.push("previous mission issues reviewed");
-		if (n.oldTagAssetId === null) missing.push("old Argos tag");
+		if (n.oldTagAssetId === null) {
+			missing.push("old Argos tag");
+		} else {
+			const config = this.argos.missingConfig(n.tagConfig);
+			if (config.length > 0) missing.push(`tag details (${config.join(", ")})`);
+			const test = this.argos.missingTest(n.tagTest);
+			if (test.length > 0) missing.push(`tag test (${test.join(", ")})`);
+		}
 		if (!n.tagRemoved) missing.push("tag removed");
 		if (!n.tagActivated) missing.push("tag activated");
-		if (!n.tagTestOk) missing.push("tag test transmission");
-		if (n.screenshots.length === 0) missing.push("tag test screenshot");
-		if (n.tagBatteryOk === null) missing.push("tag battery decision");
 		if (!n.tagStopped) missing.push("tag set to stop mode");
 		return missing.length > 0 ? [`Intake: missing ${missing.join(", ")}.`] : [];
 	}

@@ -14,8 +14,10 @@ import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { SaveValuesDto } from "./dto/save-values.dto";
+import { RefurbWrites } from "./refurb-writes";
 import { TestLinksService, parseKind } from "./test-links.service";
 
+@RefurbWrites("test-links")
 @Controller("missions/:missionId/refurbishment/test-links")
 export class TestLinksController {
 	constructor(private readonly testLinks: TestLinksService) {}

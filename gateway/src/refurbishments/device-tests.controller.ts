@@ -11,7 +11,9 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { DeviceTestsService } from "./device-tests.service";
 import { SaveValuesDto } from "./dto/save-values.dto";
+import { RefurbWrites } from "./refurb-writes";
 
+@RefurbWrites("device_tests")
 @Controller("missions/:missionId/refurbishment/device-tests")
 export class DeviceTestsController {
 	constructor(private readonly deviceTests: DeviceTestsService) {}

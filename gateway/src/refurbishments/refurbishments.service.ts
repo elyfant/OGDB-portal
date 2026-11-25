@@ -134,8 +134,17 @@ export class RefurbishmentsService {
 		refurbishmentId: number,
 		missionId: number,
 	): Promise<RefurbSectionState[]> {
-		const [started, ...blockers] = await Promise.all([
+		const [started, edits, ...blockers] = await Promise.all([
 			this.pool.query(SELECT_STARTED, [refurbishmentId]),
+			this.pool.query(
+				`SELECT e.section, e.edited_at AS "editedAt",
+                NULLIF(TRIM(c.first_name || ' ' || c.last_name), '') AS "editedByName"
+           FROM refurb_section_edits e
+           LEFT JOIN users u ON u.id = e.edited_by
+           LEFT JOIN contacts c ON c.id = u.contact_id
+          WHERE e.refurbishment_id = $1`,
+				[refurbishmentId],
+			),
 			this.intake.blockers(missionId),
 			this.inspection.blockers(missionId),
 			this.sensors.blockers(missionId),
@@ -149,6 +158,7 @@ export class RefurbishmentsService {
 			this.finalPrep.blockers(missionId),
 		]);
 		const startedRow = started.rows[0] as Record<string, boolean>;
+		const editBy = new Map(edits.rows.map((e) => [e.section, e]));
 		return SECTIONS.map(({ key, required }, i) => ({
 			key,
 			required,
@@ -156,6 +166,8 @@ export class RefurbishmentsService {
 			blockers: blockers[i] as string[],
 			complete:
 				(blockers[i] as string[]).length === 0 && Boolean(startedRow[key]),
+			lastEditedAt: editBy.get(key)?.editedAt ?? null,
+			lastEditedByName: editBy.get(key)?.editedByName ?? null,
 		}));
 	}
 
@@ -166,10 +178,23 @@ export class RefurbishmentsService {
 		);
 		const row = result.rows[0];
 		if (!row) return null;
-		const sections = await this.sectionStates(row.id, missionId);
+		const [sections, history] = await Promise.all([
+			this.sectionStates(row.id, missionId),
+			this.pool.query(
+				`SELECT l.id, l.action, l.at, l.reason,
+                NULLIF(TRIM(c.first_name || ' ' || c.last_name), '') AS "byName"
+           FROM refurb_clearance_log l
+           LEFT JOIN users u ON u.id = l.by_user
+           LEFT JOIN contacts c ON c.id = u.contact_id
+          WHERE l.refurbishment_id = $1
+          ORDER BY l.at DESC, l.id DESC`,
+				[row.id],
+			),
+		]);
 		return {
 			...row,
 			sections,
+			clearanceHistory: history.rows,
 			// Cleared to deploy needs every required section complete. Nothing left
 			// to do is not enough on its own: an untouched section blocks too.
 			clearBlockers: sections
@@ -182,6 +207,111 @@ export class RefurbishmentsService {
 							: [`${SECTION_TITLES[sec.key]}: not started.`],
 				),
 		};
+	}
+
+	// Clears the glider for deployment and LOCKS the logsheet. Refused unless every
+	// required section is complete, so the page cannot be tricked into it. The
+	// person clearing it is recorded (the operator), and the event is logged.
+	async clear(missionId: number, userId: number): Promise<Refurbishment> {
+		const current = await this.findByMission(missionId);
+		if (!current) {
+			throw new NotFoundException(
+				`Mission ${missionId} has no refurbishment logsheet.`,
+			);
+		}
+		if (current.clearedAt) {
+			throw new ConflictException(
+				"This logsheet is already cleared and locked.",
+			);
+		}
+		const open = current.sections.filter((s) => s.required && !s.complete);
+		if (open.length > 0) {
+			throw new ConflictException(
+				`Not every required section is done yet: ${open
+					.map((s) => SECTION_TITLES[s.key])
+					.join(", ")}.`,
+			);
+		}
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+			// "AND cleared_at IS NULL" makes two people clicking at once safe: the
+			// second finds it already cleared.
+			const res = await client.query(
+				`UPDATE refurbishments SET cleared_by = $1, cleared_at = now()
+          WHERE id = $2 AND cleared_at IS NULL`,
+				[userId, current.id],
+			);
+			if (res.rowCount === 0) {
+				throw new ConflictException(
+					"This logsheet is already cleared and locked.",
+				);
+			}
+			await client.query(
+				`INSERT INTO refurb_clearance_log (refurbishment_id, action, by_user)
+         VALUES ($1, 'cleared', $2)`,
+				[current.id, userId],
+			);
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+		const cleared = await this.findByMission(missionId);
+		if (!cleared) throw new NotFoundException("Refurbishment not found.");
+		return cleared;
+	}
+
+	// Unlocks a cleared logsheet so it can be edited again. That withdraws the
+	// clearance (it has to be given again), needs a reason, and is logged.
+	async unlock(
+		missionId: number,
+		reason: unknown,
+		userId: number,
+	): Promise<Refurbishment> {
+		const why = typeof reason === "string" ? reason.trim() : "";
+		if (why.length < 3) {
+			throw new BadRequestException("Say why it is being unlocked.");
+		}
+		if (why.length > 500) {
+			throw new BadRequestException("The reason is over 500 characters.");
+		}
+		const current = await this.findByMission(missionId);
+		if (!current) {
+			throw new NotFoundException(
+				`Mission ${missionId} has no refurbishment logsheet.`,
+			);
+		}
+		const client = await this.pool.connect();
+		try {
+			await client.query("BEGIN");
+			const res = await client.query(
+				`UPDATE refurbishments SET cleared_by = NULL, cleared_at = NULL
+          WHERE id = $1 AND cleared_at IS NOT NULL`,
+				[current.id],
+			);
+			if (res.rowCount === 0) {
+				throw new ConflictException(
+					"This logsheet is not cleared, so it is not locked.",
+				);
+			}
+			await client.query(
+				`INSERT INTO refurb_clearance_log (refurbishment_id, action, by_user, reason)
+         VALUES ($1, 'unlocked', $2, $3)`,
+				[current.id, userId, why],
+			);
+			await client.query("COMMIT");
+		} catch (err) {
+			await client.query("ROLLBACK");
+			throw err;
+		} finally {
+			client.release();
+		}
+		const unlocked = await this.findByMission(missionId);
+		if (!unlocked) throw new NotFoundException("Refurbishment not found.");
+		return unlocked;
 	}
 
 	async start(missionId: number, userId: number): Promise<Refurbishment> {

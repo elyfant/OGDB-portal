@@ -12,8 +12,10 @@ import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { SaveValuesDto } from "./dto/save-values.dto";
+import { RefurbWrites } from "./refurb-writes";
 import { SensorsService } from "./sensors.service";
 
+@RefurbWrites("sensors")
 @Controller("missions/:missionId/refurbishment/sensors")
 export class SensorsController {
 	constructor(private readonly sensors: SensorsService) {}

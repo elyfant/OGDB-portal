@@ -13,8 +13,10 @@ import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { SaveTankRunDto } from "./dto/save-tank-run.dto";
+import { RefurbWrites } from "./refurb-writes";
 import { TankRunsService } from "./tank-runs.service";
 
+@RefurbWrites("tank_test")
 @Controller("missions/:missionId/refurbishment/tank-runs")
 export class TankRunsController {
 	constructor(private readonly tankRuns: TankRunsService) {}

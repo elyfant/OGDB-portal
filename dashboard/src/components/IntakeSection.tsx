@@ -1,20 +1,21 @@
 "use client";
 
+import ArgosTagFields from "@/components/ArgosTagFields";
+import { saveRefurbIntake } from "@/lib/api-client";
 import {
-	deleteOldTagScreenshot,
-	saveRefurbIntake,
-	uploadOldTagScreenshots,
-} from "@/lib/api-client";
+	configFormFrom,
+	configPayload,
+	emptyTestForm,
+	testFormFrom,
+	testPayload,
+} from "@/lib/argos-tag";
 import { formatDate } from "@/lib/format";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import IconButton from "@mui/material/IconButton";
 import MuiLink from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -23,7 +24,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { RefurbIntake } from "@ogdb/types";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 const SEVERITY_COLOR: Record<string, "default" | "warning" | "error"> = {
 	low: "default",
@@ -32,12 +33,7 @@ const SEVERITY_COLOR: Record<string, "default" | "warning" | "error"> = {
 	critical: "error",
 };
 
-type FlagKey =
-	| "issuesReviewed"
-	| "tagRemoved"
-	| "tagActivated"
-	| "tagTestOk"
-	| "tagStopped";
+type FlagKey = "issuesReviewed" | "tagRemoved" | "tagActivated" | "tagStopped";
 
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
@@ -48,8 +44,10 @@ function initialForm(d: RefurbIntake) {
 		oldTagAssetId: d.oldTagAssetId === null ? "" : String(d.oldTagAssetId),
 		tagRemoved: d.tagRemoved,
 		tagActivated: d.tagActivated,
-		tagTestOk: d.tagTestOk,
-		tagBatteryOk: d.tagBatteryOk === null ? "" : String(d.tagBatteryOk),
+		// The tag's details (kept on the tag asset) and the readings from this
+		// test of it (added to the tag's history).
+		config: configFormFrom(d.tagConfig),
+		test: testFormFrom(d.tagTest),
 		tagStopped: d.tagStopped,
 	};
 }
@@ -69,9 +67,8 @@ export default function IntakeSection({
 	const router = useRouter();
 	const initial = initialForm(data);
 	const [form, setForm] = useState(initial);
-	const [busy, setBusy] = useState<"save" | "upload" | null>(null);
+	const [busy, setBusy] = useState<"save" | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const fileInput = useRef<HTMLInputElement>(null);
 
 	const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 	const disabled = !canEdit || busy !== null;
@@ -79,7 +76,22 @@ export default function IntakeSection({
 		setForm((f) => ({ ...f, ...patch }));
 	const prev = data.previousMission;
 
-	async function run(kind: "save" | "upload", fn: () => Promise<unknown>) {
+	// Choosing a different tag brings up its own saved details; a tag other
+	// than the saved one has not been tested for this logsheet yet.
+	function chooseTag(value: string) {
+		const tag = data.tagCandidates.find((t) => String(t.assetId) === value);
+		setForm((f) => ({
+			...f,
+			oldTagAssetId: value,
+			config: configFormFrom(tag ?? null),
+			test:
+				tag && tag.assetId === data.oldTagAssetId
+					? testFormFrom(data.tagTest)
+					: emptyTestForm,
+		}));
+	}
+
+	async function run(kind: "save", fn: () => Promise<unknown>) {
 		setBusy(kind);
 		setError(null);
 		try {
@@ -101,9 +113,13 @@ export default function IntakeSection({
 					form.oldTagAssetId === "" ? null : Number(form.oldTagAssetId),
 				tagRemoved: form.tagRemoved,
 				tagActivated: form.tagActivated,
-				tagTestOk: form.tagTestOk,
-				tagBatteryOk:
-					form.tagBatteryOk === "" ? null : form.tagBatteryOk === "true",
+				// Only once a tag is chosen: the details and readings belong to it.
+				...(form.oldTagAssetId !== ""
+					? {
+							tagConfig: configPayload(form.config),
+							tagTest: testPayload(form.test),
+						}
+					: {}),
 				tagStopped: form.tagStopped,
 			}),
 		);
@@ -230,14 +246,15 @@ export default function IntakeSection({
 							size="small"
 							label="Tag (serial)"
 							value={form.oldTagAssetId}
-							onChange={(e) => set({ oldTagAssetId: e.target.value })}
+							onChange={(e) => chooseTag(e.target.value)}
 							disabled={disabled}
 							helperText="The tag that flew on the previous mission."
 						>
 							<MenuItem value="">—</MenuItem>
 							{data.tagCandidates.map((t) => (
-								<MenuItem key={t.id} value={String(t.id)}>
-									{t.serialNumber ?? `#${t.id}`}
+								<MenuItem key={t.assetId} value={String(t.assetId)}>
+									{t.serialNumber ?? `#${t.assetId}`}
+									{t.tagName ? ` · ${t.tagName}` : ""}
 								</MenuItem>
 							))}
 						</TextField>
@@ -249,96 +266,29 @@ export default function IntakeSection({
 							"Connected to the PC and activated",
 							"Open Tag Agent and activate the tag with the magnetic switch.",
 						)}
-						{box("tagTestOk", "Test transmission run and OK")}
 					</Stack>
 
-					<Typography variant="body2" sx={{ fontWeight: 600, mt: 1.5 }}>
-						Test transmission screenshot
-					</Typography>
-					{data.screenshots.length === 0 ? (
-						<Typography variant="body2" color="text.secondary">
-							None uploaded yet.
-						</Typography>
-					) : (
-						<Stack sx={{ mt: 0.5 }}>
-							{data.screenshots.map((s) => (
-								<Stack
-									key={s.id}
-									direction="row"
-									spacing={1}
-									sx={{ alignItems: "center" }}
-								>
-									<MuiLink
-										href={`/api/documents/${s.id}/file`}
-										target="_blank"
-										rel="noreferrer"
-									>
-										{s.fileName}
-									</MuiLink>
-									<Typography variant="caption" color="text.secondary">
-										{formatDate(s.uploadedAt)}
-									</Typography>
-									{canEdit && (
-										<IconButton
-											size="small"
-											aria-label={`Remove ${s.fileName}`}
-											disabled={disabled}
-											onClick={() =>
-												run("upload", () =>
-													deleteOldTagScreenshot(missionId, s.id),
-												)
-											}
-										>
-											<DeleteOutlineIcon fontSize="small" />
-										</IconButton>
-									)}
-								</Stack>
-							))}
-						</Stack>
-					)}
-					{canEdit && (
-						<>
-							<input
-								ref={fileInput}
-								type="file"
-								hidden
-								multiple
-								accept="image/*,.pdf"
-								onChange={(e) => {
-									const files = Array.from(e.target.files ?? []);
-									e.target.value = "";
-									if (files.length > 0) {
-										void run("upload", () =>
-											uploadOldTagScreenshots(missionId, files),
-										);
-									}
-								}}
-							/>
-							<Button
-								size="small"
-								sx={{ mt: 1 }}
-								startIcon={<UploadFileIcon fontSize="small" />}
-								onClick={() => fileInput.current?.click()}
-								disabled={disabled}
-							>
-								{busy === "upload" ? "Uploading…" : "Upload screenshot"}
-							</Button>
-						</>
+					{form.oldTagAssetId !== "" && (
+						<ArgosTagFields
+							config={form.config}
+							test={form.test}
+							onConfig={(patch) =>
+								setForm((f) => ({ ...f, config: { ...f.config, ...patch } }))
+							}
+							onTest={(patch) =>
+								setForm((f) => ({ ...f, test: { ...f.test, ...patch } }))
+							}
+							knownTypes={data.knownTagTypes}
+							batteryLowAdvice="Replace the battery before this tag is used again."
+							disabled={disabled}
+							serial={
+								data.tagCandidates.find(
+									(t) => String(t.assetId) === form.oldTagAssetId,
+								)?.serialNumber ?? null
+							}
+						/>
 					)}
 
-					<TextField
-						select
-						size="small"
-						label="Battery good for another mission?"
-						value={form.tagBatteryOk}
-						onChange={(e) => set({ tagBatteryOk: e.target.value })}
-						disabled={disabled}
-						sx={{ display: "flex", maxWidth: 320, mt: 2 }}
-					>
-						<MenuItem value="">—</MenuItem>
-						<MenuItem value="true">Yes</MenuItem>
-						<MenuItem value="false">No, replace it</MenuItem>
-					</TextField>
 					<Stack sx={{ mt: 1 }}>
 						{box("tagStopped", "Set to stop mode and disconnected")}
 					</Stack>

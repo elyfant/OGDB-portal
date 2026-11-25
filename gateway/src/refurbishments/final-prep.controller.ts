@@ -1,23 +1,19 @@
 import {
 	Body,
 	Controller,
-	Delete,
 	Get,
-	HttpCode,
 	Param,
 	ParseIntPipe,
-	Post,
 	Put,
-	UploadedFiles,
-	UseInterceptors,
 } from "@nestjs/common";
 import type { JwtPayload } from "../auth/auth.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { SaveValuesDto } from "./dto/save-values.dto";
 import { FinalPrepService } from "./final-prep.service";
-import { SCREENSHOT_INTERCEPTOR } from "./screenshot-upload";
+import { RefurbWrites } from "./refurb-writes";
 
+@RefurbWrites("final_prep")
 @Controller("missions/:missionId/refurbishment/final-prep")
 export class FinalPrepController {
 	constructor(private readonly finalPrep: FinalPrepService) {}
@@ -27,6 +23,8 @@ export class FinalPrepController {
 		return this.finalPrep.get(missionId);
 	}
 
+	// Also saves the new tag's configuration and test readings, and changes the
+	// mission's build if a different tag is chosen, all in one transaction.
 	@Roles("editor", "admin")
 	@Put()
 	save(
@@ -35,26 +33,5 @@ export class FinalPrepController {
 		@CurrentUser() user: JwtPayload,
 	) {
 		return this.finalPrep.save(missionId, dto.values, user.sub);
-	}
-
-	@Roles("editor", "admin")
-	@Post("screenshots")
-	@HttpCode(201)
-	@UseInterceptors(SCREENSHOT_INTERCEPTOR)
-	addScreenshots(
-		@Param("missionId", ParseIntPipe) missionId: number,
-		@CurrentUser() user: JwtPayload,
-		@UploadedFiles() files?: Express.Multer.File[],
-	) {
-		return this.finalPrep.addScreenshots(missionId, files ?? [], user.sub);
-	}
-
-	@Roles("editor", "admin")
-	@Delete("screenshots/:documentId")
-	removeScreenshot(
-		@Param("missionId", ParseIntPipe) missionId: number,
-		@Param("documentId", ParseIntPipe) documentId: number,
-	) {
-		return this.finalPrep.removeScreenshot(missionId, documentId);
 	}
 }

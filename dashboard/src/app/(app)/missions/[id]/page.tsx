@@ -216,6 +216,9 @@ export default async function MissionDetailPage({
 	// The logsheet as eleven numbered section cards, in procedure order. Each
 	// card's state (done / in progress / not started) comes from the gateway, so
 	// the progress bar and the "Cleared to deploy" box cannot disagree.
+	// A cleared logsheet is locked: every section is read-only until it is
+	// unlocked. (The gateway refuses writes too; this keeps the page honest.)
+	const editable = canEdit && refurbishment?.clearedAt == null;
 	let logsheetSections: LogsheetSectionDef[] | null = null;
 	if (
 		refurbishment &&
@@ -245,10 +248,10 @@ export default async function MissionDetailPage({
 				state: stateOf("intake"),
 				content: (
 					<IntakeSection
-						key={`${intake.updatedAt}-${intake.screenshots.map((s) => s.id).join(",")}`}
+						key={`${intake.updatedAt}-${intake.tagTest.measurementId}`}
 						missionId={mission.id}
 						data={intake}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -265,7 +268,7 @@ export default async function MissionDetailPage({
 							.join(",")}
 						missionId={mission.id}
 						data={inspection}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -282,7 +285,7 @@ export default async function MissionDetailPage({
 							.join(",")}
 						missionId={mission.id}
 						data={sensors}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -296,7 +299,7 @@ export default async function MissionDetailPage({
 					<BatteriesSection
 						missionId={mission.id}
 						data={refurbBatteries}
-						canEdit={canEdit}
+						canEdit={editable}
 						platform={glider?.platform ?? null}
 						platformModel={glider?.platformModel ?? null}
 					/>
@@ -315,7 +318,7 @@ export default async function MissionDetailPage({
 							.join(",")}
 						missionId={mission.id}
 						data={deviceTests}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -330,7 +333,7 @@ export default async function MissionDetailPage({
 						key={vacuum.updatedAt ?? "new"}
 						missionId={mission.id}
 						data={vacuum}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -344,7 +347,7 @@ export default async function MissionDetailPage({
 					<TankRunsSection
 						missionId={mission.id}
 						runs={tankRuns}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -360,7 +363,7 @@ export default async function MissionDetailPage({
 						only="selftest"
 						missionId={mission.id}
 						data={testLinks}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -376,7 +379,7 @@ export default async function MissionDetailPage({
 						key={`${software.updatedAt}-${software.cleanups.map((c) => (c.done ? c.doneAt : "-")).join(",")}`}
 						missionId={mission.id}
 						data={software}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -393,7 +396,7 @@ export default async function MissionDetailPage({
 						only="field_test"
 						missionId={mission.id}
 						data={testLinks}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -405,10 +408,10 @@ export default async function MissionDetailPage({
 				state: stateOf("final_prep"),
 				content: (
 					<FinalPrepSection
-						key={`${finalPrep.updatedAt}-${finalPrep.screenshots.map((s) => s.id).join(",")}`}
+						key={`${finalPrep.updatedAt}-${finalPrep.tagTest.measurementId}`}
 						missionId={mission.id}
 						data={finalPrep}
-						canEdit={canEdit}
+						canEdit={editable}
 					/>
 				),
 			},
@@ -857,7 +860,16 @@ export default async function MissionDetailPage({
 				refurbishment={
 					showRefurbishment ? (
 						logsheetSections ? (
-							<RefurbLogsheet sections={logsheetSections} />
+							<RefurbLogsheet
+								sections={logsheetSections}
+								clearance={{
+									missionId: mission.id,
+									clearedAt: refurbishment?.clearedAt ?? null,
+									clearedByName: refurbishment?.clearedByName ?? null,
+									history: refurbishment?.clearanceHistory ?? [],
+									canEdit,
+								}}
+							/>
 						) : (
 							<Paper variant="outlined" sx={{ p: 3 }}>
 								<Typography color="text.secondary">
