@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import {
+	IsArray,
 	IsBoolean,
 	IsDateString,
 	IsIn,
@@ -23,6 +24,7 @@ const SERVICING_EVENT_TYPES = [
 	"missing",
 	"destroyed",
 	"pre_mission_servicing",
+	"servicing_required",
 ] as const;
 
 export class RecordServicingEventDto {
@@ -71,4 +73,21 @@ export class RecordServicingEventDto {
 	@Transform(({ value }) => value === true || value === "true")
 	@IsBoolean()
 	closeMissionSetEndDate?: boolean;
+
+	// A new `destroyed` event can also take chosen components of the glider's
+	// LAST build (the workshop build if one exists, else the last flown
+	// mission's) down with it. Optional: none by default. Sent as a JSON array
+	// in the multipart form ("[12,13]").
+	@IsOptional()
+	@Transform(({ value }) => {
+		if (value === "" || value === undefined) return undefined;
+		try {
+			return typeof value === "string" ? JSON.parse(value) : value;
+		} catch {
+			return value;
+		}
+	})
+	@IsArray()
+	@IsInt({ each: true })
+	childAssetIds?: number[];
 }

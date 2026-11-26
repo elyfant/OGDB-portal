@@ -5,6 +5,7 @@ import AddServicingEventDialog, {
 	RETURN_TO_SERVICE,
 } from "@/components/AddServicingEventDialog";
 import LocationDialog from "@/components/LocationDialog";
+import ResolveServicingDialog from "@/components/ResolveServicingDialog";
 import { createWorkshop } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
@@ -47,6 +48,8 @@ type Action =
 	| { type: "location" }
 	| { type: "workshop" }
 	| { type: "closeOpen" }
+	// Take the "servicing required" flag off (the repair is done).
+	| { type: "resolveFlag" }
 	// Open an existing event for editing (used for a destroyed glider's
 	// destroyed event, which is how a mistaken one is corrected).
 	| { type: "editEvent"; event: ServicingEvent };
@@ -116,15 +119,25 @@ export default function GliderLogMenu({
 	// change shape while it fades out.
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [locationOpen, setLocationOpen] = useState(false);
+	const [resolveOpen, setResolveOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	// A destroyed event never has an end date, but it isn't an "open event" in
 	// the sense of something to close -- it's terminal. Counting it here made
 	// a destroyed glider look like it had an event waiting to be closed.
+	// A "servicing required" flag is open-ended too, but it is a FLAG that
+	// coexists with other events, not something to close before logging more.
 	const openEvent =
 		servicingEvents.find(
-			(e) => e.endDate === null && e.eventType !== "destroyed",
+			(e) =>
+				e.endDate === null &&
+				e.eventType !== "destroyed" &&
+				e.eventType !== "servicing_required",
+		) ?? null;
+	const openFlag =
+		servicingEvents.find(
+			(e) => e.eventType === "servicing_required" && e.endDate === null,
 		) ?? null;
 	const destroyedEvent =
 		servicingEvents.find((e) => e.eventType === "destroyed") ?? null;
@@ -141,6 +154,8 @@ export default function GliderLogMenu({
 			return `Destroyed${statusSince ? ` on ${formatDate(statusSince)}` : ""} — nothing can be logged after that.`;
 		}
 		if (eventType === "destroyed") return null;
+		// A flag can be raised at any time (even while deployed or mid-event).
+		if (eventType === "servicing_required") return null;
 		if (eventType === "missing") {
 			return openEvent ? "Close the open event first." : null;
 		}
@@ -247,6 +262,28 @@ export default function GliderLogMenu({
 		],
 	});
 
+	// Condition: the do-not-deploy flag. Raising one opens the event dialog;
+	// once it is open the item becomes "Resolve" instead (one open flag per
+	// asset).
+	groups.push({
+		label: "Condition",
+		items: [
+			openFlag
+				? {
+						key: "resolve-flag",
+						label: "Resolve servicing required…",
+						disabledReason: null,
+						action: { type: "resolveFlag" },
+					}
+				: event(
+						"servicing-required",
+						"Servicing required…",
+						"servicing_required",
+						"Servicing required",
+					),
+		],
+	});
+
 	groups.push({
 		label: "Incidents",
 		items: [
@@ -324,6 +361,8 @@ export default function GliderLogMenu({
 		} else if (a.type === "closeOpen") {
 			setDialog({ editing: openEvent });
 			setDialogOpen(true);
+		} else if (a.type === "resolveFlag") {
+			setResolveOpen(true);
 		} else if (a.type === "location") {
 			setLocationOpen(true);
 		} else if (workshop.kind === "open") {
@@ -391,6 +430,18 @@ export default function GliderLogMenu({
 				locations={locations}
 				openMission={openMission}
 			/>
+
+			{openFlag && (
+				<ResolveServicingDialog
+					open={resolveOpen}
+					onClose={() => setResolveOpen(false)}
+					assetId={gliderId}
+					eventId={openFlag.id}
+					assetLabel={gliderName}
+					title={openFlag.title}
+					startDate={openFlag.startDate}
+				/>
+			)}
 
 			<LocationDialog
 				open={locationOpen}

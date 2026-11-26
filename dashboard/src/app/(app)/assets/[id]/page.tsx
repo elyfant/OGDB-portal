@@ -7,6 +7,7 @@ import AssetStatusHistoryTable from "@/components/AssetStatusHistoryTable";
 import CalibrationHistorySection from "@/components/CalibrationHistorySection";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import ServicingRequiredChip from "@/components/ServicingRequiredChip";
 import WearPanel from "@/components/WearPanel";
 import {
 	getArgosTag,
@@ -23,10 +24,11 @@ import {
 	getSensorModels,
 	getServicingEventTypes,
 	getServicingEvents,
+	getServicingRequired,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { formatAssetType, formatDate, formatMoney } from "@/lib/format";
-import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
 import {
 	type TimelineEvent,
 	deploymentToTimelineEvent,
@@ -101,6 +103,7 @@ export default async function AssetDetailPage({
 		wear,
 		user,
 		argos,
+		servicingFlags,
 	] = await Promise.all([
 		getAssetCalibrations(asset.id),
 		getServicingEvents(asset.id),
@@ -117,6 +120,7 @@ export default async function AssetDetailPage({
 		getCurrentUser(),
 		// Argos tags keep their test readings in their own history.
 		asset.assetType === "argos_tag" ? getArgosTag(asset.id) : null,
+		getServicingRequired(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
@@ -162,13 +166,27 @@ export default async function AssetDetailPage({
 				}}
 			>
 				<Typography variant="h5">Asset: {title}</Typography>
-				{asset.status && (
-					<Chip
-						label={STATUS_LABEL[asset.status]}
-						color={STATUS_COLOR[asset.status]}
-						size="small"
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 1,
+						flexWrap: "wrap",
+					}}
+				>
+					{asset.status && (
+						<Chip
+							label={STATUS_LABEL[asset.status]}
+							{...statusChipProps(asset.status)}
+							size="small"
+						/>
+					)}
+					<ServicingRequiredChip
+						flag={servicingFlags.find((f) => f.assetId === asset.id)}
+						assetLabel={title}
+						canEdit={canEdit}
 					/>
-				)}
+				</Box>
 			</Box>
 
 			<Box

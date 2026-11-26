@@ -8,6 +8,7 @@ import GliderTimelineTab from "@/components/GliderTimelineTab";
 import { NvsValue } from "@/components/NvsLink";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import PlatformIcon from "@/components/PlatformIcon";
+import ServicingRequiredChip from "@/components/ServicingRequiredChip";
 import SetLocationDialog from "@/components/SetLocationDialog";
 import StartWorkshopButton from "@/components/StartWorkshopButton";
 import StatTile from "@/components/StatTile";
@@ -23,11 +24,12 @@ import {
 	getPlatforms,
 	getServicingEventTypes,
 	getServicingEvents,
+	getServicingRequired,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { formatCount, formatDate, formatMoney } from "@/lib/format";
 import { hasLocation, locationText } from "@/lib/glider-location";
-import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
 import BuildIcon from "@mui/icons-material/Build";
 import RouteIcon from "@mui/icons-material/Route";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -75,6 +77,7 @@ export default async function GliderDetailPage({
 		contacts,
 		allWear,
 		locations,
+		servicingFlags,
 	] = await Promise.all([
 		getGliderBuild(Number(id)),
 		getPlatforms(),
@@ -86,6 +89,7 @@ export default async function GliderDetailPage({
 		getContacts(),
 		getAllAssetWear(),
 		getLocations(),
+		getServicingRequired(),
 	]);
 	const wearByAsset = Object.fromEntries(allWear.map((w) => [w.assetId, w]));
 	// Only present for a wear-tracked glider (Seagliders, not Slocums).
@@ -183,7 +187,7 @@ export default async function GliderDetailPage({
 						{glider.status && (
 							<Chip
 								label={STATUS_LABEL[glider.status]}
-								color={STATUS_COLOR[glider.status]}
+								{...statusChipProps(glider.status)}
 								size="small"
 							/>
 						)}
@@ -201,6 +205,11 @@ export default async function GliderDetailPage({
 						{glider.decommissionedDate && (
 							<Chip label="Decommissioned" size="small" variant="outlined" />
 						)}
+						<ServicingRequiredChip
+							flag={servicingFlags.find((f) => f.assetId === glider.id)}
+							assetLabel={glider.name}
+							canEdit={canEdit}
+						/>
 					</Box>
 					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
 						Serial {glider.serialNumber ?? "—"} · WMO {glider.wmo ?? "—"} ·{" "}

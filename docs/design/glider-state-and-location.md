@@ -328,6 +328,36 @@ rolled-back transaction). Each refusal says what to do instead.
    destroyed event does not reopen a mission it closed (the confirmation says
    so). 16 gateway checks against `ogdb-test`, rolled back.
 
+8. **Components go down with the glider -- optionally** (built 2026-11-26).
+   Logging *Destroyed* shows the glider's last build as a checklist; **none are
+   ticked by default** (some parts are recovered or still usable) and "Select
+   all" is one click. *Decommission* shows the same list with **all ticked** by
+   default (untick to keep in service). Ticked components get the same date and
+   reason as the glider, plus a status row (`destroyed` / `decommissioned`) so
+   they read that way in the asset tables, which filter on status. Sub-parts
+   follow their parent when ticked. **"Last build" is the glider's *current* build:**
+   the workshop / scheduled build if one exists, otherwise the last flown
+   mission's -- the same rule as the glider page's "Current build" -- not just
+   the last flown mission as before (`fetchLatestBuildTree`). Nothing links the
+   destruction to the mission; the mission is simply where that build lives.
+   Guards (`retireComponentsTx`, one transaction with the event): components must
+   be in that build (refused otherwise, not silently ignored, for a destruction);
+   a part that has since moved into *another* glider's open build is refused,
+   listing the serial numbers; and the status row is dated
+   max(event date, the part's latest status date), because "current status" is
+   the latest row by date and a backdated destruction would otherwise sit behind
+   a later "lab" row. The asset and battery tables now hide anything with a
+   decommission date, or a `decommissioned` / `destroyed` status, behind "Show
+   decommissioned". **Deleting the destroyed event reverses the cascade**:
+   its status rows carry a `[event <id>]` marker, are removed (restoring each
+   part's previous status), and the decommission is cleared where it still
+   matches. 22 checks against `ogdb-test`, rolled back.
+
+9. **"Servicing required" is a separate flag, not part of the state model**
+   (2026-11-26): an event type that marks an asset do-not-deploy until repaired,
+   with a red chip, a home-page list, and a guard on clearing. It never changes
+   the derived state. See `servicing-required.md`.
+
 Destroyed-implies-decommissioned already holds when a destroyed event is
 *logged* (it stamps `decommissioned_date`). **Known gap, unchanged:** editing an
 existing event's type *to* destroyed does not stamp the date, so that path can

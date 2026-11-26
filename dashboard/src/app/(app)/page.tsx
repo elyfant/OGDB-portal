@@ -1,5 +1,6 @@
 import ClickableTableRow from "@/components/ClickableTableRow";
 import PlatformIcon from "@/components/PlatformIcon";
+import ResolveServicingButton from "@/components/ResolveServicingButton";
 import {
 	getAllAssetWear,
 	getAssetRmas,
@@ -7,11 +8,14 @@ import {
 	getMissions,
 	getRmas,
 	getServicingEvents,
+	getServicingRequired,
 } from "@/lib/api";
-import { formatAssetType, formatDate, statusColor } from "@/lib/format";
+import { getCurrentUser } from "@/lib/auth";
+import { missionStatusChipProps } from "@/lib/chip-style";
+import { formatAssetType, formatDate } from "@/lib/format";
 import { locationText } from "@/lib/glider-location";
 import { formatRmaStage } from "@/lib/rma-columns";
-import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
 import {
 	KIND_META,
 	type TimelineEvent,
@@ -118,12 +122,16 @@ function lastEventFor(
 }
 
 export default async function HomePage() {
-	const [gliders, missions, allRmas, allWear] = await Promise.all([
-		getGliders(),
-		getMissions(),
-		getRmas(),
-		getAllAssetWear(),
-	]);
+	const [gliders, missions, allRmas, allWear, servicingFlags, user] =
+		await Promise.all([
+			getGliders(),
+			getMissions(),
+			getRmas(),
+			getAllAssetWear(),
+			getServicingRequired(),
+			getCurrentUser(),
+		]);
+	const canEdit = user?.role === "editor" || user?.role === "admin";
 	// Tracked, still-in-service assets with the most water-days since they were
 	// last serviced or calibrated.
 	const wearWatch = allWear
@@ -271,14 +279,14 @@ export default async function HomePage() {
 										<Chip
 											size="small"
 											label={mission.status}
-											color={statusColor(mission.status)}
+											{...missionStatusChipProps(mission.status)}
 											sx={{ textTransform: "capitalize" }}
 										/>
 										{glider.status && (
 											<Chip
 												size="small"
 												label={STATUS_LABEL[glider.status]}
-												color={STATUS_COLOR[glider.status]}
+												{...statusChipProps(glider.status)}
 												variant="outlined"
 											/>
 										)}
@@ -398,7 +406,7 @@ export default async function HomePage() {
 													<Chip
 														size="small"
 														label={STATUS_LABEL[glider.status]}
-														color={STATUS_COLOR[glider.status]}
+														{...statusChipProps(glider.status)}
 													/>
 												) : (
 													"—"
@@ -441,7 +449,117 @@ export default async function HomePage() {
 					)}
 				</Box>
 
-				{/* Section 4 -- open RMAs and orders */}
+				{/* Section 4 -- assets flagged servicing required (do not deploy) */}
+				<Box>
+					<SectionHeading
+						title="Servicing required"
+						subtitle="Assets flagged do not deploy: they need serious repair, in-house or at the factory. Separate from the wear watch below, which is about days in the water. Resolve the flag once it is fixed; the event stays on the timeline."
+					/>
+					{servicingFlags.length === 0 ? (
+						<EmptyNote>Nothing is flagged servicing required.</EmptyNote>
+					) : (
+						<TableContainer component={Paper} variant="outlined">
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Asset</TableCell>
+										<TableCell>Serial number</TableCell>
+										<TableCell>What needs doing</TableCell>
+										<TableCell>Flagged</TableCell>
+										{canEdit && <TableCell sx={{ width: 100 }} />}
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{servicingFlags.map((f) => {
+										const label = f.assetName ?? formatAssetType(f.assetType);
+										const days = daysSince(f.startDate);
+										return (
+											<ClickableTableRow
+												key={f.eventId}
+												href={
+													f.assetType === "glider"
+														? `/gliders/${f.assetId}`
+														: `/assets/${f.assetId}`
+												}
+											>
+												<TableCell>
+													<Typography
+														variant="body2"
+														sx={{
+															fontWeight: 600,
+															textTransform:
+																f.assetType === "glider"
+																	? "capitalize"
+																	: "none",
+														}}
+													>
+														{label}
+													</Typography>
+													{f.assetName && f.assetType !== "glider" && (
+														<Typography
+															variant="caption"
+															color="text.secondary"
+														>
+															{formatAssetType(f.assetType)}
+														</Typography>
+													)}
+												</TableCell>
+												<TableCell>{f.serialNumber ?? "—"}</TableCell>
+												<TableCell>
+													<Typography variant="body2" sx={{ fontWeight: 600 }}>
+														{f.title ?? "—"}
+													</Typography>
+													{f.details && (
+														<Typography
+															variant="caption"
+															color="text.secondary"
+															sx={{
+																display: "-webkit-box",
+																WebkitLineClamp: 2,
+																WebkitBoxOrient: "vertical",
+																overflow: "hidden",
+															}}
+														>
+															{f.details}
+														</Typography>
+													)}
+												</TableCell>
+												<TableCell sx={{ whiteSpace: "nowrap" }}>
+													{formatDate(f.startDate)}
+													{days != null && (
+														<Typography
+															component="span"
+															variant="caption"
+															color="text.secondary"
+														>
+															{" "}
+															· {days} {days === 1 ? "day" : "days"}
+														</Typography>
+													)}
+												</TableCell>
+												{canEdit && (
+													// Stops a click here (and inside its dialog, a React
+													// child) from also opening the asset's page.
+													<TableCell
+														align="right"
+														onClick={(e) => e.stopPropagation()}
+													>
+														<ResolveServicingButton
+															flag={f}
+															assetLabel={label}
+														/>
+													</TableCell>
+												)}
+											</ClickableTableRow>
+										);
+									})}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					)}
+				</Box>
+
+				{/* Section 5 -- open RMAs and orders */}
 				<Box>
 					<SectionHeading
 						title="Open RMAs and orders"
@@ -489,7 +607,7 @@ export default async function HomePage() {
 					)}
 				</Box>
 
-				{/* Section 5 -- wear watch */}
+				{/* Section 6 -- wear watch */}
 				<Box>
 					<SectionHeading
 						title="Wear watch"

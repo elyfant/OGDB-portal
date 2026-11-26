@@ -59,6 +59,7 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
 	// Glider modal only -- filtered out of typeOptions below when
 	// `lifecycle` is absent (a bare, non-glider asset).
 	pre_mission_servicing: "Pre-mission lab service",
+	servicing_required: "Servicing required",
 };
 
 const PRE_MISSION_SERVICING = "pre_mission_servicing";
@@ -162,16 +163,18 @@ export default function AddServicingEventDialog({
 		message: string;
 	} | null>(null);
 
-	// The glider's currently attached components, offered as a "retire
-	// these too" checklist once "Retired" is picked -- all checked by
-	// default, opt out per row (e.g. keep a science sensor in service for
-	// reuse elsewhere). Fetched lazily rather than on every dialog open,
-	// since most Add-event visits never touch decommission at all.
+	// The glider's LAST build (the workshop build if one exists, otherwise the
+	// last flown mission's -- the glider page's "Current build"), offered as a
+	// checklist of components to take down with it. Decommission: all ticked by
+	// default, untick any to keep in service. Destroyed: NONE ticked by default
+	// -- opt in per component, since some may have been recovered or still be
+	// usable. Fetched lazily, since most dialogs never need it.
 	const [buildComponents, setBuildComponents] = useState<
 		GliderBuildComponent[]
 	>([]);
+	const [buildLabel, setBuildLabel] = useState<string | null>(null);
 	const [buildLoading, setBuildLoading] = useState(false);
-	const [excludedChildIds, setExcludedChildIds] = useState<Set<number>>(
+	const [selectedChildIds, setSelectedChildIds] = useState<Set<number>>(
 		new Set(),
 	);
 
@@ -210,6 +213,10 @@ export default function AddServicingEventDialog({
 	const isReturn = state.eventType === RETURN_TO_SERVICE;
 	const isTerminal = state.eventType === TERMINAL_EVENT;
 	const isMissing = state.eventType === "missing";
+	// "Servicing required" is a FLAG (do not deploy): open until resolved, never
+	// a state, and with no end date while it is being raised -- the end date is
+	// the resolution.
+	const isFlag = state.eventType === "servicing_required";
 	const isLifecycleAction = isDecommission || isReturn;
 	// Offer to close the open mission when logging the glider's destruction or
 	// loss. A missing-in-action mission can still be closed out by a later
@@ -221,15 +228,34 @@ export default function AddServicingEventDialog({
 		(isTerminal || (isMissing && openMission.status === "active"));
 	const closingMission = canCloseMission && closeMission;
 
+	// Components are offered for a Decommission, and for a NEW Destroyed event
+	// on a glider (gliders only: `lifecycle` is absent for other assets).
+	const needsComponents =
+		isDecommission || (isTerminal && !isEdit && !!lifecycle);
+
 	useEffect(() => {
-		if (!isDecommission) return;
+		if (!needsComponents) return;
 		let cancelled = false;
 		setBuildLoading(true);
 		getGliderBuildClient(assetId)
 			.then((build) => {
 				if (cancelled) return;
-				setBuildComponents(build.components);
-				setExcludedChildIds(new Set());
+				const mission = build.currentBuildMission;
+				setBuildComponents(build.currentBuildComponents);
+				setBuildLabel(
+					!mission
+						? null
+						: mission.status === "workshop"
+							? "workshop build"
+							: (mission.stdMissionName ??
+								mission.missionName ??
+								`mission #${mission.missionNumber ?? mission.id}`),
+				);
+				setSelectedChildIds(
+					isDecommission
+						? new Set(build.currentBuildComponents.map((c) => c.assetId))
+						: new Set(),
+				);
 			})
 			.catch(() => {
 				if (!cancelled) setBuildComponents([]);
@@ -240,7 +266,7 @@ export default function AddServicingEventDialog({
 		return () => {
 			cancelled = true;
 		};
-	}, [isDecommission, assetId]);
+	}, [needsComponents, isDecommission, assetId]);
 
 	// Everything downstream of an asset in the build tree (by
 	// parentAssetId, e.g. a CT sensor nested under a payload bay) --
@@ -268,11 +294,11 @@ export default function AddServicingEventDialog({
 	}
 
 	function toggleChild(childAssetId: number) {
-		setExcludedChildIds((prev) => {
+		setSelectedChildIds((prev) => {
 			const next = new Set(prev);
-			const excluding = !next.has(childAssetId);
+			const adding = !next.has(childAssetId);
 			for (const id of [childAssetId, ...descendantIds(childAssetId)]) {
-				if (excluding) next.add(id);
+				if (adding) next.add(id);
 				else next.delete(id);
 			}
 			return next;
@@ -310,12 +336,8 @@ export default function AddServicingEventDialog({
 			// see DecommissionInput.childAssetIds. Always sent as an array (even
 			// empty), never omitted, so the gateway knows a build tree was
 			// actually reviewed here.
-			const retiredWithGlider = buildComponents
-				.map((c) => c.assetId)
-				.filter((componentId) => !excludedChildIds.has(componentId));
-			const freedUp = buildComponents.filter((c) =>
-				excludedChildIds.has(c.assetId),
-			).length;
+			const retiredWithGlider = Array.from(selectedChildIds);
+			const freedUp = buildComponents.length - retiredWithGlider.length;
 			setSaving(true);
 			try {
 				await decommissionAsset(assetId, {
@@ -372,6 +394,10 @@ export default function AddServicingEventDialog({
 					closingMission && openMission ? openMission.id : undefined,
 				closeMissionSetEndDate:
 					closingMission && isTerminal ? setMissionEndDate : undefined,
+				childAssetIds:
+					isTerminal && !isEdit && selectedChildIds.size > 0
+						? Array.from(selectedChildIds)
+						: undefined,
 			};
 
 			if (isEdit && initialEvent) {
@@ -428,9 +454,22 @@ export default function AddServicingEventDialog({
 				severity: "success",
 				message: isEdit
 					? "Event updated."
-					: closingMission && openMission
-						? `Event recorded. ${openMission.label} marked ${isTerminal ? "killed in action" : "missing in action"}.`
-						: "Event recorded.",
+					: (() => {
+							if (isFlag)
+								return "Flagged servicing required — do not deploy until it is resolved.";
+							const extras: string[] = [];
+							if (closingMission && openMission)
+								extras.push(
+									`${openMission.label} marked ${isTerminal ? "killed in action" : "missing in action"}`,
+								);
+							if (isTerminal && selectedChildIds.size > 0)
+								extras.push(
+									`${selectedChildIds.size} component${selectedChildIds.size === 1 ? "" : "s"} marked destroyed`,
+								);
+							return extras.length
+								? `Event recorded. ${extras.join(" · ")}.`
+								: "Event recorded.";
+						})(),
 			});
 		} catch (err) {
 			setBanner({
@@ -452,7 +491,11 @@ export default function AddServicingEventDialog({
 			setBanner({
 				severity: "success",
 				message: result.returnedToService
-					? `Event deleted. ${lifecycle?.name ?? "The glider"} is back in service.`
+					? `Event deleted. ${lifecycle?.name ?? "The glider"} is back in service${
+							result.componentsReturned > 0
+								? `, along with ${result.componentsReturned} component${result.componentsReturned === 1 ? "" : "s"}`
+								: ""
+						}.`
 					: "Event deleted.",
 			});
 		} catch (err) {
@@ -504,10 +547,32 @@ export default function AddServicingEventDialog({
 					dividers
 					sx={{ display: "flex", flexDirection: "column", gap: 2 }}
 				>
-					{isEdit && initialEvent?.endDate === null && !isTerminal && (
+					{isEdit &&
+						initialEvent?.endDate === null &&
+						!isTerminal &&
+						!isFlag && (
+							<Alert severity="warning" sx={{ fontSize: 12.5 }}>
+								This event is still open. Add an end date to close it before a
+								new event can be logged for this asset.
+							</Alert>
+						)}
+
+					{isFlag && !isEdit && (
 						<Alert severity="warning" sx={{ fontSize: 12.5 }}>
-							This event is still open. Add an end date to close it before a new
-							event can be logged for this asset.
+							Flags {lifecycle?.name ?? "this asset"} as{" "}
+							<strong>do not deploy</strong> until it is repaired. It is listed
+							on the home page, and withdraws “cleared to deploy” on any build
+							it is part of. Describe what is wrong below. When it is fixed,
+							remove the red tag (✕ on its chip): the event stays on the
+							timeline as a record.
+						</Alert>
+					)}
+
+					{isFlag && isEdit && (
+						<Alert severity="info" sx={{ fontSize: 12.5 }}>
+							{initialEvent?.endDate
+								? "This was resolved. The event stays on the timeline as a record."
+								: "Flagged do not deploy. When it is repaired, enter a “Resolved on” date here, or click ✕ on its chip."}
 						</Alert>
 					)}
 
@@ -617,39 +682,41 @@ export default function AddServicingEventDialog({
 						</Alert>
 					)}
 
-					{isDecommission && buildLoading && (
+					{needsComponents && buildLoading && (
 						<Typography variant="body2" color="text.disabled">
-							Loading last flown build…
+							Loading last build…
 						</Typography>
 					)}
 
-					{isDecommission && !buildLoading && buildComponents.length > 0 && (
+					{needsComponents && !buildLoading && buildComponents.length > 0 && (
 						<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
 							<Box
 								sx={{
 									display: "flex",
 									justifyContent: "space-between",
 									alignItems: "center",
+									gap: 1,
 								}}
 							>
 								<Typography variant="body2" color="text.secondary">
-									Components in its last flown build — checked ones are
-									decommissioned with the glider; unchecked ones stay in
-									service, free for reuse elsewhere:
+									{isDecommission
+										? `Components in its last build${buildLabel ? ` (${buildLabel})` : ""} — checked ones are decommissioned with the glider; unchecked ones stay in service, free for reuse elsewhere:`
+										: `Optionally mark components in its last build${buildLabel ? ` (${buildLabel})` : ""} as destroyed too. Leave unchecked any that were recovered or are still usable:`}
 								</Typography>
 								<Button
 									size="small"
+									sx={{ whiteSpace: "nowrap" }}
 									onClick={() =>
-										setExcludedChildIds((prev) =>
-											prev.size === 0
-												? new Set(buildComponents.map((c) => c.assetId))
-												: new Set(),
+										setSelectedChildIds(
+											selectedChildIds.size === buildComponents.length
+												? new Set()
+												: new Set(buildComponents.map((c) => c.assetId)),
 										)
 									}
 								>
-									{excludedChildIds.size === 0
-										? "Free up all instead"
-										: "Decommission all instead"}
+									{selectedChildIds.size === buildComponents.length
+										? "Clear all"
+										: "Select all"}
 								</Button>
 							</Box>
 							<Box
@@ -662,7 +729,7 @@ export default function AddServicingEventDialog({
 								}}
 							>
 								{buildComponents.map((c) => {
-									const excluded = excludedChildIds.has(c.assetId);
+									const checked = selectedChildIds.has(c.assetId);
 									return (
 										<Box
 											key={c.assetId}
@@ -676,7 +743,7 @@ export default function AddServicingEventDialog({
 										>
 											<Checkbox
 												size="small"
-												checked={!excluded}
+												checked={checked}
 												onChange={() => toggleChild(c.assetId)}
 											/>
 											<Typography variant="body2" sx={{ fontSize: 13 }}>
@@ -686,7 +753,7 @@ export default function AddServicingEventDialog({
 													? ` (${c.positionLabel ?? c.position})`
 													: ""}
 											</Typography>
-											{excluded && (
+											{!checked && isDecommission && (
 												<Typography
 													variant="caption"
 													color="text.secondary"
@@ -699,6 +766,13 @@ export default function AddServicingEventDialog({
 									);
 								})}
 							</Box>
+							{isTerminal && (
+								<Typography variant="caption" color="text.secondary">
+									{selectedChildIds.size === 0
+										? "None selected: only the glider itself is marked destroyed."
+										: `${selectedChildIds.size} of ${buildComponents.length} will be marked destroyed and decommissioned with it.`}
+								</Typography>
+							)}
 						</Box>
 					)}
 
@@ -720,8 +794,14 @@ export default function AddServicingEventDialog({
 								renderInput={(params) => (
 									<TextField
 										{...params}
-										label="Event title"
-										placeholder="e.g. Pre-mission refurb"
+										label={
+											isFlag ? "What's wrong (short title)" : "Event title"
+										}
+										placeholder={
+											isFlag
+												? "e.g. Pitch motor failing"
+												: "e.g. Pre-mission refurb"
+										}
 									/>
 								)}
 							/>
@@ -760,7 +840,9 @@ export default function AddServicingEventDialog({
 										? "Decommission date"
 										: isTerminal
 											? "Date destroyed"
-											: "Start date"
+											: isFlag
+												? "Flagged on"
+												: "Start date"
 								}
 								value={state.startDate}
 								onChange={(e) =>
@@ -769,15 +851,23 @@ export default function AddServicingEventDialog({
 								InputLabelProps={{ shrink: true }}
 								sx={{ flex: 1 }}
 							/>
-							{!isLifecycleAction && !isTerminal && (
+							{!isLifecycleAction && !isTerminal && !(isFlag && !isEdit) && (
 								<TextField
 									size="small"
 									type="date"
-									label={isMissing ? "Recovered on" : "End date"}
+									label={
+										isMissing
+											? "Recovered on"
+											: isFlag
+												? "Resolved on"
+												: "End date"
+									}
 									helperText={
 										isMissing
 											? "Leave blank while still missing"
-											: "Leave blank while still in progress"
+											: isFlag
+												? "Leave blank until it is repaired"
+												: "Leave blank while still in progress"
 									}
 									value={state.endDate}
 									onChange={(e) =>
@@ -842,14 +932,18 @@ export default function AddServicingEventDialog({
 									? "Reason"
 									: isTerminal
 										? "What happened"
-										: "Details"
+										: isFlag
+											? "What needs doing"
+											: "Details"
 							}
 							placeholder={
 								isDecommission
 									? "e.g. end of life, sold, transferred"
 									: isTerminal
 										? "e.g. run over by a fishing vessel off Svinøy"
-										: "What happened, who worked on it, parts replaced, follow-up needed..."
+										: isFlag
+											? "e.g. Pitch motor is failing; needs a factory rebuild before it can fly again."
+											: "What happened, who worked on it, parts replaced, follow-up needed..."
 							}
 							value={state.details}
 							onChange={(e) => {
@@ -930,8 +1024,9 @@ export default function AddServicingEventDialog({
 							<Alert severity="warning" sx={{ fontSize: 12.5 }}>
 								This event decommissioned {lifecycle?.name ?? "the glider"}.
 								Deleting it removes that decommission too, so it returns to the
-								fleet. Any event it closed stays closed, and so does a mission
-								it closed — reopen that on the mission page if needed.
+								fleet, and brings back any components it took down with it. Any
+								event it closed stays closed, and so does a mission it closed —
+								reopen that on the mission page if needed.
 							</Alert>
 						)}
 						{initialEvent?.documentId && (

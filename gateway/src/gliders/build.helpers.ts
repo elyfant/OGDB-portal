@@ -106,14 +106,22 @@ async function fetchMissionTree(
 		);
 }
 
-// Exported for AssetsService.setDecommission: the glider's most recent
-// recorded build -- what "retire these components along with the glider"
-// is validated against.
+// The glider's LAST build, whichever kind it was: the workshop / scheduled
+// build if one exists, otherwise the last flown mission's -- the same rule as
+// the glider page's "Current build" (getGliderBuild's currentBuildMission). It
+// is what "take these components down with the glider" (decommission,
+// destruction) is offered from and validated against: the glider's physical
+// configuration as of its end, not just its last flight. Exported for
+// AssetsService.setDecommission / ServicingService.recordEvent.
 export async function fetchLatestBuildTree(
-	pool: Pool,
+	pool: Db,
 	gliderAssetId: number,
 ): Promise<GliderBuildComponent[]> {
-	const mission = await fetchLastFlownMission(pool, gliderAssetId);
+	const [flown, next] = await Promise.all([
+		fetchLastFlownMission(pool, gliderAssetId),
+		fetchNextMission(pool, gliderAssetId),
+	]);
+	const mission = next ?? flown;
 	if (!mission) return [];
 	const raw = await fetchMissionTree(pool, mission.id);
 	const models = await fetchModels(pool, raw);
@@ -121,6 +129,92 @@ export async function fetchLatestBuildTree(
 		const info = models.get(c.assetId);
 		return { ...c, model: info?.model ?? null, modelUri: info?.uri ?? null };
 	});
+}
+
+// Takes the chosen components of a glider's last build down WITH it, inside
+// the caller's transaction: decommissioned_date + reason on each, and a status
+// row (`destroyed` / `decommissioned`) so they read that way in the asset
+// tables, which show the status. Used by both "Destroyed" and "Decommission".
+//
+//   * Only components of the glider's last build (fetchLatestBuildTree) are
+//     eligible. `strict` refuses anything else (a stale or hand-made request)
+//     instead of quietly ignoring it.
+//   * A part that has since moved into ANOTHER glider's open build is refused:
+//     it is not this glider's to destroy any more.
+//   * The status row is dated max(event date, the asset's latest status date):
+//     "current status" is the latest row by date, so a backdated destruction
+//     would otherwise sit behind a later "lab" row and never show.
+//   * `notes` is the marker deleteEvent uses to reverse a destroyed cascade.
+// Returns how many components were taken down.
+export async function retireComponentsTx(
+	client: PoolClient,
+	p: {
+		gliderAssetId: number;
+		childAssetIds: number[];
+		date: string;
+		reason: string | null;
+		statusName: "destroyed" | "decommissioned";
+		notes: string;
+		strict: boolean;
+		userId: number;
+	},
+): Promise<number> {
+	const wanted = [...new Set(p.childAssetIds)];
+	if (wanted.length === 0) return 0;
+
+	const tree = await fetchLatestBuildTree(client, p.gliderAssetId);
+	const attached = new Set(tree.map((c) => c.assetId));
+	const ids = wanted.filter((id) => attached.has(id));
+	if (p.strict && ids.length !== wanted.length) {
+		throw new BadRequestException(
+			"Some of those components aren't in the glider's last build.",
+		);
+	}
+	if (ids.length === 0) return 0;
+
+	const elsewhere = await client.query(
+		`SELECT DISTINCT a.serial_number AS "serialNumber", g.glider_name AS glider
+     FROM mission_build_items i
+     JOIN missions m ON m.id = i.mission_id
+     LEFT JOIN status s ON s.id = m.status_id
+     JOIN assets a ON a.id = i.asset_id
+     LEFT JOIN asset_glider_details g ON g.asset_id = m.glider_asset_id
+     WHERE i.asset_id = ANY($1) AND m.glider_asset_id <> $2
+       AND (COALESCE(s.name, '') IN ('workshop', 'scheduled')
+            OR (COALESCE(s.name, '') = 'active' AND m.retrieval_date IS NULL))`,
+		[ids, p.gliderAssetId],
+	);
+	if (elsewhere.rows.length > 0) {
+		const list = elsewhere.rows
+			.map(
+				(r) =>
+					`SN ${r.serialNumber ?? "?"} (in ${r.glider ?? "another glider"}'s build)`,
+			)
+			.join(", ");
+		throw new ConflictException(
+			`These components are now in another glider's build, so they can't go down with this one: ${list}. Untick them.`,
+		);
+	}
+
+	await client.query(
+		`UPDATE assets
+       SET decommissioned_date = $2, decommission_reason = $3,
+           updated_at = now(), changed_by = $4
+     WHERE id = ANY($1)`,
+		[ids, p.date, p.reason, p.userId],
+	);
+	await client.query(
+		`INSERT INTO asset_status_history (asset_id, status_id, effective_date, notes, changed_by)
+     SELECT a.id,
+            (SELECT id FROM asset_status_options WHERE name = $2),
+            GREATEST($3::date, COALESCE(
+              (SELECT max(h.effective_date) FROM asset_status_history h
+                WHERE h.asset_id = a.id), $3::date)),
+            $4, $5
+     FROM assets a WHERE a.id = ANY($1)`,
+		[ids, p.statusName, p.date, p.notes, p.userId],
+	);
+	return ids.length;
 }
 
 const MISSION_REF_SELECT = `
@@ -180,7 +274,7 @@ type ModelLookup = Pick<
 >;
 
 async function fetchModels(
-	pool: Pool,
+	pool: Db,
 	buildTree: ModelLookup[],
 ): Promise<Map<number, ModelInfo>> {
 	const models = new Map<number, ModelInfo>();
@@ -432,12 +526,18 @@ async function fetchBuildWarnings(
      ORDER BY at.name, a.serial_number`,
 		[missionId],
 	);
-	return result.rows.map((r) =>
+	const overlaps = result.rows.map((r) =>
 		`${r.assetType} ${r.serialNumber ?? ""} is also in the ${r.status} build of ${r.glider ?? "another glider"} (${r.missionNumber != null ? `mission ${r.missionNumber}` : r.missionName}).`.replace(
 			/\s+/g,
 			" ",
 		),
 	);
+	// Anything flagged "servicing required -- do not deploy" in this build.
+	const flagged = (await fetchFlaggedInBuild(db, missionId)).map(
+		(f) =>
+			`${f.label} is flagged servicing required (do not deploy)${f.title ? `: ${f.title}` : ""}.`,
+	);
+	return [...flagged, ...overlaps];
 }
 
 // One mission's build for the mission page: components, science payload as
@@ -1109,6 +1209,7 @@ export async function withdrawClearanceTx(
 	client: PoolClient,
 	missionId: number,
 	userId: number,
+	reason = "Build edited -- clearance withdrawn automatically",
 ): Promise<boolean> {
 	const withdrawn = await client.query(
 		`UPDATE refurbishments SET cleared_by = NULL, cleared_at = NULL
@@ -1120,13 +1221,71 @@ export async function withdrawClearanceTx(
 	await client.query(
 		`INSERT INTO refurb_clearance_log (refurbishment_id, action, by_user, reason)
      VALUES ($1, 'unlocked', $2, $3)`,
-		[
-			withdrawn.rows[0].id,
-			userId,
-			"Build edited -- clearance withdrawn automatically",
-		],
+		[withdrawn.rows[0].id, userId, reason],
 	);
 	return true;
+}
+
+// Open "servicing required" flags on a mission's glider or on anything in its
+// build: what must be fixed before this mission can deploy. Used for the
+// build warnings AND the guard on clearing the logsheet.
+export interface FlaggedInBuild {
+	label: string;
+	title: string | null;
+}
+
+export async function fetchFlaggedInBuild(
+	db: Db,
+	missionId: number,
+): Promise<FlaggedInBuild[]> {
+	const result = await db.query(
+		`SELECT at.name AS "assetType", a.serial_number AS "serialNumber",
+            agd.glider_name AS glider, se.title
+     FROM asset_service_events se
+     JOIN asset_service_event_types t
+       ON t.id = se.event_type_id AND t.name = 'servicing_required'
+     JOIN assets a ON a.id = se.asset_id
+     JOIN asset_types at ON at.id = a.asset_type_id
+     LEFT JOIN asset_glider_details agd ON agd.asset_id = a.id
+     WHERE se.end_date IS NULL
+       AND (se.asset_id = (SELECT glider_asset_id FROM missions WHERE id = $1)
+            OR se.asset_id IN (SELECT asset_id FROM mission_build_items
+                                WHERE mission_id = $1))
+     ORDER BY agd.glider_name NULLS LAST, at.name, a.serial_number`,
+		[missionId],
+	);
+	return result.rows.map((r) => ({
+		label: r.glider
+			? `Glider ${r.glider}`
+			: `${r.assetType} ${r.serialNumber ?? ""}`.trim().replace(/_/g, " "),
+		title: r.title,
+	}));
+}
+
+// Raising "servicing required" on an asset takes back "cleared to deploy" for
+// every open (workshop / scheduled) build it is part of -- as the glider, or
+// as a component -- the same way editing a build does: a clearance certifies
+// "fit to deploy as signed off", and that is no longer true. Returns how many
+// clearances were withdrawn.
+export async function withdrawClearancesForAssetTx(
+	client: PoolClient,
+	assetId: number,
+	userId: number,
+	reason: string,
+): Promise<number> {
+	const missions = await client.query(
+		`SELECT m.id FROM missions m
+     JOIN status s ON s.id = m.status_id AND s.name IN ('workshop', 'scheduled')
+     WHERE m.glider_asset_id = $1
+        OR EXISTS (SELECT 1 FROM mission_build_items i
+                    WHERE i.mission_id = m.id AND i.asset_id = $1)`,
+		[assetId],
+	);
+	let withdrawn = 0;
+	for (const m of missions.rows) {
+		if (await withdrawClearanceTx(client, m.id, userId, reason)) withdrawn++;
+	}
+	return withdrawn;
 }
 
 // Applies a batch of BuildChange entries to ONE mission's build inside an

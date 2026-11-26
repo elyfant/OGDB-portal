@@ -7,10 +7,10 @@ import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Tooltip from "@mui/material/Tooltip";
-import type { AssetStatus, Glider } from "@ogdb/types";
+import type { AssetStatus, Glider, ServicingRequired } from "@ogdb/types";
 import { useMemo, useState } from "react";
 import type { ColumnDef } from "../lib/data-table";
-import { STATUS_COLOR, STATUS_LABEL } from "../lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "../lib/status-meta";
 import {
 	type FilterDef,
 	type FilterState,
@@ -19,6 +19,7 @@ import {
 } from "../lib/table-filters";
 import DataTable from "./DataTable";
 import FilterBar from "./FilterBar";
+import ServicingRequiredChip from "./ServicingRequiredChip";
 
 function statusTooltip(g: Glider): string {
 	if (!g.statusSince) return "";
@@ -34,9 +35,16 @@ function statusTooltip(g: Glider): string {
 
 export default function GlidersTable({
 	gliders,
+	servicingRequired = [],
 }: {
 	gliders: Glider[];
+	// Open "servicing required" flags, shown as a (read-only) red chip.
+	servicingRequired?: ServicingRequired[];
 }) {
+	const flagByAsset = useMemo(
+		() => new Map(servicingRequired.map((f) => [f.assetId, f])),
+		[servicingRequired],
+	);
 	const [showDecommissioned, setShowDecommissioned] = useState(false);
 	const [filterState, setFilterState] = useState<FilterState>({});
 
@@ -119,7 +127,7 @@ export default function GlidersTable({
 							<Tooltip title={statusTooltip(g)}>
 								<Chip
 									label={STATUS_LABEL[g.status]}
-									color={STATUS_COLOR[g.status]}
+									{...statusChipProps(g.status)}
 									size="small"
 								/>
 							</Tooltip>
@@ -140,6 +148,10 @@ export default function GlidersTable({
 								/>
 							</Tooltip>
 						)}
+						<ServicingRequiredChip
+							flag={flagByAsset.get(g.id)}
+							assetLabel={g.name}
+						/>
 						{g.decommissionedDate && (
 							<Tooltip
 								title={`Decommissioned ${formatDate(g.decommissionedDate)}${
@@ -180,7 +192,7 @@ export default function GlidersTable({
 				align: "right",
 			},
 		],
-		[],
+		[flagByAsset],
 	);
 
 	const platformFilter: FilterDef<Glider> = useMemo(

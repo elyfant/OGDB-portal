@@ -32,7 +32,7 @@ import {
 	DocumentsService,
 	originalNameFromReference,
 } from "../documents/documents.service";
-import { fetchLatestBuildTree } from "../gliders/build.helpers";
+import { retireComponentsTx } from "../gliders/build.helpers";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { RecordBatteryMeasurementDto } from "./dto/record-battery-measurement.dto";
 import type { RecordSensorCalibrationDto } from "./dto/record-sensor-calibration.dto";
@@ -205,7 +205,8 @@ const SELECT_BATTERIES = `
     a.purchase_currency AS "purchaseCurrency",
     aso.id AS "statusId",
     aso.name AS status,
-    cas.effective_date AS "statusEffectiveDate"
+    cas.effective_date AS "statusEffectiveDate",
+    a.decommissioned_date AS "decommissionedDate"
   FROM assets a
   JOIN asset_types at ON at.id = a.asset_type_id AND at.name = 'battery'
   LEFT JOIN agencies i ON i.id = a.agency_id
@@ -685,13 +686,6 @@ export class AssetsService {
 			date !== null,
 		);
 
-		let retainIds: number[] = [];
-		if (date && dto.childAssetIds !== undefined) {
-			const tree = await fetchLatestBuildTree(this.pool, id);
-			const attached = new Set(tree.map((c) => c.assetId));
-			retainIds = dto.childAssetIds.filter((childId) => attached.has(childId));
-		}
-
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
@@ -702,14 +696,20 @@ export class AssetsService {
          WHERE id = $1`,
 				[id, date, reason, userId],
 			);
-			if (retainIds.length) {
-				await client.query(
-					`UPDATE assets
-             SET decommissioned_date = $2, decommission_reason = $3,
-                 updated_at = now(), changed_by = $4
-           WHERE id = ANY($1)`,
-					[retainIds, date, reason, userId],
-				);
+			// The reviewed components go down with it (same date and reason, plus
+			// a `decommissioned` status row). Quietly limited to the glider's
+			// last build, so a stale request can't touch anything else.
+			if (date && dto.childAssetIds?.length) {
+				await retireComponentsTx(client, {
+					gliderAssetId: id,
+					childAssetIds: dto.childAssetIds,
+					date: date.slice(0, 10),
+					reason,
+					statusName: "decommissioned",
+					notes: `Decommissioned with ${asset.name ?? `asset ${id}`}`,
+					strict: false,
+					userId,
+				});
 			}
 			await client.query("COMMIT");
 		} catch (err) {

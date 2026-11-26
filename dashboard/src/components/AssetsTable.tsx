@@ -5,7 +5,7 @@ import { formatAssetType, formatDate, formatMoney } from "@/lib/format";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import type { Asset, AssetStatusOption } from "@ogdb/types";
+import type { Asset, AssetStatusOption, ServicingRequired } from "@ogdb/types";
 import { useMemo, useState } from "react";
 import type { ColumnDef } from "../lib/data-table";
 import { STATUS_LABEL } from "../lib/status-meta";
@@ -17,6 +17,7 @@ import {
 } from "../lib/table-filters";
 import DataTable from "./DataTable";
 import FilterBar from "./FilterBar";
+import ServicingRequiredChip from "./ServicingRequiredChip";
 
 // Gliders and batteries live under their own detail pages — the asset's
 // id IS the glider's/battery's id (both are just assets with the matching
@@ -31,11 +32,18 @@ export default function AssetsTable({
 	assets: allAssets,
 	statusOptions,
 	canEdit,
+	servicingRequired = [],
 }: {
 	assets: Asset[];
 	statusOptions: AssetStatusOption[];
 	canEdit: boolean;
+	// Open "servicing required" flags, shown as a (read-only) red chip.
+	servicingRequired?: ServicingRequired[];
 }) {
+	const flagByAsset = useMemo(
+		() => new Map(servicingRequired.map((f) => [f.assetId, f])),
+		[servicingRequired],
+	);
 	const [showDecommissioned, setShowDecommissioned] = useState(false);
 	const [filterState, setFilterState] = useState<FilterState>({});
 
@@ -104,13 +112,21 @@ export default function AssetsTable({
 				defaultVisible: true,
 				capitalize: true,
 				renderCell: (asset) => (
-					<StatusEditor
-						kind="assets"
-						id={asset.id}
-						statusId={asset.statusId}
-						options={statusOptions}
-						disabled={!canEdit}
-					/>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+						<StatusEditor
+							kind="assets"
+							id={asset.id}
+							statusId={asset.statusId}
+							options={statusOptions}
+							disabled={!canEdit}
+						/>
+						<ServicingRequiredChip
+							flag={flagByAsset.get(asset.id)}
+							assetLabel={
+								asset.name ?? asset.serialNumber ?? `Asset ${asset.id}`
+							}
+						/>
+					</Box>
 				),
 			},
 			{
@@ -121,7 +137,7 @@ export default function AssetsTable({
 				align: "right",
 			},
 		],
-		[statusOptions, canEdit],
+		[statusOptions, canEdit, flagByAsset],
 	);
 
 	const assetTypeFilter: FilterDef<Asset> = useMemo(() => {
@@ -157,7 +173,14 @@ export default function AssetsTable({
 
 	const visibleAssets = showDecommissioned
 		? assets
-		: assets.filter((a) => a.status !== "decommissioned");
+		: assets.filter(
+				// Decommissioned = the date is set (what the fleet lifecycle and the
+				// cascades from a glider write) OR the status says so / destroyed.
+				(a) =>
+					a.decommissionedDate == null &&
+					a.status !== "decommissioned" &&
+					a.status !== "destroyed",
+			);
 
 	const filteredRows = useMemo(
 		() => applyFilters(visibleAssets, filters, filterState),

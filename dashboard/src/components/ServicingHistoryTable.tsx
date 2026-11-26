@@ -72,7 +72,18 @@ export default function ServicingHistoryTable({
 									{e.endDate ? (
 										formatDate(e.endDate)
 									) : (
-										<Chip size="small" label="Open" color="warning" />
+										<Chip
+											size="small"
+											label="Open"
+											// Red for the two open events that are a problem, amber for
+											// ordinary work in progress.
+											color={
+												e.eventType === "servicing_required" ||
+												e.eventType === "missing"
+													? "error"
+													: "warning"
+											}
+										/>
 									)}
 								</TableCell>
 								<TableCell>

@@ -8,7 +8,7 @@ import type { AssetStatusOption } from "@ogdb/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { setStatus } from "../lib/api-client";
-import { STATUS_COLOR, STATUS_LABEL } from "../lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "../lib/status-meta";
 
 export default function StatusEditor({
 	kind,
@@ -70,7 +70,7 @@ export default function StatusEditor({
 					return (
 						<Chip
 							label={STATUS_LABEL[option.name]}
-							color={STATUS_COLOR[option.name]}
+							{...statusChipProps(option.name)}
 							size="small"
 						/>
 					);

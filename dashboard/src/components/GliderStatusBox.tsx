@@ -1,6 +1,6 @@
 import { formatDate } from "@/lib/format";
 import { hasLocation, locationText } from "@/lib/glider-location";
-import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
@@ -77,7 +77,7 @@ export default function GliderStatusBox({
 		>
 			<Chip
 				label={STATUS_LABEL[status]}
-				color={STATUS_COLOR[status]}
+				{...statusChipProps(status)}
 				sx={{ fontSize: "1rem", py: 2.5, px: 1 }}
 			/>
 			{scheduledMissionId != null && (

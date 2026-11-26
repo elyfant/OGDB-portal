@@ -147,7 +147,12 @@ export default function BatteriesTable({
 
 	const visibleBatteries = showDecommissioned
 		? batteries
-		: batteries.filter((b) => b.status !== "decommissioned");
+		: batteries.filter(
+				(b) =>
+					b.decommissionedDate == null &&
+					b.status !== "decommissioned" &&
+					b.status !== "destroyed",
+			);
 
 	const filteredRows = useMemo(
 		() => applyFilters(visibleBatteries, filters, filterState),

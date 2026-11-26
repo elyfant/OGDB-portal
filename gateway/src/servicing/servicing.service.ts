@@ -5,14 +5,23 @@ import {
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
-import type { ServicingEvent, ServicingEventTypeOption } from "@ogdb/types";
+import type {
+	ServicingEvent,
+	ServicingEventTypeOption,
+	ServicingRequired,
+} from "@ogdb/types";
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../db/db.constants";
 import {
 	DocumentsService,
 	originalNameFromReference,
 } from "../documents/documents.service";
+import {
+	retireComponentsTx,
+	withdrawClearancesForAssetTx,
+} from "../gliders/build.helpers";
 import type { RecordServicingEventDto } from "./dto/record-servicing-event.dto";
+import type { ResolveServicingRequiredDto } from "./dto/resolve-servicing-required.dto";
 
 // The subset of asset_service_event_types this feature owns. Calibration
 // already has its own dedicated flow (AssetsService.recordCalibration)
@@ -29,7 +38,16 @@ const SERVICING_EVENT_TYPES = [
 	"missing",
 	"destroyed",
 	"pre_mission_servicing",
+	"servicing_required",
 ] as const;
+
+// "Servicing required" (do not deploy) is a FLAG on an asset, not a state: it
+// stays open until resolved, never changes a glider's derived status, and
+// coexists with every other event -- a glider can be in transit AND need
+// servicing. So it neither blocks nor is blocked by the one-open-event rule
+// (see BLOCKING_EVENT_TYPES), and has its own one-open-per-asset rule.
+// Resolving it sets its end date; the event stays on the timeline.
+const FLAG_EVENT_TYPE = "servicing_required";
 
 // Logging one of these retires the asset from the fleet -- the derived
 // status view treats a `destroyed` event as terminal, and the asset's
@@ -47,7 +65,7 @@ const TERMINAL_EVENT_TYPES = new Set<string>(["destroyed"]);
 // destroyed. Excluded from the check entirely rather than date-scoped,
 // since a destroyed asset genuinely has nothing left to conflict with.
 const BLOCKING_EVENT_TYPES = SERVICING_EVENT_TYPES.filter(
-	(t) => !TERMINAL_EVENT_TYPES.has(t),
+	(t) => !TERMINAL_EVENT_TYPES.has(t) && t !== FLAG_EVENT_TYPE,
 );
 
 const SERVICING_ATTACHMENT_DOCUMENT_TYPE = "servicing_attachment";
@@ -211,6 +229,98 @@ export class ServicingService {
 		}
 	}
 
+	// One open flag per asset (also a partial unique index in the database):
+	// a second would only be noise -- edit or resolve the existing one.
+	private async assertNoOpenFlag(
+		assetId: number,
+		excludeEventId?: number,
+	): Promise<void> {
+		const open = await this.pool.query(
+			`SELECT se.title FROM asset_service_events se
+							JOIN asset_service_event_types t ON t.id = se.event_type_id
+							WHERE se.asset_id = $1 AND t.name = $2 AND se.end_date IS NULL
+									AND se.id <> $3
+							LIMIT 1`,
+			[assetId, FLAG_EVENT_TYPE, excludeEventId ?? -1],
+		);
+		if (open.rows.length > 0) {
+			throw new ConflictException(
+				`This asset is already flagged servicing required${open.rows[0].title ? ` ("${open.rows[0].title}")` : ""}. Edit that one, or resolve it first.`,
+			);
+		}
+	}
+
+	// Every OPEN "servicing required" flag on an asset still in the fleet: the
+	// home page's list, and what the detail pages and tables show as a chip.
+	// Decommissioned assets are left out -- nothing needs fixing on those.
+	async listServicingRequired(): Promise<ServicingRequired[]> {
+		const result = await this.pool.query(
+			`SELECT se.id AS "eventId", a.id AS "assetId", at.name AS "assetType",
+														COALESCE(agd.glider_name, aed.name) AS "assetName",
+														a.serial_number AS "serialNumber",
+														se.title, se.description AS details,
+														se.start_date AS "startDate"
+							FROM asset_service_events se
+							JOIN asset_service_event_types t
+									ON t.id = se.event_type_id AND t.name = $1
+							JOIN assets a ON a.id = se.asset_id
+							JOIN asset_types at ON at.id = a.asset_type_id
+							LEFT JOIN asset_glider_details agd ON agd.asset_id = a.id
+							LEFT JOIN asset_equipment_details aed ON aed.asset_id = a.id
+							WHERE se.end_date IS NULL AND a.decommissioned_date IS NULL
+							ORDER BY se.start_date, se.id`,
+			[FLAG_EVENT_TYPE],
+		);
+		return result.rows;
+	}
+
+	// The repair is done: the flag comes off. This only sets the event's end
+	// date (and optionally appends what was done to its description) -- the
+	// event stays on the timeline as a closed span, which is the point.
+	async resolveServicingRequired(
+		assetId: number,
+		eventId: number,
+		dto: ResolveServicingRequiredDto,
+		userId: number,
+	): Promise<void> {
+		const found = await this.pool.query(
+			`SELECT se.start_date AS "startDate", se.end_date AS "endDate",
+														CURRENT_DATE::text AS today
+							FROM asset_service_events se
+							JOIN asset_service_event_types t ON t.id = se.event_type_id
+							WHERE se.id = $1 AND se.asset_id = $2 AND t.name = $3`,
+			[eventId, assetId, FLAG_EVENT_TYPE],
+		);
+		if (found.rows.length === 0) {
+			throw new NotFoundException(
+				`Servicing-required flag ${eventId} not found for asset ${assetId}.`,
+			);
+		}
+		const { startDate, endDate, today } = found.rows[0];
+		if (endDate) {
+			throw new ConflictException(`That flag was already resolved on ${endDate}.`);
+		}
+		const date = dto.date?.slice(0, 10) ?? today;
+		if (date < startDate) {
+			throw new BadRequestException(
+				`It can't be resolved before it was raised (${startDate}).`,
+			);
+		}
+		if (date > today) {
+			throw new BadRequestException("The resolved date can't be in the future.");
+		}
+		const note = dto.note?.trim() || null;
+		await this.pool.query(
+			`UPDATE asset_service_events
+									SET end_date = $2,
+													description = CASE WHEN $3::text IS NULL THEN description
+																																ELSE COALESCE(description || E'\n\n', '') || 'Resolved: ' || $3 END,
+													changed_by = $4
+							WHERE id = $1`,
+			[eventId, date, note, userId],
+		);
+	}
+
 	// start/end are IsDateString'd 'YYYY-MM-DD' -- lexical compare is date
 	// order. Backstopped by a CHECK constraint (see the
 	// asset_service_events_date_check migration); this is just the
@@ -274,8 +384,11 @@ export class ServicingService {
 		// A terminal event (destroyed) is allowed even while another event
 		// is open -- it closes that one below. Everything else obeys the
 		// one-open-event-per-asset rule.
-		if (!terminal) {
+		if (!terminal && dto.eventType !== FLAG_EVENT_TYPE) {
 			await this.assertNoOpenEvent(assetId, dto.startDate);
+		}
+		if (dto.eventType === FLAG_EVENT_TYPE && !dto.endDate) {
+			await this.assertNoOpenFlag(assetId);
 		}
 
 		const client = await this.pool.connect();
@@ -326,6 +439,44 @@ export class ServicingService {
 
 			if (dto.closeMissionId != null) {
 				await this.closeMissionTx(client, assetId, dto, userId);
+			}
+
+			// An open "servicing required" flag means do not deploy: take back
+			// "cleared to deploy" on any open build this asset is part of (as the
+			// glider, or as a component), as a build edit would.
+			if (dto.eventType === FLAG_EVENT_TYPE && !dto.endDate) {
+				await withdrawClearancesForAssetTx(
+					client,
+					assetId,
+					userId,
+					"Servicing required raised -- clearance withdrawn automatically",
+				);
+			}
+
+			// Components chosen to go down with a destruction. Only a destroyed
+			// event can carry them, and the marker in the status note ties them to
+			// THIS event so deleting it can bring them back.
+			if (dto.childAssetIds?.length) {
+				if (!terminal) {
+					throw new BadRequestException(
+						"Only a destroyed event can take components down with it.",
+					);
+				}
+				const named = await client.query(
+					"SELECT glider_name FROM asset_glider_details WHERE asset_id = $1",
+					[assetId],
+				);
+				const name = named.rows[0]?.glider_name ?? `asset ${assetId}`;
+				await retireComponentsTx(client, {
+					gliderAssetId: assetId,
+					childAssetIds: dto.childAssetIds,
+					date: dto.startDate.slice(0, 10),
+					reason: dto.eventType,
+					statusName: "destroyed",
+					notes: `Destroyed with ${name} [event ${eventId}]`,
+					strict: true,
+					userId,
+				});
 			}
 
 			await client.query("COMMIT");
@@ -428,8 +579,11 @@ export class ServicingService {
 		// Only worth re-checking "no open event" when this edit would
 		// leave the row open -- an edit that's setting/keeping an end
 		// date can never conflict with anything.
-		if (!dto.endDate) {
+		if (!dto.endDate && dto.eventType !== FLAG_EVENT_TYPE) {
 			await this.assertNoOpenEvent(assetId, dto.startDate, eventId);
+		}
+		if (!dto.endDate && dto.eventType === FLAG_EVENT_TYPE) {
+			await this.assertNoOpenFlag(assetId, eventId);
 		}
 
 		const client = await this.pool.connect();
@@ -497,10 +651,11 @@ export class ServicingService {
 		assetId: number,
 		eventId: number,
 		userId: number,
-	): Promise<{ returnedToService: boolean }> {
+	): Promise<{ returnedToService: boolean; componentsReturned: number }> {
 		const client = await this.pool.connect();
 		let fileReferences: string[] = [];
 		let returnedToService = false;
+		let componentsReturned = 0;
 		try {
 			await client.query("BEGIN");
 
@@ -550,6 +705,36 @@ export class ServicingService {
 			]);
 
 			if (TERMINAL_EVENT_TYPES.has(eventType)) {
+				// Components this destruction took down: found by the marker its
+				// status rows carry. Their rows are removed (restoring whatever
+				// status they had before) and the decommission it applied is
+				// cleared where it still matches. Credited to the deleter, as for
+				// the event itself.
+				const marker = `%[event ${eventId}]`;
+				const kids = await client.query(
+					"SELECT DISTINCT asset_id FROM asset_status_history WHERE notes LIKE $1",
+					[marker],
+				);
+				if (kids.rows.length > 0) {
+					const kidIds = kids.rows.map((r) => r.asset_id);
+					await client.query(
+						"UPDATE asset_status_history SET changed_by = $2 WHERE notes LIKE $1",
+						[marker, userId],
+					);
+					await client.query(
+						"DELETE FROM asset_status_history WHERE notes LIKE $1",
+						[marker],
+					);
+					const back = await client.query(
+						`UPDATE assets
+															SET decommissioned_date = NULL, decommission_reason = NULL,
+																			updated_at = now(), changed_by = $3
+													WHERE id = ANY($1) AND decommission_reason = $4
+															AND decommissioned_date = $2::date`,
+						[kidIds, startDate, userId, eventType],
+					);
+					componentsReturned = back.rowCount ?? 0;
+				}
 				const cleared = await client.query(
 					`UPDATE assets
              SET decommissioned_date = NULL, decommission_reason = NULL,
@@ -576,6 +761,6 @@ export class ServicingService {
 				// The row is gone; an orphaned file on disk is harmless.
 			}
 		}
-		return { returnedToService };
+		return { returnedToService, componentsReturned };
 	}
 }

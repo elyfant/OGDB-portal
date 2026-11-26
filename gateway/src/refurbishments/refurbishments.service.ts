@@ -12,6 +12,7 @@ import type {
 } from "@ogdb/types";
 import type { Pool } from "pg";
 import { PG_POOL } from "../db/db.constants";
+import { fetchFlaggedInBuild } from "../gliders/build.helpers";
 import { BatteriesService } from "./batteries.service";
 import { DeviceTestsService } from "./device-tests.service";
 import { FinalPrepService } from "./final-prep.service";
@@ -222,6 +223,17 @@ export class RefurbishmentsService {
 		if (current.clearedAt) {
 			throw new ConflictException(
 				"This logsheet is already cleared and locked.",
+			);
+		}
+		// "Servicing required" means DO NOT DEPLOY: the glider, or anything in
+		// its build, flagged for serious repair can't be cleared to deploy until
+		// that is resolved.
+		const flagged = await fetchFlaggedInBuild(this.pool, missionId);
+		if (flagged.length > 0) {
+			throw new ConflictException(
+				`Can't clear for deployment while servicing is required: ${flagged
+					.map((f) => `${f.label}${f.title ? ` (${f.title})` : ""}`)
+					.join(", ")}. Resolve it first.`,
 			);
 		}
 		const open = current.sections.filter((s) => s.required && !s.complete);

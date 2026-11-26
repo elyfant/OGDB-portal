@@ -315,6 +315,9 @@ export interface Battery {
 	statusId: number | null;
 	status: AssetStatus | null;
 	statusEffectiveDate: string | null;
+	// Fleet lifecycle, as for any asset: set when the battery is decommissioned
+	// or destroyed (directly, or along with the glider it was in).
+	decommissionedDate: string | null;
 }
 
 // One row of the append-only asset_battery_measurements history -- a
@@ -1020,7 +1023,34 @@ export type ServicingEventType =
 	// Glider-only in the Add event dialog -- a full lab servicing pass
 	// done specifically ahead of an upcoming mission, distinct from
 	// routine "servicing".
-	| "pre_mission_servicing";
+	| "pre_mission_servicing"
+	// A FLAG, not a state: needs serious repair, do not deploy. Open until
+	// resolved (end date), and stays on the timeline afterwards.
+	| "servicing_required";
+
+// One open "servicing required" flag: an asset that must not be deployed until
+// repaired. Listed on the home page, shown as a chip on the asset/glider, and
+// resolved (end date set -- the event stays on the timeline) when fixed.
+export interface ServicingRequired {
+	eventId: number;
+	assetId: number;
+	assetType: string;
+	// The glider's name, or an equipment asset's own name; null otherwise.
+	assetName: string | null;
+	serialNumber: string | null;
+	// What is wrong, in a line, and in full.
+	title: string | null;
+	details: string | null;
+	// YYYY-MM-DD it was raised.
+	startDate: string;
+}
+
+export interface ResolveServicingRequiredInput {
+	// YYYY-MM-DD, defaults to today.
+	date?: string;
+	// What was done; appended to the event's description.
+	note?: string;
+}
 
 export interface ServicingEventTypeOption {
 	id: number;
@@ -1085,6 +1115,9 @@ export interface RecordServicingEventInput {
 	// recovery, wrong for one lost at sea.
 	closeMissionId?: number;
 	closeMissionSetEndDate?: boolean;
+	// New destroyed events only: components of the glider's last build to take
+	// down with it (optional; none by default).
+	childAssetIds?: number[];
 }
 
 export interface GliderStatusHistoryItem {
@@ -1335,6 +1368,8 @@ export interface ApplyBuildChangesInput {
 // decommission is removed with it.
 export interface DeleteServicingEventResult {
 	returnedToService: boolean;
+	// Components that went down with that destruction and were brought back.
+	componentsReturned: number;
 }
 
 export interface ApplyBuildChangesResult {

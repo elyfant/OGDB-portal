@@ -56,12 +56,8 @@ import {
 	getTankRuns,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import {
-	capitalizeFirst,
-	formatCount,
-	formatDate,
-	statusColor,
-} from "@/lib/format";
+import { missionStatusChipProps } from "@/lib/chip-style";
+import { capitalizeFirst, formatCount, formatDate } from "@/lib/format";
 import { oceanOpsPlatformUrl } from "@/lib/oceanops";
 import DatasetIcon from "@mui/icons-material/Dataset";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -489,7 +485,7 @@ export default async function MissionDetailPage({
 						{mission.status && (
 							<Chip
 								label={mission.status}
-								color={statusColor(mission.status)}
+								{...missionStatusChipProps(mission.status)}
 								size="small"
 							/>
 						)}
@@ -653,7 +649,7 @@ export default async function MissionDetailPage({
 										{mission.status ? (
 											<Chip
 												label={mission.status}
-												color={statusColor(mission.status)}
+												{...missionStatusChipProps(mission.status)}
 												size="small"
 											/>
 										) : (

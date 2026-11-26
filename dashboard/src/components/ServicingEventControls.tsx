@@ -58,7 +58,10 @@ const ServicingEventControls = forwardRef<
 	// "closed", so it must not trigger the open-event notice.
 	const openEvent =
 		servicingEvents.find(
-			(e) => e.endDate === null && e.eventType !== "destroyed",
+			(e) =>
+				e.endDate === null &&
+				e.eventType !== "destroyed" &&
+				e.eventType !== "servicing_required",
 		) ?? null;
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingEvent, setEditingEvent] = useState<ServicingEvent | null>(null);

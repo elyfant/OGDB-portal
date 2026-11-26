@@ -26,7 +26,8 @@ export type TimelineEventKind =
 	| "missing"
 	| "destroyed"
 	| "rma"
-	| "pre_mission_servicing";
+	| "pre_mission_servicing"
+	| "servicing_required";
 
 export interface TimelineEvent {
 	id: string;
@@ -64,6 +65,14 @@ export interface TimelineEvent {
 // when (like factory_repair) it technically has a start/end span;
 // `instant` on the event itself is untouched by this and still drives
 // the actual date-range text (see timelineDateLabel) and layout math.
+//
+// COLOURS follow the chip strategy (lib/chip-style.ts, and the list in
+// docs/design/colour-strategy.md): green = a mission / in the water, red =
+// problem (servicing required, missing), orange = being worked on (in-house
+// and factory servicing, RMA), blue family = away or lined up (transit, loan,
+// field test), dark slate = ended (destroyed). Calibration keeps its own
+// yellow: it is a measurement, not a status. Each kind still needs to be told
+// apart on one chart, so related kinds differ in shade rather than share one.
 export const KIND_META: Record<
 	TimelineEventKind,
 	{ label: string; color: string; fill: string; cardStyle: "span" | "marker" }
@@ -82,26 +91,26 @@ export const KIND_META: Record<
 	},
 	servicing: {
 		label: "In-house servicing",
-		color: "#1976d2",
-		fill: "rgba(25,118,210,0.12)",
+		color: "#f57c00",
+		fill: "rgba(245,124,0,0.14)",
 		cardStyle: "marker",
 	},
 	factory_repair: {
 		label: "Factory servicing",
-		color: "#c62828",
-		fill: "rgba(198,40,40,0.12)",
+		color: "#bf360c",
+		fill: "rgba(191,54,12,0.12)",
 		cardStyle: "marker",
 	},
 	transit: {
 		label: "Transit",
-		color: "#607d8b",
-		fill: "rgba(96,125,139,0.12)",
+		color: "#0288d1",
+		fill: "rgba(2,136,209,0.12)",
 		cardStyle: "marker",
 	},
 	on_loan: {
 		label: "On loan",
-		color: "#6a1b9a",
-		fill: "rgba(106,27,154,0.12)",
+		color: "#3949ab",
+		fill: "rgba(57,73,171,0.12)",
 		cardStyle: "marker",
 	},
 	field_test: {
@@ -112,8 +121,8 @@ export const KIND_META: Record<
 	},
 	missing: {
 		label: "Missing",
-		color: "#ff8f00",
-		fill: "rgba(255,143,0,0.14)",
+		color: "#e53935",
+		fill: "rgba(229,57,53,0.12)",
 		cardStyle: "marker",
 	},
 	destroyed: {
@@ -122,24 +131,32 @@ export const KIND_META: Record<
 		fill: "rgba(55,71,79,0.16)",
 		cardStyle: "marker",
 	},
+	// A flag, not a state: do not deploy until repaired. Open-ended, so it
+	// draws as a span from when it was raised until it is resolved.
+	servicing_required: {
+		label: "Servicing required",
+		color: "#c62828",
+		fill: "rgba(198,40,40,0.12)",
+		cardStyle: "span",
+	},
 	// Deliberately its own kind rather than reusing "factory_repair" --
 	// AssetTimelineSection's filter chips group and count strictly by
 	// kind, so an RMA's thin summary would otherwise silently merge into
 	// the same "Factory servicing · N" toggle/count as genuine
 	// asset_service_events rows from a completely different table. Same
-	// red as factory_repair for visual consistency (an RMA reads as a
-	// factory-repair case to a viewer), different label so the count
+	// deep orange as factory_repair for visual consistency (an RMA reads as
+	// a factory-repair case to a viewer), different label so the count
 	// stays honest.
 	rma: {
 		label: "RMA case",
-		color: "#c62828",
-		fill: "rgba(198,40,40,0.12)",
+		color: "#bf360c",
+		fill: "rgba(191,54,12,0.12)",
 		cardStyle: "marker",
 	},
 	pre_mission_servicing: {
 		label: "Pre-mission service",
-		color: "#3949ab",
-		fill: "rgba(57,73,171,0.12)",
+		color: "#f57c00",
+		fill: "rgba(245,124,0,0.14)",
 		cardStyle: "marker",
 	},
 };

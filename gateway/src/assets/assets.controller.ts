@@ -23,6 +23,7 @@ import { LocationsService } from "../locations/locations.service";
 import { MissionsService } from "../missions/missions.service";
 import { RmasService } from "../rmas/rmas.service";
 import { RecordServicingEventDto } from "../servicing/dto/record-servicing-event.dto";
+import { ResolveServicingRequiredDto } from "../servicing/dto/resolve-servicing-required.dto";
 import { ServicingService } from "../servicing/servicing.service";
 import { AssetsService } from "./assets.service";
 import { CertificateParserService } from "./certificate-parser.service";
@@ -114,6 +115,13 @@ export class AssetsController {
 	@Get("search")
 	search(@Query("type") type: string, @Query("q") q = "") {
 		return this.assets.search(type, q);
+	}
+
+	// Every open "servicing required" flag (the home page's list, and the
+	// chips on assets and gliders). Same reason: must come before :id.
+	@Get("servicing-required")
+	getServicingRequired() {
+		return this.servicing.listServicingRequired();
 	}
 
 	// Same reason: must come before :id.
@@ -307,6 +315,19 @@ export class AssetsController {
 		@UploadedFile() attachment?: Express.Multer.File,
 	) {
 		return this.servicing.updateEvent(id, eventId, dto, user.sub, attachment);
+	}
+
+	// The repair is done: take the "servicing required" flag off. The event
+	// stays on the timeline as a closed span.
+	@Roles("editor", "admin")
+	@Post(":id/servicing/:eventId/resolve")
+	resolveServicingRequired(
+		@Param("id", ParseIntPipe) id: number,
+		@Param("eventId", ParseIntPipe) eventId: number,
+		@Body() dto: ResolveServicingRequiredDto,
+		@CurrentUser() user: JwtPayload,
+	) {
+		return this.servicing.resolveServicingRequired(id, eventId, dto, user.sub);
 	}
 
 	// Deletes an event logged by mistake (see ServicingService.deleteEvent).

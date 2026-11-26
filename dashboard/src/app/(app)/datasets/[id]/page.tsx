@@ -11,7 +11,8 @@ import {
 	getProcessingPackages,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { formatDate, statusColor } from "@/lib/format";
+import { missionStatusChipProps } from "@/lib/chip-style";
+import { formatDate } from "@/lib/format";
 import RouteIcon from "@mui/icons-material/Route";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -149,7 +150,7 @@ export default async function DatasetDetailPage({
 						{detail.status && (
 							<Chip
 								label={detail.status}
-								color={statusColor(detail.status)}
+								{...missionStatusChipProps(detail.status)}
 								size="small"
 							/>
 						)}

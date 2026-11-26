@@ -1,5 +1,5 @@
 import { formatDate } from "@/lib/format";
-import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
 import Chip from "@mui/material/Chip";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -44,7 +44,7 @@ export default function AssetStatusHistoryTable({
 									<Chip
 										size="small"
 										label={STATUS_LABEL[status] ?? e.status}
-										color={STATUS_COLOR[status] ?? "default"}
+										{...statusChipProps(status)}
 									/>
 								</TableCell>
 								<TableCell>{e.notes ?? "—"}</TableCell>

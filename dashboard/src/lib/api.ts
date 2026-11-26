@@ -50,6 +50,7 @@ import type {
 	RmaEvent,
 	ServicingEvent,
 	ServicingEventTypeOption,
+	ServicingRequired,
 	TankRun,
 } from "@ogdb/types";
 import { redirect } from "next/navigation";
@@ -164,6 +165,17 @@ export async function getAgencies(): Promise<LookupOption[]> {
 	const res = await apiFetch("/lookups/agencies");
 	if (!res.ok) {
 		throw new Error(`Failed to fetch agencies: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Every open "servicing required" (do not deploy) flag. Small, so pages fetch
+// the lot and pick out what they need (one asset's chip, the home page list,
+// the chips on the fleet / assets tables).
+export async function getServicingRequired(): Promise<ServicingRequired[]> {
+	const res = await apiFetch("/assets/servicing-required");
+	if (!res.ok) {
+		throw new Error(`Failed to fetch servicing-required flags: ${res.status}`);
 	}
 	return res.json();
 }

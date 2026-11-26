@@ -1,24 +1,29 @@
 import type { AssetStatus } from "@ogdb/types";
+import { type ChipLook, type ChipRole, ROLE_LOOK } from "./chip-style";
 
-export const STATUS_COLOR: Record<
-	AssetStatus,
-	"default" | "success" | "warning" | "error" | "info"
-> = {
-	lab: "default",
-	in_house_repairs: "warning",
-	factory_service: "warning",
-	pre_mission_service: "warning",
-	transit: "info",
-	deployed: "success",
-	on_loan: "info",
-	field_test: "info",
-	missing: "error",
-	destroyed: "error",
-	workshop: "warning",
-	ready_to_deploy: "info",
-	idle: "default",
-	decommissioned: "default",
+// Each state's chip role -- see lib/chip-style.ts for what the roles mean.
+const STATUS_ROLE: Record<AssetStatus, ChipRole> = {
+	deployed: "go",
+	ready_to_deploy: "lined",
+	transit: "lined",
+	on_loan: "lined",
+	field_test: "lined",
+	workshop: "work",
+	in_house_repairs: "work",
+	factory_service: "work",
+	pre_mission_service: "work",
+	missing: "problem",
+	destroyed: "ended",
+	idle: "inactive",
+	lab: "inactive",
+	decommissioned: "inactive",
 };
+
+// Spread onto a <Chip> showing an asset / glider state:
+// `<Chip label={STATUS_LABEL[s]} {...statusChipProps(s)} />`.
+export function statusChipProps(status: AssetStatus): ChipLook {
+	return ROLE_LOOK[STATUS_ROLE[status] ?? "inactive"];
+}
 
 export const STATUS_LABEL: Record<AssetStatus, string> = {
 	lab: "Lab",

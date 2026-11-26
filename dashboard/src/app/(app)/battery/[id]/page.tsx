@@ -6,6 +6,7 @@ import BatteryFormDialog from "@/components/BatteryFormDialog";
 import BatterySdsControls from "@/components/BatterySdsControls";
 import Field from "@/components/Field";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import ServicingRequiredChip from "@/components/ServicingRequiredChip";
 import {
 	getAgencies,
 	getAsset,
@@ -17,10 +18,11 @@ import {
 	getContacts,
 	getServicingEventTypes,
 	getServicingEvents,
+	getServicingRequired,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
-import { STATUS_COLOR, STATUS_LABEL } from "@/lib/status-meta";
+import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
 import {
 	type TimelineEvent,
 	deploymentToTimelineEvent,
@@ -86,6 +88,7 @@ export default async function BatteryDetailPage({
 		statusHistory,
 		changes,
 		user,
+		servicingFlags,
 	] = await Promise.all([
 		getAssetBattery(asset.id),
 		getServicingEvents(asset.id),
@@ -97,6 +100,7 @@ export default async function BatteryDetailPage({
 		getAssetStatusHistory(asset.id),
 		getAssetChanges(asset.id),
 		getCurrentUser(),
+		getServicingRequired(),
 	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
@@ -133,13 +137,31 @@ export default async function BatteryDetailPage({
 				<Typography variant="h5">
 					{asset.serialNumber ? `Battery: SN ${asset.serialNumber}` : "Battery"}
 				</Typography>
-				{asset.status && (
-					<Chip
-						label={STATUS_LABEL[asset.status]}
-						color={STATUS_COLOR[asset.status]}
-						size="small"
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 1,
+						flexWrap: "wrap",
+					}}
+				>
+					{asset.status && (
+						<Chip
+							label={STATUS_LABEL[asset.status]}
+							{...statusChipProps(asset.status)}
+							size="small"
+						/>
+					)}
+					<ServicingRequiredChip
+						flag={servicingFlags.find((f) => f.assetId === asset.id)}
+						assetLabel={
+							asset.serialNumber
+								? `Battery SN ${asset.serialNumber}`
+								: "Battery"
+						}
+						canEdit={canEdit}
 					/>
-				)}
+				</Box>
 			</Box>
 
 			<Box

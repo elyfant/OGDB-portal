@@ -44,6 +44,7 @@ import type {
 	RefurbTestLinks,
 	RefurbVacuum,
 	Refurbishment,
+	ResolveServicingRequiredInput,
 	Rma,
 	RmaAsset,
 	TankRun,
@@ -675,6 +676,9 @@ function servicingFormData(
 			String(input.closeMissionSetEndDate === true),
 		);
 	}
+	if (input.childAssetIds?.length) {
+		formData.append("childAssetIds", JSON.stringify(input.childAssetIds));
+	}
 	if (attachment) formData.append("attachment", attachment);
 	return formData;
 }
@@ -711,6 +715,27 @@ export async function updateServicingEvent(
 		throw new Error(
 			data?.message ?? `Failed to update servicing event: ${res.status}`,
 		);
+	}
+}
+
+// The repair is done: takes the "servicing required" flag off. The event stays
+// on the timeline as a closed span.
+export async function resolveServicingRequired(
+	assetId: number,
+	eventId: number,
+	input: ResolveServicingRequiredInput,
+): Promise<void> {
+	const res = await fetch(
+		`/api/assets/${assetId}/servicing/${eventId}/resolve`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(input),
+		},
+	);
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message ?? `Failed to resolve flag: ${res.status}`);
 	}
 }
 

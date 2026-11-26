@@ -108,7 +108,7 @@ export default function GliderLatestMonth({
 							<Chip
 								size="small"
 								label={g.onMission ? "On mission" : "Idle"}
-								color={g.onMission ? "primary" : "default"}
+								color={g.onMission ? "success" : "default"}
 								variant={g.onMission ? "filled" : "outlined"}
 							/>
 						</Box>

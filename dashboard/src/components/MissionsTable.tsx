@@ -8,6 +8,7 @@ import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
 import type { Cruise, Glider, LookupOption, Mission } from "@ogdb/types";
 import { useMemo, useState } from "react";
+import { ROLE_TINT } from "../lib/chip-style";
 import { MISSION_COLUMNS } from "../lib/mission-columns";
 import { buildMissionFilters } from "../lib/mission-filters";
 import { oceanOpsPlatformUrl } from "../lib/oceanops";
@@ -21,10 +22,9 @@ import FilterBar from "./FilterBar";
 import MissionFormDialog from "./MissionFormDialog";
 
 function rowSx(status: string | null): SxProps<Theme> | undefined {
-	if (status === "active")
-		return { backgroundColor: "rgba(76, 175, 80, 0.16)" };
-	if (status === "scheduled")
-		return { backgroundColor: "rgba(255, 152, 0, 0.16)" };
+	// Same roles as the status chips: active = green, scheduled = blue.
+	if (status === "active") return { backgroundColor: ROLE_TINT.go };
+	if (status === "scheduled") return { backgroundColor: ROLE_TINT.lined };
 	return undefined;
 }
 

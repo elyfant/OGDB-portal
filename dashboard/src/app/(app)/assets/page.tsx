@@ -5,6 +5,7 @@ import {
 	getAssetTypes,
 	getAssets,
 	getSensorModels,
+	getServicingRequired,
 	getStatusOptions,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -12,15 +13,23 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export default async function AssetsPage() {
-	const [assets, statusOptions, assetTypes, agencies, sensorModels, user] =
-		await Promise.all([
-			getAssets(),
-			getStatusOptions(),
-			getAssetTypes(),
-			getAgencies(),
-			getSensorModels(),
-			getCurrentUser(),
-		]);
+	const [
+		assets,
+		statusOptions,
+		assetTypes,
+		agencies,
+		sensorModels,
+		user,
+		servicingRequired,
+	] = await Promise.all([
+		getAssets(),
+		getStatusOptions(),
+		getAssetTypes(),
+		getAgencies(),
+		getSensorModels(),
+		getCurrentUser(),
+		getServicingRequired(),
+	]);
 	const canEdit = user?.role === "editor" || user?.role === "admin";
 
 	return (
@@ -51,6 +60,7 @@ export default async function AssetsPage() {
 				assets={assets}
 				statusOptions={statusOptions}
 				canEdit={canEdit}
+				servicingRequired={servicingRequired}
 			/>
 		</Box>
 	);
