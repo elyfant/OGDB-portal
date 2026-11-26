@@ -276,17 +276,29 @@ export default async function HomePage() {
 											flexWrap: "wrap",
 										}}
 									>
-										<Chip
-											size="small"
-											label={mission.status}
-											{...missionStatusChipProps(mission.status)}
-											sx={{ textTransform: "capitalize" }}
-										/>
-										{glider.status && (
+										{/* The glider's STATE is the one chip that says where it is (Workshop,
+										    Ready to deploy, ...). The mission's own status is only shown when it
+										    adds something: "Scheduled" = a mission is assigned. A mission in
+										    "workshop" status would just repeat the state, so it isn't shown. */}
+										{glider.status ? (
 											<Chip
 												size="small"
 												label={STATUS_LABEL[glider.status]}
 												{...statusChipProps(glider.status)}
+											/>
+										) : (
+											<Chip
+												size="small"
+												label={mission.status}
+												{...missionStatusChipProps(mission.status)}
+												sx={{ textTransform: "capitalize" }}
+											/>
+										)}
+										{mission.status === "scheduled" && (
+											<Chip
+												size="small"
+												label="Scheduled"
+												color="info"
 												variant="outlined"
 											/>
 										)}
