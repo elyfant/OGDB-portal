@@ -1,8 +1,13 @@
 import { formatDate } from "@/lib/format";
 import { hasLocation, locationText } from "@/lib/glider-location";
-import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
+import {
+	STATUS_LABEL,
+	gliderStateTitle,
+	statusChipProps,
+} from "@/lib/status-meta";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { AssetStatus, Glider } from "@ogdb/types";
 import Link from "next/link";
@@ -75,22 +80,13 @@ export default function GliderStatusBox({
 		<Box
 			sx={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}
 		>
-			<Chip
-				label={STATUS_LABEL[status]}
-				{...statusChipProps(status)}
-				sx={{ fontSize: "1rem", py: 2.5, px: 1 }}
-			/>
-			{scheduledMissionId != null && (
+			<Tooltip title={gliderStateTitle(status)}>
 				<Chip
-					label="Scheduled"
-					color="info"
-					variant="outlined"
-					component={Link}
-					href={`/missions/${scheduledMissionId}`}
-					clickable
-					sx={{ py: 2.5, px: 1 }}
+					label={STATUS_LABEL[status]}
+					{...statusChipProps(status)}
+					sx={{ fontSize: "1rem", py: 2.5, px: 1 }}
 				/>
-			)}
+			</Tooltip>
 			{decommissionedDate && (
 				<Chip
 					label="Decommissioned"

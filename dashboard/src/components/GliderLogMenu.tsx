@@ -216,7 +216,7 @@ export default function GliderLogMenu({
 				"Send to Teledyne…",
 				"factory_repair",
 				"Send to Teledyne",
-				"Factory service",
+				"Factory repairs",
 			),
 			event("transit", "In transit…", "transit", "Log transit", "In transit"),
 			event("loan", "On loan…", "on_loan", "Log loan", "On loan"),

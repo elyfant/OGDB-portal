@@ -55,6 +55,7 @@ import type {
 } from "@ogdb/types";
 import { redirect } from "next/navigation";
 import { getSessionToken } from "./auth";
+import { RETIRED_MISSION_STATUSES } from "./mission-lifecycle";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
@@ -247,7 +248,10 @@ export async function getMissionStatuses(): Promise<LookupOption[]> {
 	if (!res.ok) {
 		throw new Error(`Failed to fetch mission statuses: ${res.status}`);
 	}
-	return res.json();
+	// Factory service / lab service / transit describe the glider, not a
+	// mission's stage; hide them (the rows stay in the table).
+	const all: LookupOption[] = await res.json();
+	return all.filter((s) => !RETIRED_MISSION_STATUSES.has(s.name));
 }
 
 export async function getEndingCauses(): Promise<LookupOption[]> {

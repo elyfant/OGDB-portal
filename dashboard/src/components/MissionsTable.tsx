@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import { ROLE_TINT } from "../lib/chip-style";
 import { MISSION_COLUMNS } from "../lib/mission-columns";
 import { buildMissionFilters } from "../lib/mission-filters";
+import { endingCauseChip } from "../lib/mission-lifecycle";
 import { oceanOpsPlatformUrl } from "../lib/oceanops";
 import {
 	type FilterState,
@@ -20,6 +21,7 @@ import {
 import DataTable from "./DataTable";
 import FilterBar from "./FilterBar";
 import MissionFormDialog from "./MissionFormDialog";
+import MissionLifecycleChips from "./MissionLifecycleChips";
 
 function rowSx(status: string | null): SxProps<Theme> | undefined {
 	// Same roles as the status chips: active = green, scheduled = blue.
@@ -60,26 +62,44 @@ export default function MissionsTable({
 	const columns = useMemo(
 		() =>
 			MISSION_COLUMNS.map((col) =>
-				col.key === "wigosId"
+				col.key === "status"
 					? {
 							...col,
-							renderCell: (m: Mission) => {
-								const url = oceanOpsPlatformUrl(m.wigosId);
-								if (!m.wigosId) return "—";
-								if (!url) return m.wigosId;
-								return (
-									<MuiLink
-										href={url}
-										target="_blank"
-										rel="noreferrer"
-										onClick={(e) => e.stopPropagation()}
-									>
-										{m.wigosId}
-									</MuiLink>
-								);
-							},
+							// The lifecycle chip (the cause has its own column).
+							renderCell: (m: Mission) => (
+								<MissionLifecycleChips mission={m} show="lifecycle" />
+							),
 						}
-					: col,
+					: col.key === "endingCause"
+						? {
+								...col,
+								renderCell: (m: Mission) =>
+									endingCauseChip(m) ? (
+										<MissionLifecycleChips mission={m} show="cause" />
+									) : (
+										"—"
+									),
+							}
+						: col.key === "wigosId"
+							? {
+									...col,
+									renderCell: (m: Mission) => {
+										const url = oceanOpsPlatformUrl(m.wigosId);
+										if (!m.wigosId) return "—";
+										if (!url) return m.wigosId;
+										return (
+											<MuiLink
+												href={url}
+												target="_blank"
+												rel="noreferrer"
+												onClick={(e) => e.stopPropagation()}
+											>
+												{m.wigosId}
+											</MuiLink>
+										);
+									},
+								}
+							: col,
 			),
 		[],
 	);
@@ -89,10 +109,9 @@ export default function MissionsTable({
 			buildMissionFilters({
 				observatories,
 				projects,
-				missionStatuses,
 				gliders,
 			}),
-		[observatories, projects, missionStatuses, gliders],
+		[observatories, projects, gliders],
 	);
 
 	const filteredRows = useMemo(

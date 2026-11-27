@@ -1,4 +1,9 @@
 import type { Glider, LookupOption, Mission } from "@ogdb/types";
+import {
+	LIFECYCLE_LABEL,
+	endingCauseChip,
+	missionLifecycle,
+} from "./mission-lifecycle";
 import type { FilterDef } from "./table-filters";
 
 function toOptions(lookups: LookupOption[]) {
@@ -10,12 +15,10 @@ function toOptions(lookups: LookupOption[]) {
 export function buildMissionFilters({
 	observatories,
 	projects,
-	missionStatuses,
 	gliders,
 }: {
 	observatories: LookupOption[];
 	projects: LookupOption[];
-	missionStatuses: LookupOption[];
 	gliders: Glider[];
 }): FilterDef<Mission>[] {
 	return [
@@ -34,11 +37,22 @@ export function buildMissionFilters({
 			options: toOptions(projects),
 		},
 		{
-			key: "status",
-			label: "Status",
+			// The mission's lifecycle (Workshop / Scheduled / Active / Ended), not the
+			// stored status: recovered, killed and missing in action are all "Ended".
+			key: "lifecycle",
+			label: "Lifecycle",
 			type: "multiSelect",
-			getValue: (m) => m.statusId,
-			options: toOptions(missionStatuses),
+			getValue: (m) => missionLifecycle(m.status),
+			options: (
+				Object.keys(LIFECYCLE_LABEL) as (keyof typeof LIFECYCLE_LABEL)[]
+			).map((l) => ({ value: l, label: LIFECYCLE_LABEL[l] })),
+		},
+		{
+			// Why an ended mission ended; options come from the causes in use.
+			key: "endingCause",
+			label: "Cause of ending",
+			type: "multiSelect",
+			getValue: (m) => endingCauseChip(m)?.label ?? null,
 		},
 		{
 			key: "glider",

@@ -10,6 +10,7 @@ import {
 	updateMission,
 } from "@/lib/api-client";
 import { formatAssetType } from "@/lib/format";
+import { missionStatusOptionLabel } from "@/lib/mission-lifecycle";
 import { previewMissionName } from "@/lib/mission-name";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import Alert from "@mui/material/Alert";
@@ -573,7 +574,7 @@ export default function MissionFormDialog({
 								>
 									{missionStatuses.map((s) => (
 										<MenuItem key={s.id} value={s.id}>
-											{s.name}
+											{missionStatusOptionLabel(s.name)}
 										</MenuItem>
 									))}
 								</TextField>

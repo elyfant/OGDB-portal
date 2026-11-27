@@ -50,7 +50,7 @@ export const RETURN_TO_SERVICE = "__return_to_service__";
 // dropdown was asked to be reorganized.
 const EVENT_TYPE_LABEL: Record<string, string> = {
 	servicing: "Lab service",
-	factory_repair: "Factory service",
+	factory_repair: "Factory repairs",
 	transit: "Transit",
 	on_loan: "On loan",
 	field_test: "Field test",

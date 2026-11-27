@@ -11,6 +11,7 @@ import IntakeSection from "@/components/IntakeSection";
 import KeyFiles from "@/components/KeyFiles";
 import MissionDetailTabs from "@/components/MissionDetailTabs";
 import MissionFilesEditor from "@/components/MissionFilesEditor";
+import MissionLifecycleChips from "@/components/MissionLifecycleChips";
 import MissionTrackMapLoader from "@/components/MissionTrackMapLoader";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import RefurbLogsheet, {
@@ -56,7 +57,6 @@ import {
 	getTankRuns,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { missionStatusChipProps } from "@/lib/chip-style";
 import { capitalizeFirst, formatCount, formatDate } from "@/lib/format";
 import { oceanOpsPlatformUrl } from "@/lib/oceanops";
 import DatasetIcon from "@mui/icons-material/Dataset";
@@ -72,6 +72,7 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { Cruise } from "@ogdb/types";
 import Link from "next/link";
@@ -482,13 +483,7 @@ export default async function MissionDetailPage({
 						}}
 					>
 						<Typography variant="h5">{title}</Typography>
-						{mission.status && (
-							<Chip
-								label={mission.status}
-								{...missionStatusChipProps(mission.status)}
-								size="small"
-							/>
-						)}
+						{mission.status && <MissionLifecycleChips mission={mission} />}
 					</Box>
 					<Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
 						{formatDate(mission.deploymentDate)} –{" "}
@@ -644,14 +639,10 @@ export default async function MissionDetailPage({
 											display="block"
 											sx={{ mb: 0.5 }}
 										>
-											Status
+											Lifecycle
 										</Typography>
 										{mission.status ? (
-											<Chip
-												label={mission.status}
-												{...missionStatusChipProps(mission.status)}
-												size="small"
-											/>
+											<MissionLifecycleChips mission={mission} />
 										) : (
 											<Typography color="text.disabled">—</Typography>
 										)}

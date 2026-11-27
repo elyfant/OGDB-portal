@@ -1,4 +1,5 @@
 import ClickableTableRow from "@/components/ClickableTableRow";
+import MissionLifecycleChips from "@/components/MissionLifecycleChips";
 import PlatformIcon from "@/components/PlatformIcon";
 import ResolveServicingButton from "@/components/ResolveServicingButton";
 import {
@@ -11,11 +12,14 @@ import {
 	getServicingRequired,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { missionStatusChipProps } from "@/lib/chip-style";
 import { formatAssetType, formatDate } from "@/lib/format";
 import { locationText } from "@/lib/glider-location";
 import { formatRmaStage } from "@/lib/rma-columns";
-import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
+import {
+	STATUS_LABEL,
+	gliderStateTitle,
+	statusChipProps,
+} from "@/lib/status-meta";
 import {
 	KIND_META,
 	type TimelineEvent,
@@ -32,6 +36,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { AssetStatus, Glider, Mission } from "@ogdb/types";
 import Link from "next/link";
@@ -276,32 +281,33 @@ export default async function HomePage() {
 											flexWrap: "wrap",
 										}}
 									>
-										{/* The glider's STATE is the one chip that says where it is (Workshop,
-										    Ready to deploy, ...). The mission's own status is only shown when it
-										    adds something: "Scheduled" = a mission is assigned. A mission in
-										    "workshop" status would just repeat the state, so it isn't shown. */}
-										{glider.status ? (
-											<Chip
-												size="small"
-												label={STATUS_LABEL[glider.status]}
-												{...statusChipProps(glider.status)}
-											/>
-										) : (
-											<Chip
-												size="small"
-												label={mission.status}
-												{...missionStatusChipProps(mission.status)}
-												sx={{ textTransform: "capitalize" }}
-											/>
+										{/* Two chips, two different things: the MISSION's status (its own stage:
+										    workshop -> scheduled -> active -> recovered) and the GLIDER's state
+										    (what it is doing now, derived from its timeline). They can share a
+										    word, so each says which it is on hover. */}
+										<MissionLifecycleChips mission={mission} />
+										{glider.status && (
+											<Tooltip title={gliderStateTitle(glider.status)}>
+												<Chip
+													size="small"
+													label={STATUS_LABEL[glider.status]}
+													{...statusChipProps(glider.status)}
+													variant="outlined"
+												/>
+											</Tooltip>
 										)}
-										{mission.status === "scheduled" && (
-											<Chip
-												size="small"
-												label="Scheduled"
-												color="info"
-												variant="outlined"
-											/>
-										)}
+										{/* A third tag, only while the glider is somewhere we know: not at sea,
+										    missing or destroyed (then there is no place to show). */}
+										{glider.locationSource === "recorded" &&
+											glider.location && (
+												<Tooltip title="Location — where the glider is now. Only shown when it isn't at sea, missing or destroyed.">
+													<Chip
+														size="small"
+														label={glider.location}
+														variant="outlined"
+													/>
+												</Tooltip>
+											)}
 									</Box>
 									<Typography variant="body2" color="text.secondary">
 										{[mission.project, mission.observatory]
@@ -415,11 +421,13 @@ export default async function HomePage() {
 											</TableCell>
 											<TableCell>
 												{glider.status ? (
-													<Chip
-														size="small"
-														label={STATUS_LABEL[glider.status]}
-														{...statusChipProps(glider.status)}
-													/>
+													<Tooltip title={gliderStateTitle(glider.status)}>
+														<Chip
+															size="small"
+															label={STATUS_LABEL[glider.status]}
+															{...statusChipProps(glider.status)}
+														/>
+													</Tooltip>
 												) : (
 													"—"
 												)}

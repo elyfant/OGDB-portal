@@ -10,7 +10,11 @@ import Tooltip from "@mui/material/Tooltip";
 import type { AssetStatus, Glider, ServicingRequired } from "@ogdb/types";
 import { useMemo, useState } from "react";
 import type { ColumnDef } from "../lib/data-table";
-import { STATUS_LABEL, statusChipProps } from "../lib/status-meta";
+import {
+	STATUS_LABEL,
+	gliderStateTitle,
+	statusChipProps,
+} from "../lib/status-meta";
 import {
 	type FilterDef,
 	type FilterState,
@@ -22,15 +26,17 @@ import FilterBar from "./FilterBar";
 import ServicingRequiredChip from "./ServicingRequiredChip";
 
 function statusTooltip(g: Glider): string {
-	if (!g.statusSince) return "";
-	const since = `since ${formatDate(g.statusSince)}`;
-	// "mission" covers Deployed, Workshop and Ready to deploy, so name the
-	// state rather than assuming it's Deployed.
-	if (g.statusSource === "mission" && g.status)
-		return `${STATUS_LABEL[g.status]} ${since} · from a mission`;
+	if (!g.status) return "";
+	// First say what this chip IS (the glider's state, not a mission status),
+	// then how long and where it came from.
+	const what = gliderStateTitle(g.status);
+	if (!g.statusSince) return what;
+	const since = `Since ${formatDate(g.statusSince)}`;
+	// "mission" covers Deployed, Workshop and Ready to deploy.
+	if (g.statusSource === "mission") return `${what} ${since}, from a mission.`;
 	if (g.statusSource === "service_event")
-		return `${since} · from a logged event`;
-	return since;
+		return `${what} ${since}, from a logged event.`;
+	return `${what} ${since}.`;
 }
 
 export default function GlidersTable({
@@ -132,22 +138,6 @@ export default function GlidersTable({
 								/>
 							</Tooltip>
 						)}
-						{g.scheduledMissionId != null && (
-							<Tooltip
-								title={`Mission assigned${
-									g.scheduledDate
-										? ` · planned ${formatDate(g.scheduledDate)}`
-										: ""
-								}`}
-							>
-								<Chip
-									label="Scheduled"
-									size="small"
-									color="info"
-									variant="outlined"
-								/>
-							</Tooltip>
-						)}
 						<ServicingRequiredChip
 							flag={flagByAsset.get(g.id)}
 							assetLabel={g.name}
@@ -244,32 +234,9 @@ export default function GlidersTable({
 		[],
 	);
 
-	const scheduledFilter: FilterDef<Glider> = useMemo(
-		() => ({
-			key: "scheduled",
-			label: "Scheduled",
-			type: "multiSelect",
-			getValue: (g) =>
-				g.scheduledMissionId != null ? "Scheduled" : "Not scheduled",
-		}),
-		[],
-	);
-
 	const filters = useMemo(
-		() => [
-			platformFilter,
-			manufacturerFilter,
-			statusFilter,
-			locationFilter,
-			scheduledFilter,
-		],
-		[
-			platformFilter,
-			manufacturerFilter,
-			statusFilter,
-			locationFilter,
-			scheduledFilter,
-		],
+		() => [platformFilter, manufacturerFilter, statusFilter, locationFilter],
+		[platformFilter, manufacturerFilter, statusFilter, locationFilter],
 	);
 
 	const visibleGliders = showDecommissioned

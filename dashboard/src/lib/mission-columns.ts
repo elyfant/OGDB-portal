@@ -29,11 +29,21 @@ export const MISSION_COLUMNS: ColumnDef<Mission>[] = [
 		defaultVisible: true,
 	},
 	{
+		// Shown as the lifecycle chip (Workshop / Scheduled / Active / Ended); the
+		// raw stored status is still what sorts and exports.
 		key: "status",
-		label: "Status",
+		label: "Lifecycle",
 		kind: "string",
 		defaultVisible: true,
 		capitalize: true,
+	},
+	{
+		// Why an ended mission ended; shown as a coloured chip ("Normal" for a
+		// voluntary recovery). Empty until a cause is chosen in the edit dialog.
+		key: "endingCause",
+		label: "Cause of ending",
+		kind: "string",
+		defaultVisible: true,
 	},
 	{
 		key: "glider",

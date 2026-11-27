@@ -29,7 +29,11 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { formatCount, formatDate, formatMoney } from "@/lib/format";
 import { hasLocation, locationText } from "@/lib/glider-location";
-import { STATUS_LABEL, statusChipProps } from "@/lib/status-meta";
+import {
+	STATUS_LABEL,
+	gliderStateTitle,
+	statusChipProps,
+} from "@/lib/status-meta";
 import BuildIcon from "@mui/icons-material/Build";
 import RouteIcon from "@mui/icons-material/Route";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -40,6 +44,7 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { BuildMissionRef, SensorCalRecord } from "@ogdb/types";
 import Link from "next/link";
@@ -185,22 +190,13 @@ export default async function GliderDetailPage({
 							{glider.name}
 						</Typography>
 						{glider.status && (
-							<Chip
-								label={STATUS_LABEL[glider.status]}
-								{...statusChipProps(glider.status)}
-								size="small"
-							/>
-						)}
-						{glider.scheduledMissionId != null && (
-							<Chip
-								label="Scheduled"
-								size="small"
-								color="info"
-								variant="outlined"
-								component={Link}
-								href={`/missions/${glider.scheduledMissionId}`}
-								clickable
-							/>
+							<Tooltip title={gliderStateTitle(glider.status)}>
+								<Chip
+									label={STATUS_LABEL[glider.status]}
+									{...statusChipProps(glider.status)}
+									size="small"
+								/>
+							</Tooltip>
 						)}
 						{glider.decommissionedDate && (
 							<Chip label="Decommissioned" size="small" variant="outlined" />

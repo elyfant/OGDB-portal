@@ -96,7 +96,7 @@ export const KIND_META: Record<
 		cardStyle: "marker",
 	},
 	factory_repair: {
-		label: "Factory servicing",
+		label: "Factory repairs",
 		color: "#bf360c",
 		fill: "rgba(191,54,12,0.12)",
 		cardStyle: "marker",

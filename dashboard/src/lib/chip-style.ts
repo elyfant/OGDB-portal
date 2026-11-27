@@ -9,7 +9,7 @@ import type { ChipProps } from "@mui/material/Chip";
 //   lined    blue    lined up, or away but fine: Ready to deploy, Scheduled,
 //                    Transit, On loan, Field test
 //   work     amber   being worked on / waiting on someone: Workshop, In-house
-//                    repairs, Factory service, Open RMA, Open event, Unsaved
+//                    repairs, Factory repairs, Open RMA, Open event, Unsaved
 //   problem  red     needs action, or must not be used: Servicing required,
 //                    Missing, Missing in action, Fail, High severity
 //   ended    dark    finished, nothing more to do: Destroyed, Killed in action
@@ -65,10 +65,7 @@ const MISSION_STATUS_ROLE: Record<string, ChipRole> = {
 	active: "go",
 	recovered: "go",
 	scheduled: "lined",
-	transit: "lined",
 	workshop: "work",
-	"lab service": "work",
-	"factory service": "work",
 	"missing in action": "problem",
 	"killed in action": "ended",
 	discontinued: "inactive",

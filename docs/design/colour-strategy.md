@@ -9,9 +9,9 @@ A colour means the same thing everywhere. There are seven roles.
 
 | Role | Colour | Means | Chips |
 |---|---|---|---|
-| **go** | green | operating now, or a good outcome | **Deployed** (glider / asset state) · **Active** (mission) · Pass · Saved · Signed off · Closed (RMA) · best (data file) · On mission (Iridium) · Ready to clear for deployment |
+| **go** | green | operating now, or a good outcome | **Deployed** (glider / asset state) · **Active** (mission) · Normal (cause of ending) · Pass · Saved · Signed off · Closed (RMA) · best (data file) · On mission (Iridium) · Ready to clear for deployment |
 | **lined** | blue | lined up, or away but fine | Ready to deploy · Scheduled · Transit · On loan · Field test · RMA in progress · Replaced (sensors) |
-| **work** | amber | being worked on / waiting on someone | Workshop · In-house repairs · Factory service · Pre-mission service · Open RMA · Open event · Unsaved · "n still open" · pre-deployment / left on (Iridium) · Medium severity |
+| **work** | amber | being worked on / waiting on someone | Being prepared (glider) · Workshop (mission) · In-house repairs · Factory repairs · Pre-mission service · Open RMA · Open event · Unsaved · "n still open" · pre-deployment / left on (Iridium) · Medium severity |
 | **problem** | red | needs action, or must not be used | **Servicing required** · Missing · Missing in action · Fail · High / critical severity · RMA shipping issue · Open (a servicing-required or missing event) |
 | **ended** | dark slate | finished, nothing more to do | Destroyed · Killed in action |
 | **inactive** | light grey | out of play, or neutral | Idle · Lab · Decommissioned · Discontinued · Status not set · Low severity · plain labels (event kinds, "Notes") |
@@ -65,3 +65,31 @@ Before, factory servicing and RMA cases were red; that would now read as
 The refurbishment logsheet's section progress already follows the scheme (done
 green, in progress amber, not started grey). Table row tints use the same colours
 via `ROLE_TINT`.
+
+## Glider state, mission lifecycle and tags (2026-11-26)
+
+Three groups of tags, kept deliberately separate so one word never means two
+things:
+
+| Group | One at a time? | Values (colour) |
+|---|---|---|
+| **Glider state** (derived, filled) | yes | Destroyed (slate) > Missing (red) > Deployed (green) > In-house repairs / **Factory repairs** (amber), Transit / On loan / Field test (blue) > Ready to deploy (blue) > **Being prepared** (amber) > Idle (grey) |
+| **Mission lifecycle** (stored, filled) | yes | Workshop (amber) -> Scheduled (blue) -> Active (green) -> **Ended** (grey outline) |
+| **Cause of ending** (only once Ended) | yes | **Normal** (green: voluntary recovery) · a loss or damage (red: hit by ship, vandalized, leak, beached…) · a technical fault (amber: battery, telemetry, ballast…) · administrative or unknown (grey) |
+| **Tags** | stack | Decommissioned (grey outline) · Servicing required (red, filled) |
+| **Location** (only when known) | one | grey outline, shown only when the glider is not at sea, missing or destroyed |
+
+Decisions:
+- The glider state "Workshop" is now **Being prepared**, so the word "Workshop"
+  means the mission stage only. The mission lifecycle keeps **Workshop**.
+- "Factory service" is now **Factory repairs** (glider state, timeline kind and
+  event label).
+- **There is no Scheduled tag on a glider.** Scheduled is a mission lifecycle
+  stage only.
+- The mission status "Recovered" is shown as **Ended**; the stored status is
+  unchanged (recovered, killed in action, missing in action and discontinued all
+  read "Ended", and the cause says how). "Voluntary recovery of the platform" is
+  shortened to **Normal**.
+- The old mission statuses *factory service*, *lab service* and *transit* describe
+  the glider, so they are hidden from the status dropdown. The rows stay in the
+  database.
